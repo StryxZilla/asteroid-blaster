@@ -15,7 +15,7 @@ const POWERUP_LIFETIME = 600; // 10 seconds at 60 FPS
 const POWERUP_SIZE = 12;
 const POWERUP_DURATION = 300; // 5 seconds for timed power-ups
 
-// Power-up types
+// Power-up types (instant activation)
 const POWERUP_TYPES = {
     SHIELD: { name: 'Shield', color: '#00ffff', symbol: 'S' },
     RAPID_FIRE: { name: 'Rapid Fire', color: '#ff00ff', symbol: 'R' },
@@ -23,6 +23,51 @@ const POWERUP_TYPES = {
     SPEED_BOOST: { name: 'Speed Boost', color: '#00ff00', symbol: 'V' },
     EXTRA_LIFE: { name: 'Extra Life', color: '#ff0000', symbol: '+' }
 };
+
+// Inventory item types (stored and used manually)
+const ITEM_TYPES = {
+    REPAIR_KIT: {
+        name: 'Repair Kit',
+        color: '#ff6b6b',
+        symbol: '♥',
+        description: 'Restore 1 life',
+        rarity: 0.15  // Drop rate weight
+    },
+    BOMB: {
+        name: 'Bomb',
+        color: '#ff8c00',
+        symbol: '✸',
+        description: 'Destroy all asteroids',
+        rarity: 0.10
+    },
+    FREEZE: {
+        name: 'Freeze',
+        color: '#87ceeb',
+        symbol: '❄',
+        description: 'Freeze asteroids for 5s',
+        rarity: 0.20
+    },
+    MAGNET: {
+        name: 'Magnet',
+        color: '#da70d6',
+        symbol: '⊛',
+        description: 'Attract items for 10s',
+        rarity: 0.25
+    },
+    SCORE_BOOST: {
+        name: 'Score x2',
+        color: '#ffd700',
+        symbol: '★',
+        description: 'Double points for 15s',
+        rarity: 0.30
+    }
+};
+
+// Inventory constants
+const MAX_INVENTORY_SLOTS = 5;
+const ITEM_SPAWN_CHANCE = 0.25; // 25% chance on asteroid destruction
+const ITEM_SIZE = 10;
+const ITEM_LIFETIME = 480; // 8 seconds at 60 FPS
 
 // Game class
 class Game {
@@ -40,6 +85,18 @@ class Game {
         this.bullets = [];
         this.particles = [];
         this.powerUps = [];
+
+        // Inventory system
+        this.items = [];         // Items floating in space
+        this.inventory = [];     // Collected items (max 5)
+
+        // Active item effects
+        this.magnetActive = false;
+        this.magnetTimer = 0;
+        this.scoreMultiplier = 1;
+        this.scoreMultiplierTimer = 0;
+        this.freezeActive = false;
+        this.freezeTimer = 0;
 
         this.setupEventListeners();
         this.gameLoop();
@@ -61,6 +118,12 @@ class Game {
                 e.preventDefault();
                 this.ship.shoot();
             }
+
+            // Use inventory items (keys 1-5)
+            if (this.state === 'playing' && e.key >= '1' && e.key <= '5') {
+                const slotIndex = parseInt(e.key) - 1;
+                this.useInventoryItem(slotIndex);
+            }
         });
 
         window.addEventListener('keyup', (e) => {
@@ -78,8 +141,20 @@ class Game {
         this.bullets = [];
         this.particles = [];
         this.powerUps = [];
+
+        // Reset inventory system
+        this.items = [];
+        this.inventory = [];
+        this.magnetActive = false;
+        this.magnetTimer = 0;
+        this.scoreMultiplier = 1;
+        this.scoreMultiplierTimer = 0;
+        this.freezeActive = false;
+        this.freezeTimer = 0;
+
         this.spawnAsteroids(4);
         this.updateUI();
+        this.updateInventoryUI();
     }
 
     spawnAsteroids(count) {
@@ -127,7 +202,7 @@ class Game {
     }
 
     addScore(points) {
-        this.score += points;
+        this.score += points * this.scoreMultiplier;
         this.updateUI();
     }
 
@@ -139,16 +214,172 @@ class Game {
         }
     }
 
+    spawnItem(x, y, asteroidSize) {
+        // Smaller asteroids have better drop chances
+        const dropChance = ITEM_SPAWN_CHANCE * (4 - asteroidSize);
+        if (Math.random() < dropChance) {
+            // Select item based on rarity weights
+            const types = Object.keys(ITEM_TYPES);
+            const totalRarity = types.reduce((sum, t) => sum + ITEM_TYPES[t].rarity, 0);
+            let roll = Math.random() * totalRarity;
+
+            let selectedType = types[0];
+            for (const type of types) {
+                roll -= ITEM_TYPES[type].rarity;
+                if (roll <= 0) {
+                    selectedType = type;
+                    break;
+                }
+            }
+
+            this.items.push(new Item(x, y, selectedType, this));
+        }
+    }
+
+    collectItem(item) {
+        if (this.inventory.length < MAX_INVENTORY_SLOTS) {
+            this.inventory.push(item.type);
+            this.updateInventoryUI();
+            return true;
+        }
+        return false; // Inventory full
+    }
+
+    useInventoryItem(slotIndex) {
+        if (slotIndex < 0 || slotIndex >= this.inventory.length) return;
+
+        const itemType = this.inventory[slotIndex];
+        let used = false;
+
+        switch (itemType) {
+            case 'REPAIR_KIT':
+                this.lives++;
+                this.updateUI();
+                used = true;
+                break;
+
+            case 'BOMB':
+                // Destroy all asteroids with explosions
+                this.asteroids.forEach(asteroid => {
+                    this.createExplosion(asteroid.x, asteroid.y, asteroid.size * 5);
+                    this.addScore((4 - asteroid.size) * 10); // Reduced points for bomb kills
+                });
+                this.asteroids = [];
+                used = true;
+                break;
+
+            case 'FREEZE':
+                this.freezeActive = true;
+                this.freezeTimer = 300; // 5 seconds
+                // Store current velocities
+                this.asteroids.forEach(asteroid => {
+                    asteroid.frozenVx = asteroid.vx;
+                    asteroid.frozenVy = asteroid.vy;
+                    asteroid.frozenRotSpeed = asteroid.rotationSpeed;
+                    asteroid.vx = 0;
+                    asteroid.vy = 0;
+                    asteroid.rotationSpeed = 0;
+                });
+                used = true;
+                break;
+
+            case 'MAGNET':
+                this.magnetActive = true;
+                this.magnetTimer = 600; // 10 seconds
+                used = true;
+                break;
+
+            case 'SCORE_BOOST':
+                this.scoreMultiplier = 2;
+                this.scoreMultiplierTimer = 900; // 15 seconds
+                used = true;
+                break;
+        }
+
+        if (used) {
+            this.inventory.splice(slotIndex, 1);
+            this.updateInventoryUI();
+        }
+    }
+
+    updateItemEffects() {
+        // Update magnet timer
+        if (this.magnetActive) {
+            this.magnetTimer--;
+            if (this.magnetTimer <= 0) {
+                this.magnetActive = false;
+            }
+        }
+
+        // Update score multiplier timer
+        if (this.scoreMultiplierTimer > 0) {
+            this.scoreMultiplierTimer--;
+            if (this.scoreMultiplierTimer <= 0) {
+                this.scoreMultiplier = 1;
+            }
+        }
+
+        // Update freeze timer
+        if (this.freezeActive) {
+            this.freezeTimer--;
+            if (this.freezeTimer <= 0) {
+                this.freezeActive = false;
+                // Restore asteroid velocities
+                this.asteroids.forEach(asteroid => {
+                    if (asteroid.frozenVx !== undefined) {
+                        asteroid.vx = asteroid.frozenVx;
+                        asteroid.vy = asteroid.frozenVy;
+                        asteroid.rotationSpeed = asteroid.frozenRotSpeed;
+                        delete asteroid.frozenVx;
+                        delete asteroid.frozenVy;
+                        delete asteroid.frozenRotSpeed;
+                    }
+                });
+            }
+        }
+    }
+
+    updateInventoryUI() {
+        const container = document.getElementById('inventory');
+        if (!container) return;
+
+        container.innerHTML = '';
+        for (let i = 0; i < MAX_INVENTORY_SLOTS; i++) {
+            const slot = document.createElement('div');
+            slot.className = 'inventory-slot';
+
+            if (i < this.inventory.length) {
+                const itemType = this.inventory[i];
+                const itemInfo = ITEM_TYPES[itemType];
+                slot.innerHTML = `
+                    <span class="item-symbol" style="color: ${itemInfo.color}">${itemInfo.symbol}</span>
+                    <span class="slot-key">${i + 1}</span>
+                `;
+                slot.title = `${itemInfo.name}: ${itemInfo.description} (Press ${i + 1})`;
+                slot.style.borderColor = itemInfo.color;
+            } else {
+                slot.innerHTML = `<span class="slot-key">${i + 1}</span>`;
+            }
+
+            container.appendChild(slot);
+        }
+    }
+
     update() {
         if (this.state !== 'playing') return;
+
+        // Update item effects
+        this.updateItemEffects();
 
         // Update ship
         if (this.ship) {
             this.ship.update(this.keys);
         }
 
-        // Update asteroids
-        this.asteroids.forEach(asteroid => asteroid.update());
+        // Update asteroids (unless frozen)
+        if (!this.freezeActive) {
+            this.asteroids.forEach(asteroid => asteroid.update());
+        }
 
         // Update bullets
         this.bullets = this.bullets.filter(bullet => {
@@ -166,6 +397,12 @@ class Game {
         this.powerUps = this.powerUps.filter(powerUp => {
             powerUp.update();
             return powerUp.lifetime > 0;
+        });
+
+        // Update items
+        this.items = this.items.filter(item => {
+            item.update();
+            return item.lifetime > 0;
         });
 
         // Check collisions
@@ -204,8 +441,9 @@ class Game {
                     // Award points
                     this.addScore((4 - asteroid.size) * 20);
 
-                    // Chance to spawn power-up
+                    // Chance to spawn power-up or item
                     this.spawnPowerUp(asteroid.x, asteroid.y);
+                    this.spawnItem(asteroid.x, asteroid.y, asteroid.size);
 
                     // Remove asteroid
                     this.asteroids.splice(j, 1);
@@ -255,6 +493,18 @@ class Game {
                     this.powerUps.splice(i, 1);
                 }
             }
+
+            // Ship vs Item
+            for (let i = this.items.length - 1; i >= 0; i--) {
+                if (this.circleCollision(
+                    this.ship.x, this.ship.y, SHIP_SIZE,
+                    this.items[i].x, this.items[i].y, ITEM_SIZE
+                )) {
+                    if (this.collectItem(this.items[i])) {
+                        this.items.splice(i, 1);
+                    }
+                }
+            }
         }
     }
 
@@ -298,11 +548,15 @@ class Game {
         this.bullets.forEach(bullet => bullet.draw(this.ctx));
         this.particles.forEach(particle => particle.draw(this.ctx));
         this.powerUps.forEach(powerUp => powerUp.draw(this.ctx));
+        this.items.forEach(item => item.draw(this.ctx));
 
         // Draw active power-up indicators
         if (this.ship) {
             this.ship.drawPowerUpIndicators(this.ctx);
         }
+
+        // Draw active item effect indicators
+        this.drawItemEffectIndicators();
     }
 
     drawText(text, x, y, size) {
@@ -310,6 +564,44 @@ class Game {
         this.ctx.font = `${size}px 'Courier New', monospace`;
         this.ctx.textAlign = 'center';
         this.ctx.fillText(text, x, y);
+    }
+
+    drawItemEffectIndicators() {
+        const indicators = [];
+
+        if (this.magnetActive) {
+            indicators.push({
+                text: 'MAGNET',
+                color: ITEM_TYPES.MAGNET.color,
+                timer: this.magnetTimer
+            });
+        }
+
+        if (this.scoreMultiplier > 1) {
+            indicators.push({
+                text: 'SCORE x2',
+                color: ITEM_TYPES.SCORE_BOOST.color,
+                timer: this.scoreMultiplierTimer
+            });
+        }
+
+        if (this.freezeActive) {
+            indicators.push({
+                text: 'FREEZE',
+                color: ITEM_TYPES.FREEZE.color,
+                timer: this.freezeTimer
+            });
+        }
+
+        // Draw on right side to differentiate from power-ups
+        indicators.forEach((indicator, index) => {
+            const y = 30 + index * 25;
+            const timeLeft = (indicator.timer / 60).toFixed(1);
+            this.ctx.fillStyle = indicator.color;
+            this.ctx.font = '14px "Courier New", monospace';
+            this.ctx.textAlign = 'right';
+            this.ctx.fillText(`${indicator.text}: ${timeLeft}s`, CANVAS_WIDTH - 10, y);
+        });
     }
 
     gameLoop() {
@@ -715,6 +1007,108 @@ class PowerUp {
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.arc(this.x, this.y, POWERUP_SIZE + 5, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+        }
+    }
+}
+
+// Item class (inventory collectibles)
+class Item {
+    constructor(x, y, type, game) {
+        this.x = x;
+        this.y = y;
+        this.type = type;
+        this.game = game;
+        this.lifetime = ITEM_LIFETIME;
+        this.pulsePhase = Math.random() * Math.PI * 2;
+        this.bobPhase = Math.random() * Math.PI * 2;
+
+        // Slow drift
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 0.4;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+    }
+
+    update() {
+        // Check if magnet is active and attract toward ship
+        if (this.game.ship && this.game.magnetActive) {
+            const dx = this.game.ship.x - this.x;
+            const dy = this.game.ship.y - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 10) {
+                const attractSpeed = 3;
+                this.vx = (dx / dist) * attractSpeed;
+                this.vy = (dy / dist) * attractSpeed;
+            }
+        }
+
+        this.x += this.vx;
+        this.y += this.vy;
+        this.lifetime--;
+        this.pulsePhase += 0.08;
+        this.bobPhase += 0.1;
+
+        // Wrap around screen
+        if (this.x < 0) this.x = CANVAS_WIDTH;
+        if (this.x > CANVAS_WIDTH) this.x = 0;
+        if (this.y < 0) this.y = CANVAS_HEIGHT;
+        if (this.y > CANVAS_HEIGHT) this.y = 0;
+    }
+
+    draw(ctx) {
+        const itemInfo = ITEM_TYPES[this.type];
+        const pulse = Math.sin(this.pulsePhase) * 2 + ITEM_SIZE;
+        const bob = Math.sin(this.bobPhase) * 2;
+
+        ctx.save();
+        ctx.translate(this.x, this.y + bob);
+
+        // Draw outer glow
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, pulse + 5);
+        gradient.addColorStop(0, itemInfo.color + '40');
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, pulse + 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw hexagon shape
+        ctx.strokeStyle = itemInfo.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+            const x = Math.cos(angle) * pulse;
+            const y = Math.sin(angle) * pulse;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+
+        // Fill inner
+        ctx.fillStyle = itemInfo.color + '80';
+        ctx.fill();
+
+        // Draw symbol
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(itemInfo.symbol, 0, 0);
+
+        ctx.restore();
+
+        // Draw fading warning when lifetime is low
+        if (this.lifetime < 120) {
+            const alpha = (this.lifetime % 20) / 20;
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = itemInfo.color;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, ITEM_SIZE + 8, 0, Math.PI * 2);
             ctx.stroke();
             ctx.globalAlpha = 1;
         }

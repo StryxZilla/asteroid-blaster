@@ -43,6 +43,53 @@
             display: inline-block;
             margin: 0 20px;
         }
+
+        #inventoryContainer {
+            margin-top: 15px;
+        }
+
+        #inventoryLabel {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 8px;
+        }
+
+        #inventory {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .inventory-slot {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #444;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: #111;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .inventory-slot:hover {
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+        }
+
+        .item-symbol {
+            font-size: 18px;
+            line-height: 1;
+        }
+
+        .slot-key {
+            position: absolute;
+            bottom: 2px;
+            right: 4px;
+            font-size: 10px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -59,8 +106,13 @@
                 <strong>Level:</strong> <span id="level">1</span>
             </div>
         </div>
+        <div id="inventoryContainer">
+            <div id="inventoryLabel">INVENTORY (Press 1-5 to use)</div>
+            <div id="inventory"></div>
+        </div>
         <div id="instructions">
-            <strong>Controls:</strong> Arrow Keys or WASD to move | SPACE to shoot | ENTER to start/restart
+            <strong>Controls:</strong> Arrow Keys or WASD to move | SPACE to shoot | ENTER to start/restart<br>
+            <span style="color: #666;">Destroy asteroids to collect items!</span>
         </div>
     </div>
     <script src="game.js"></script>
