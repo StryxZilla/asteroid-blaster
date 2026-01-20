@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asteroids Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+        }
+
+        #gameContainer {
+            text-align: center;
+        }
+
+        canvas {
+            border: 2px solid #fff;
+            background: #000;
+            display: block;
+            margin: 0 auto;
+        }
+
+        #ui {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+
+        #instructions {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        .controls {
+            display: inline-block;
+            margin: 0 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="ui">
+            <div class="controls">
+                <strong>Score:</strong> <span id="score">0</span>
+            </div>
+            <div class="controls">
+                <strong>Lives:</strong> <span id="lives">3</span>
+            </div>
+            <div class="controls">
+                <strong>Level:</strong> <span id="level">1</span>
+            </div>
+        </div>
+        <div id="instructions">
+            <strong>Controls:</strong> Arrow Keys or WASD to move | SPACE to shoot | ENTER to start/restart
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>
