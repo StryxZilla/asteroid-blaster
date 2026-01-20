@@ -10,6 +10,19 @@ const BULLET_SPEED = 7;
 const BULLET_LIFETIME = 50;
 const ASTEROID_SPEED = 1.5;
 const ASTEROID_VERTICES = 10;
+const POWERUP_SPAWN_CHANCE = 0.3; // 30% chance on asteroid destruction
+const POWERUP_LIFETIME = 600; // 10 seconds at 60 FPS
+const POWERUP_SIZE = 12;
+const POWERUP_DURATION = 300; // 5 seconds for timed power-ups
+
+// Power-up types
+const POWERUP_TYPES = {
+    SHIELD: { name: 'Shield', color: '#00ffff', symbol: 'S' },
+    RAPID_FIRE: { name: 'Rapid Fire', color: '#ff00ff', symbol: 'R' },
+    TRIPLE_SHOT: { name: 'Triple Shot', color: '#ffff00', symbol: 'T' },
+    SPEED_BOOST: { name: 'Speed Boost', color: '#00ff00', symbol: 'V' },
+    EXTRA_LIFE: { name: 'Extra Life', color: '#ff0000', symbol: '+' }
+};
 
 // Game class
 class Game {
@@ -26,6 +39,7 @@ class Game {
         this.asteroids = [];
         this.bullets = [];
         this.particles = [];
+        this.powerUps = [];
 
         this.setupEventListeners();
         this.gameLoop();
@@ -63,6 +77,7 @@ class Game {
         this.asteroids = [];
         this.bullets = [];
         this.particles = [];
+        this.powerUps = [];
         this.spawnAsteroids(4);
         this.updateUI();
     }
@@ -116,6 +131,14 @@ class Game {
         this.updateUI();
     }
 
+    spawnPowerUp(x, y) {
+        if (Math.random() < POWERUP_SPAWN_CHANCE) {
+            const types = Object.keys(POWERUP_TYPES);
+            const randomType = types[Math.floor(Math.random() * types.length)];
+            this.powerUps.push(new PowerUp(x, y, randomType, this));
+        }
+    }
+
     update() {
         if (this.state !== 'playing') return;
 
@@ -137,6 +160,12 @@ class Game {
         this.particles = this.particles.filter(particle => {
             particle.update();
             return particle.lifetime > 0;
+        });
+
+        // Update power-ups
+        this.powerUps = this.powerUps.filter(powerUp => {
+            powerUp.update();
+            return powerUp.lifetime > 0;
         });
 
         // Check collisions
@@ -175,6 +204,9 @@ class Game {
                     // Award points
                     this.addScore((4 - asteroid.size) * 20);
 
+                    // Chance to spawn power-up
+                    this.spawnPowerUp(asteroid.x, asteroid.y);
+
                     // Remove asteroid
                     this.asteroids.splice(j, 1);
                     break;
@@ -189,10 +221,38 @@ class Game {
                     this.ship.x, this.ship.y, SHIP_SIZE,
                     this.asteroids[i].x, this.asteroids[i].y, this.asteroids[i].radius
                 )) {
-                    this.createExplosion(this.ship.x, this.ship.y, 20);
-                    this.ship = null;
-                    this.loseLife();
-                    break;
+                    // Check if ship has shield
+                    if (!this.ship.hasShield) {
+                        this.createExplosion(this.ship.x, this.ship.y, 20);
+                        this.ship = null;
+                        this.loseLife();
+                        break;
+                    } else {
+                        // Destroy asteroid but ship survives
+                        const asteroid = this.asteroids[i];
+                        this.createExplosion(asteroid.x, asteroid.y, asteroid.size * 5);
+
+                        if (asteroid.size > 1) {
+                            for (let k = 0; k < 2; k++) {
+                                this.asteroids.push(
+                                    new Asteroid(asteroid.x, asteroid.y, asteroid.size - 1, this)
+                                );
+                            }
+                        }
+
+                        this.asteroids.splice(i, 1);
+                    }
+                }
+            }
+
+            // Ship vs PowerUp
+            for (let i = this.powerUps.length - 1; i >= 0; i--) {
+                if (this.circleCollision(
+                    this.ship.x, this.ship.y, SHIP_SIZE,
+                    this.powerUps[i].x, this.powerUps[i].y, POWERUP_SIZE
+                )) {
+                    this.ship.activatePowerUp(this.powerUps[i].type);
+                    this.powerUps.splice(i, 1);
                 }
             }
         }
@@ -237,6 +297,12 @@ class Game {
         this.asteroids.forEach(asteroid => asteroid.draw(this.ctx));
         this.bullets.forEach(bullet => bullet.draw(this.ctx));
         this.particles.forEach(particle => particle.draw(this.ctx));
+        this.powerUps.forEach(powerUp => powerUp.draw(this.ctx));
+
+        // Draw active power-up indicators
+        if (this.ship) {
+            this.ship.drawPowerUpIndicators(this.ctx);
+        }
     }
 
     drawText(text, x, y, size) {
@@ -264,21 +330,40 @@ class Ship {
         this.vy = 0;
         this.canShoot = true;
         this.shootCooldown = 0;
+
+        // Power-up states
+        this.hasShield = false;
+        this.hasRapidFire = false;
+        this.hasTripleShot = false;
+        this.hasSpeedBoost = false;
+        this.powerUpTimers = {
+            shield: 0,
+            rapidFire: 0,
+            tripleShot: 0,
+            speedBoost: 0
+        };
     }
 
     update(keys) {
+        // Update power-up timers
+        this.updatePowerUps();
+
+        // Apply speed boost multiplier
+        const speedMultiplier = this.hasSpeedBoost ? 2 : 1;
+        const turnSpeedMultiplier = this.hasSpeedBoost ? 1.5 : 1;
+
         // Rotation
         if (keys['ArrowLeft'] || keys['a'] || keys['A']) {
-            this.angle -= SHIP_TURN_SPEED;
+            this.angle -= SHIP_TURN_SPEED * turnSpeedMultiplier;
         }
         if (keys['ArrowRight'] || keys['d'] || keys['D']) {
-            this.angle += SHIP_TURN_SPEED;
+            this.angle += SHIP_TURN_SPEED * turnSpeedMultiplier;
         }
 
         // Thrust
         if (keys['ArrowUp'] || keys['w'] || keys['W']) {
-            this.vx += Math.cos(this.angle) * SHIP_THRUST;
-            this.vy += Math.sin(this.angle) * SHIP_THRUST;
+            this.vx += Math.cos(this.angle) * SHIP_THRUST * speedMultiplier;
+            this.vy += Math.sin(this.angle) * SHIP_THRUST * speedMultiplier;
         }
 
         // Apply friction
@@ -304,19 +389,46 @@ class Ship {
     shoot() {
         if (this.shootCooldown > 0) return;
 
-        const bullet = new Bullet(
-            this.x + Math.cos(this.angle) * SHIP_SIZE,
-            this.y + Math.sin(this.angle) * SHIP_SIZE,
-            this.angle,
-            this.game
-        );
-        this.game.bullets.push(bullet);
-        this.shootCooldown = 10;
+        if (this.hasTripleShot) {
+            // Shoot three bullets
+            const angles = [-0.2, 0, 0.2]; // Spread pattern
+            angles.forEach(angleOffset => {
+                const bullet = new Bullet(
+                    this.x + Math.cos(this.angle + angleOffset) * SHIP_SIZE,
+                    this.y + Math.sin(this.angle + angleOffset) * SHIP_SIZE,
+                    this.angle + angleOffset,
+                    this.game
+                );
+                this.game.bullets.push(bullet);
+            });
+        } else {
+            // Single bullet
+            const bullet = new Bullet(
+                this.x + Math.cos(this.angle) * SHIP_SIZE,
+                this.y + Math.sin(this.angle) * SHIP_SIZE,
+                this.angle,
+                this.game
+            );
+            this.game.bullets.push(bullet);
+        }
+
+        // Rapid fire reduces cooldown
+        this.shootCooldown = this.hasRapidFire ? 3 : 10;
     }
 
     draw(ctx) {
         ctx.save();
         ctx.translate(this.x, this.y);
+
+        // Draw shield if active
+        if (this.hasShield) {
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 0, SHIP_SIZE + 5, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
         ctx.rotate(this.angle);
 
         // Draw ship triangle
@@ -331,6 +443,79 @@ class Ship {
         ctx.stroke();
 
         ctx.restore();
+    }
+
+    activatePowerUp(type) {
+        switch(type) {
+            case 'SHIELD':
+                this.hasShield = true;
+                this.powerUpTimers.shield = POWERUP_DURATION;
+                break;
+            case 'RAPID_FIRE':
+                this.hasRapidFire = true;
+                this.powerUpTimers.rapidFire = POWERUP_DURATION;
+                break;
+            case 'TRIPLE_SHOT':
+                this.hasTripleShot = true;
+                this.powerUpTimers.tripleShot = POWERUP_DURATION;
+                break;
+            case 'SPEED_BOOST':
+                this.hasSpeedBoost = true;
+                this.powerUpTimers.speedBoost = POWERUP_DURATION;
+                break;
+            case 'EXTRA_LIFE':
+                this.game.lives++;
+                this.game.updateUI();
+                break;
+        }
+    }
+
+    updatePowerUps() {
+        // Update timers and deactivate expired power-ups
+        if (this.powerUpTimers.shield > 0) {
+            this.powerUpTimers.shield--;
+            if (this.powerUpTimers.shield === 0) {
+                this.hasShield = false;
+            }
+        }
+
+        if (this.powerUpTimers.rapidFire > 0) {
+            this.powerUpTimers.rapidFire--;
+            if (this.powerUpTimers.rapidFire === 0) {
+                this.hasRapidFire = false;
+            }
+        }
+
+        if (this.powerUpTimers.tripleShot > 0) {
+            this.powerUpTimers.tripleShot--;
+            if (this.powerUpTimers.tripleShot === 0) {
+                this.hasTripleShot = false;
+            }
+        }
+
+        if (this.powerUpTimers.speedBoost > 0) {
+            this.powerUpTimers.speedBoost--;
+            if (this.powerUpTimers.speedBoost === 0) {
+                this.hasSpeedBoost = false;
+            }
+        }
+    }
+
+    drawPowerUpIndicators(ctx) {
+        const indicators = [];
+        if (this.hasShield) indicators.push({ text: 'SHIELD', color: '#00ffff', timer: this.powerUpTimers.shield });
+        if (this.hasRapidFire) indicators.push({ text: 'RAPID FIRE', color: '#ff00ff', timer: this.powerUpTimers.rapidFire });
+        if (this.hasTripleShot) indicators.push({ text: 'TRIPLE SHOT', color: '#ffff00', timer: this.powerUpTimers.tripleShot });
+        if (this.hasSpeedBoost) indicators.push({ text: 'SPEED BOOST', color: '#00ff00', timer: this.powerUpTimers.speedBoost });
+
+        indicators.forEach((indicator, index) => {
+            const y = 30 + index * 25;
+            const timeLeft = (indicator.timer / 60).toFixed(1);
+            ctx.fillStyle = indicator.color;
+            ctx.font = '14px "Courier New", monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText(`${indicator.text}: ${timeLeft}s`, 10, y);
+        });
     }
 }
 
@@ -460,6 +645,79 @@ class Particle {
         ctx.beginPath();
         ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
         ctx.fill();
+    }
+}
+
+// PowerUp class
+class PowerUp {
+    constructor(x, y, type, game) {
+        this.x = x;
+        this.y = y;
+        this.type = type;
+        this.game = game;
+        this.lifetime = POWERUP_LIFETIME;
+        this.pulsePhase = 0;
+
+        // Slow drift
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 0.3;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.lifetime--;
+        this.pulsePhase += 0.1;
+
+        // Wrap around screen
+        if (this.x < 0) this.x = CANVAS_WIDTH;
+        if (this.x > CANVAS_WIDTH) this.x = 0;
+        if (this.y < 0) this.y = CANVAS_HEIGHT;
+        if (this.y > CANVAS_HEIGHT) this.y = 0;
+    }
+
+    draw(ctx) {
+        const powerUpInfo = POWERUP_TYPES[this.type];
+        const pulse = Math.sin(this.pulsePhase) * 2 + POWERUP_SIZE;
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Draw pulsing circle
+        ctx.strokeStyle = powerUpInfo.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, pulse, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Draw inner circle
+        ctx.fillStyle = powerUpInfo.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, POWERUP_SIZE - 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw symbol
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 14px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(powerUpInfo.symbol, 0, 1);
+
+        ctx.restore();
+
+        // Draw fading warning when lifetime is low
+        if (this.lifetime < 120) {
+            const alpha = (this.lifetime % 30) / 30;
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = powerUpInfo.color;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, POWERUP_SIZE + 5, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+        }
     }
 }
 
