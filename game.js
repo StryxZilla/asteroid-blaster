@@ -43,7 +43,7 @@ class Game {
             }
 
             // Shoot on Space
-            if (e.key === ' ' && this.state === 'playing') {
+            if (e.key === ' ' && this.state === 'playing' && this.ship) {
                 e.preventDefault();
                 this.ship.shoot();
             }
