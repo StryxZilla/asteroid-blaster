@@ -1,4 +1,4 @@
-﻿﻿// Game constants
+﻿// Game constants
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const FPS = 60;
@@ -142,6 +142,145 @@ const MAX_INVENTORY_SLOTS = 5;
 const ITEM_SPAWN_CHANCE = 0.25;
 const ITEM_SIZE = 10;
 const ITEM_LIFETIME = 480;
+// ============== SHIP UPGRADE SYSTEM ==============
+// Between-level shop for permanent ship improvements
+const SCRAP_PER_SCORE = 0.1; // 10% of score becomes scrap
+
+const SHIP_UPGRADES = {
+    ENGINE_BOOST: {
+        name: 'Engine Boost',
+        icon: '^',
+        color: '#ff8800',
+        description: 'Increase thrust power',
+        maxLevel: 5,
+        baseCost: 100,
+        costMultiplier: 2.0,
+        effect: (level) => 1 + (level * 0.15)
+    },
+    MANEUVERABILITY: {
+        name: 'Maneuverability',
+        icon: '<>',
+        color: '#00ff88',
+        description: 'Faster turn speed',
+        maxLevel: 5,
+        baseCost: 80,
+        costMultiplier: 1.8,
+        effect: (level) => 1 + (level * 0.12)
+    },
+    VELOCITY_ROUNDS: {
+        name: 'Velocity Rounds',
+        icon: '>>',
+        color: '#ff00ff',
+        description: 'Faster bullets',
+        maxLevel: 5,
+        baseCost: 120,
+        costMultiplier: 2.2,
+        effect: (level) => 1 + (level * 0.10)
+    },
+    EXTENDED_RANGE: {
+        name: 'Extended Range',
+        icon: '---',
+        color: '#ffff00',
+        description: 'Longer bullet lifetime',
+        maxLevel: 5,
+        baseCost: 100,
+        costMultiplier: 1.9,
+        effect: (level) => 1 + (level * 0.20)
+    },
+    HULL_PLATING: {
+        name: 'Hull Plating',
+        icon: '[#]',
+        color: '#8888ff',
+        description: '+1 starting life',
+        maxLevel: 3,
+        baseCost: 300,
+        costMultiplier: 2.5,
+        effect: (level) => level
+    },
+    AUTO_REPAIR: {
+        name: 'Auto-Repair',
+        icon: '+H+',
+        color: '#ff6666',
+        description: 'Regen life every N levels',
+        maxLevel: 3,
+        baseCost: 500,
+        costMultiplier: 2.0,
+        effect: (level) => level > 0 ? Math.max(1, 4 - level) : 0
+    }
+};
+
+class ShipUpgradeManager {
+    constructor() {
+        this.upgrades = {};
+        this.scrap = 0;
+        this.totalScrapEarned = 0;
+        this.init();
+    }
+    
+    init() {
+        for (const key of Object.keys(SHIP_UPGRADES)) {
+            this.upgrades[key] = 0;
+        }
+    }
+    
+    reset() {
+        this.init();
+        this.scrap = 0;
+        this.totalScrapEarned = 0;
+    }
+    
+    addScrap(amount) {
+        const rounded = Math.floor(amount);
+        this.scrap += rounded;
+        this.totalScrapEarned += rounded;
+    }
+    
+    getUpgradeCost(upgradeKey) {
+        const upgrade = SHIP_UPGRADES[upgradeKey];
+        const level = this.upgrades[upgradeKey];
+        if (level >= upgrade.maxLevel) return Infinity;
+        return Math.floor(upgrade.baseCost * Math.pow(upgrade.costMultiplier, level));
+    }
+    
+    canUpgrade(upgradeKey) {
+        const upgrade = SHIP_UPGRADES[upgradeKey];
+        return this.upgrades[upgradeKey] < upgrade.maxLevel && this.scrap >= this.getUpgradeCost(upgradeKey);
+    }
+    
+    purchaseUpgrade(upgradeKey) {
+        if (!this.canUpgrade(upgradeKey)) return false;
+        const cost = this.getUpgradeCost(upgradeKey);
+        this.scrap -= cost;
+        this.upgrades[upgradeKey]++;
+        soundManager.playPowerUp();
+        return true;
+    }
+    
+    getEffect(upgradeKey) {
+        const upgrade = SHIP_UPGRADES[upgradeKey];
+        return upgrade.effect(this.upgrades[upgradeKey]);
+    }
+    
+    getThrustMultiplier() { return this.getEffect('ENGINE_BOOST'); }
+    getTurnMultiplier() { return this.getEffect('MANEUVERABILITY'); }
+    getBulletSpeedMultiplier() { return this.getEffect('VELOCITY_ROUNDS'); }
+    getBulletLifetimeMultiplier() { return this.getEffect('EXTENDED_RANGE'); }
+    getExtraLives() { return this.getEffect('HULL_PLATING'); }
+    getRegenInterval() { return this.getEffect('AUTO_REPAIR'); }
+    
+    serialize() {
+        return { upgrades: {...this.upgrades}, scrap: this.scrap, totalScrapEarned: this.totalScrapEarned };
+    }
+    
+    deserialize(data) {
+        if (data.upgrades) this.upgrades = {...data.upgrades};
+        if (data.scrap !== undefined) this.scrap = data.scrap;
+        if (data.totalScrapEarned !== undefined) this.totalScrapEarned = data.totalScrapEarned;
+    }
+}
+
+const shipUpgradeManager = new ShipUpgradeManager();
+
 
 // ============== SOUND MANAGER CLASS ==============
 // Procedural audio using Web Audio API - no external files needed!
@@ -2235,6 +2374,11 @@ class Game {
         this.scoreMultiplierTimer = 0;
         this.freezeActive = false;
         this.freezeTimer = 0;
+        
+        // Upgrade shop state
+        this.showingUpgradeShop = false;
+        this.upgradeShopSelection = 0;
+        this.pendingLevelUp = false;
 
         // Animation timers
         this.time = 0;
@@ -2262,6 +2406,30 @@ class Game {
                 if (this.state === 'start' || this.state === 'gameover') {
                     this.startGame();
                 }
+                if (this.showingUpgradeShop) {
+                    const keys = Object.keys(SHIP_UPGRADES);
+                    if (this.upgradeShopSelection < keys.length) {
+                        shipUpgradeManager.purchaseUpgrade(keys[this.upgradeShopSelection]);
+                    } else {
+                        this.proceedToNextLevel();
+                    }
+                }
+            }
+            
+            // Upgrade shop navigation
+            if (this.showingUpgradeShop) {
+                const totalOptions = Object.keys(SHIP_UPGRADES).length + 1;
+                if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+                    this.upgradeShopSelection = (this.upgradeShopSelection - 1 + totalOptions) % totalOptions;
+                    soundManager.playItemCollect();
+                }
+                if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+                    this.upgradeShopSelection = (this.upgradeShopSelection + 1) % totalOptions;
+                    soundManager.playItemCollect();
+                }
+                if (e.key === 'Escape') {
+                    this.proceedToNextLevel();
+                }
             }
 
             if (e.key === ' ' && this.state === 'playing' && this.ship) {
@@ -2288,7 +2456,8 @@ class Game {
     startGame() {
         this.state = 'playing';
         this.score = 0;
-        this.lives = 3;
+        shipUpgradeManager.reset();
+        this.lives = 3 + shipUpgradeManager.getExtraLives();
         this.level = 1;
         this.ship = new Ship(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, this);
         this.asteroids = [];
@@ -2371,21 +2540,35 @@ class Game {
     }
 
     nextLevel() {
+        // Show upgrade shop before advancing
+        this.showingUpgradeShop = true;
+        this.upgradeShopSelection = 0;
+        this.pendingLevelUp = true;
+        soundManager.playLevelComplete();
+    }
+    
+    proceedToNextLevel() {
+        this.showingUpgradeShop = false;
+        this.pendingLevelUp = false;
         this.level++;
+        
+        // Auto-repair check
+        const regenInterval = shipUpgradeManager.getRegenInterval();
+        if (regenInterval > 0 && this.level % regenInterval === 0 && this.lives < 5) {
+            this.lives++;
+            soundManager.playPowerUp();
+        }
+        
         this.spawnAsteroids(3 + this.level);
         this.updateUI();
         achievementManager.trackLevel(this.level);
         this.triggerFlash('#00ff00', 0.2);
-        
-        // Start level complete celebration
         this.transitionManager.startLevelComplete();
-        
-        // Start level announcement for new level
         this.transitionManager.startLevelAnnouncement(this.level);
     }
 
     updateUI() {
-        document.getElementById('score').textContent = this.score;
+        document.getElementById('score').textContent = this.score + ' | Scrap: ' + shipUpgradeManager.scrap;
         document.getElementById('lives').textContent = this.lives;
         document.getElementById('level').textContent = this.level;
     }
@@ -2427,7 +2610,9 @@ class Game {
     }
 
     addScore(points) {
-        this.score += points * this.scoreMultiplier;
+        const finalPoints = points * this.scoreMultiplier;
+        this.score += finalPoints;
+        shipUpgradeManager.addScrap(finalPoints * SCRAP_PER_SCORE);
         this.updateUI();
         achievementManager.trackScore(this.score);
     }
@@ -3179,6 +3364,124 @@ class Game {
         ctx.restore();
     }
 
+    
+    
+    drawUpgradeShop(ctx) {
+        // Darken background
+        ctx.fillStyle = 'rgba(0, 0, 20, 0.85)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        const centerX = CANVAS_WIDTH / 2;
+        const startY = 60;
+        
+        // Title
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = '#00ffff';
+        ctx.font = 'bold 36px monospace';
+        ctx.fillText('UPGRADE SHOP', centerX, startY);
+        
+        // Scrap display
+        ctx.shadowColor = '#ffcc00';
+        ctx.fillStyle = '#ffcc00';
+        ctx.font = 'bold 24px monospace';
+        ctx.fillText('SCRAP: ' + shipUpgradeManager.scrap, centerX, startY + 40);
+        ctx.shadowBlur = 0;
+        
+        // Upgrade options
+        const keys = Object.keys(SHIP_UPGRADES);
+        const itemHeight = 55;
+        const listStartY = startY + 80;
+        
+        keys.forEach((key, i) => {
+            const upgrade = SHIP_UPGRADES[key];
+            const level = shipUpgradeManager.upgrades[key];
+            const cost = shipUpgradeManager.getUpgradeCost(key);
+            const isSelected = i === this.upgradeShopSelection;
+            const canAfford = shipUpgradeManager.canUpgrade(key);
+            const isMaxed = level >= upgrade.maxLevel;
+            
+            const y = listStartY + i * itemHeight;
+            
+            // Selection highlight
+            if (isSelected) {
+                ctx.fillStyle = 'rgba(0, 255, 255, 0.15)';
+                ctx.fillRect(100, y - 25, CANVAS_WIDTH - 200, itemHeight - 5);
+                ctx.strokeStyle = '#00ffff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(100, y - 25, CANVAS_WIDTH - 200, itemHeight - 5);
+            }
+            
+            // Icon
+            ctx.fillStyle = upgrade.color;
+            ctx.font = 'bold 20px monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText(upgrade.icon, 120, y);
+            
+            // Name
+            ctx.fillStyle = isSelected ? '#ffffff' : '#aaaaaa';
+            ctx.font = '18px monospace';
+            ctx.fillText(upgrade.name, 170, y - 5);
+            
+            // Description
+            ctx.fillStyle = '#666666';
+            ctx.font = '12px monospace';
+            ctx.fillText(upgrade.description, 170, y + 12);
+            
+            // Level pips
+            ctx.textAlign = 'center';
+            for (let j = 0; j < upgrade.maxLevel; j++) {
+                ctx.fillStyle = j < level ? upgrade.color : '#333333';
+                ctx.fillRect(480 + j * 20, y - 8, 15, 15);
+                if (j < level) {
+                    ctx.strokeStyle = upgrade.color;
+                    ctx.shadowColor = upgrade.color;
+                    ctx.shadowBlur = 5;
+                    ctx.strokeRect(480 + j * 20, y - 8, 15, 15);
+                    ctx.shadowBlur = 0;
+                }
+            }
+            
+            // Cost
+            ctx.textAlign = 'right';
+            if (isMaxed) {
+                ctx.fillStyle = '#00ff00';
+                ctx.font = 'bold 16px monospace';
+                ctx.fillText('MAX', 680, y);
+            } else {
+                ctx.fillStyle = canAfford ? '#ffcc00' : '#ff4444';
+                ctx.font = '16px monospace';
+                ctx.fillText(cost + ' scrap', 680, y);
+            }
+        });
+        
+        // Continue option
+        const continueY = listStartY + keys.length * itemHeight + 20;
+        const continueSelected = this.upgradeShopSelection === keys.length;
+        
+        if (continueSelected) {
+            ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
+            ctx.fillRect(250, continueY - 20, 300, 40);
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(250, continueY - 20, 300, 40);
+        }
+        
+        ctx.textAlign = 'center';
+        ctx.fillStyle = continueSelected ? '#00ff00' : '#888888';
+        ctx.font = 'bold 20px monospace';
+        ctx.fillText('>>> CONTINUE TO LEVEL ' + (this.level + 1) + ' >>>', centerX, continueY + 5);
+        
+        // Controls hint
+        ctx.fillStyle = '#444444';
+        ctx.font = '14px monospace';
+        ctx.fillText('UP/DOWN to select | ENTER to buy/continue | ESC to skip', centerX, CANVAS_HEIGHT - 30);
+        
+        ctx.restore();
+    }
+
     drawStartScreen(ctx) {
         // Animated title
         const pulse = Math.sin(this.titlePulse) * 0.2 + 1;
@@ -3623,18 +3926,20 @@ class Ship {
         const speedMultiplier = this.hasSpeedBoost ? 2 : 1;
         const turnSpeedMultiplier = this.hasSpeedBoost ? 1.5 : 1;
 
+        const upgradesTurn = shipUpgradeManager.getTurnMultiplier();
         if (keys['ArrowLeft'] || keys['a'] || keys['A']) {
-            this.angle -= SHIP_TURN_SPEED * turnSpeedMultiplier;
+            this.angle -= SHIP_TURN_SPEED * turnSpeedMultiplier * upgradesTurn;
         }
         if (keys['ArrowRight'] || keys['d'] || keys['D']) {
-            this.angle += SHIP_TURN_SPEED * turnSpeedMultiplier;
+            this.angle += SHIP_TURN_SPEED * turnSpeedMultiplier * upgradesTurn;
         }
 
         // Thrust with trail particles
         const isThrusting = keys['ArrowUp'] || keys['w'] || keys['W'];
+        const upgradesThrust = shipUpgradeManager.getThrustMultiplier();
         if (isThrusting) {
-            this.vx += Math.cos(this.angle) * SHIP_THRUST * speedMultiplier;
-            this.vy += Math.sin(this.angle) * SHIP_THRUST * speedMultiplier;
+            this.vx += Math.cos(this.angle) * SHIP_THRUST * speedMultiplier * upgradesThrust;
+            this.vy += Math.sin(this.angle) * SHIP_THRUST * speedMultiplier * upgradesThrust;
             this.thrustAmount = Math.min(1, this.thrustAmount + 0.1);
             
             // Spawn engine trail particles
@@ -4203,9 +4508,11 @@ class Bullet {
         this.x = x;
         this.y = y;
         this.game = game;
-        this.vx = Math.cos(angle) * BULLET_SPEED;
-        this.vy = Math.sin(angle) * BULLET_SPEED;
-        this.lifetime = BULLET_LIFETIME;
+        const bulletSpeedMult = shipUpgradeManager.getBulletSpeedMultiplier();
+        const bulletLifeMult = shipUpgradeManager.getBulletLifetimeMultiplier();
+        this.vx = Math.cos(angle) * BULLET_SPEED * bulletSpeedMult;
+        this.vy = Math.sin(angle) * BULLET_SPEED * bulletSpeedMult;
+        this.lifetime = Math.floor(BULLET_LIFETIME * bulletLifeMult);
         this.trailCounter = 0;
     }
 
