@@ -1,4 +1,4 @@
-﻿// Game constants
+// Game constants
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const FPS = 60;
@@ -66,11 +66,11 @@ const POWERUP_TYPES = {
 
 // Inventory item types
 const ITEM_TYPES = {
-    REPAIR_KIT: { name: 'Repair Kit', color: '#ff6b6b', symbol: 'ΓÖÑ', description: 'Restore 1 life', rarity: 0.15 },
-    BOMB: { name: 'Bomb', color: '#ff8c00', symbol: 'Γ£╕', description: 'Destroy all asteroids', rarity: 0.10 },
-    FREEZE: { name: 'Freeze', color: '#87ceeb', symbol: 'Γ¥ä', description: 'Freeze asteroids for 5s', rarity: 0.20 },
-    MAGNET: { name: 'Magnet', color: '#da70d6', symbol: 'Γè¢', description: 'Attract items for 10s', rarity: 0.25 },
-    SCORE_BOOST: { name: 'Score x2', color: '#ffd700', symbol: 'Γÿà', description: 'Double points for 15s', rarity: 0.30 }
+    REPAIR_KIT: { name: 'Repair Kit', color: '#ff6b6b', symbol: '+', description: 'Restore 1 life', rarity: 0.15 },
+    BOMB: { name: 'Bomb', color: '#ff8c00', symbol: '*', description: 'Destroy all asteroids', rarity: 0.10 },
+    FREEZE: { name: 'Freeze', color: '#87ceeb', symbol: '#', description: 'Freeze asteroids for 5s', rarity: 0.20 },
+    MAGNET: { name: 'Magnet', color: '#da70d6', symbol: '@', description: 'Attract items for 10s', rarity: 0.25 },
+    SCORE_BOOST: { name: 'Score x2', color: '#ffd700', symbol: '$', description: 'Double points for 15s', rarity: 0.30 }
 };
 
 const MAX_INVENTORY_SLOTS = 5;
@@ -2256,7 +2256,6 @@ class Game {
         this.draw();
         requestAnimationFrame(() => this.gameLoop());
     }
-}
 
     // ============== STATS SCREEN ==============
     drawStatsScreen(ctx) {
@@ -2371,6 +2370,7 @@ class Game {
             ctx.fillText('Playing since: ' + new Date(s.firstPlayDate).toLocaleDateString(), CANVAS_WIDTH / 2, CANVAS_HEIGHT - 15);
         }
     }
+}
 
 // ============== SHOCKWAVE PARTICLE CLASS ==============
 class ShockwaveParticle {
