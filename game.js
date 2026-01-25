@@ -1,4 +1,4 @@
-﻿// Game constants
+// Game constants
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const FPS = 60;
@@ -438,7 +438,7 @@ class SkillTreeUI {
         ctx.restore();
         
         ctx.fillStyle = '#666666'; ctx.font = '12px "Courier New", monospace';
-        ctx.textAlign = 'center'; ctx.fillText('Click skills to upgrade Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•Î“Ã¶Â¼â”œâ”‚ Press K to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
+        ctx.textAlign = 'center'; ctx.fillText('Click skills to upgrade | Press K or ESC to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
     }
     drawCategoryTabs(ctx) {
         const tabY = 80;
@@ -2634,19 +2634,21 @@ class TouchControlManager {
     }
     
     updateLayout() {
-        const rect = this.canvas.getBoundingClientRect();
+        // Use canvas internal dimensions (800x600), not CSS display size
+        const canvasWidth = this.canvas.width;
+        const canvasHeight = this.canvas.height;
         const padding = 30;
-        const bottomOffset = 100;
+        const bottomOffset = 120;
         
         // Joystick base position (bottom-left)
-        this.joystick.baseX = padding + this.joystick.radius + 20;
-        this.joystick.baseY = rect.height - bottomOffset;
+        this.joystick.baseX = padding + this.joystick.radius + 30;
+        this.joystick.baseY = canvasHeight - bottomOffset;
         this.joystick.currentX = this.joystick.baseX;
         this.joystick.currentY = this.joystick.baseY;
         
         // Fire button position (bottom-right)
-        this.fireButton.x = rect.width - padding - this.fireButton.radius - 20;
-        this.fireButton.y = rect.height - bottomOffset;
+        this.fireButton.x = canvasWidth - padding - this.fireButton.radius - 30;
+        this.fireButton.y = canvasHeight - bottomOffset;
     }
     
     setupTouchEvents() {
@@ -2933,6 +2935,9 @@ class Game {
         this.isEnteringInitials = false;
         this.newHighScoreRank = 0;
         this.initials = '';
+        
+        // Help popup state
+        this.showHelp = false;
 
                 // Mobile touch controls
         this.touchControls = new TouchControlManager(this.canvas);
@@ -3002,9 +3007,19 @@ class Game {
                 }
             }
             
+            // Help toggle with H key
+            if (e.key === 'h' || e.key === 'H') {
+                if (this.state === 'start' || this.state === 'playing' || this.state === 'paused') {
+                    this.showHelp = !this.showHelp;
+                    soundManager.playItemUse();
+                }
+            }
+            
             // Save/Load controls and Pause
             if (e.key === 'Escape') {
-                if (this.saveLoadUI.visible) {
+                if (this.showHelp) {
+                    this.showHelp = false;
+                } else if (this.saveLoadUI.visible) {
                     this.saveLoadUI.close();
                 } else if (this.skillTreeUI.visible) {
                     this.skillTreeUI.toggle();
@@ -3052,6 +3067,10 @@ class Game {
         
         // Mouse events for skill tree and save/load UI
         this.canvas.addEventListener('click', (e) => {
+            // Initialize sound on first interaction (for mobile browsers)
+            soundManager.init();
+            soundManager.resume();
+            
             // Save/Load UI takes priority
             if (this.saveLoadUI.visible) {
                 this.saveLoadUI.handleClick(e.clientX, e.clientY);
@@ -3059,6 +3078,15 @@ class Game {
             }
             if (this.skillTreeUI.visible) {
                 this.skillTreeUI.handleClick(e.clientX, e.clientY);
+                return;
+            }
+            
+            // Tap to start on touch devices (or click to start)
+            if (this.state === 'start' || this.state === 'gameover') {
+                // Don't start if entering initials on game over
+                if (this.state === 'gameover' && this.isEnteringInitials) return;
+                this.startGame();
+                return;
             }
         });
         
@@ -3341,9 +3369,42 @@ class Game {
             this.inventory.push(item.type);
             this.updateInventoryUI();
             soundManager.playItemCollect();
+            
+            // Visual feedback - show item name
+            const itemInfo = ITEM_TYPES[item.type];
+            if (itemInfo) {
+                this.showFloatingText(`+${itemInfo.name}`, item.x, item.y, itemInfo.color);
+                this.triggerFlash(itemInfo.color, 0.15);
+                
+                // Spawn collection particles
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i / 8) * Math.PI * 2;
+                    this.particles.push(new Particle(
+                        item.x, item.y,
+                        Math.cos(angle) * 3, Math.sin(angle) * 3,
+                        itemInfo.color, 20
+                    ));
+                }
+            }
             return true;
+        } else {
+            // Inventory full feedback
+            this.showFloatingText('INVENTORY FULL!', item.x, item.y - 20, '#ff4444');
         }
         return false;
+    }
+    
+    showFloatingText(text, x, y, color) {
+        if (!this.floatingTexts) this.floatingTexts = [];
+        this.floatingTexts.push({
+            text: text,
+            x: x,
+            y: y,
+            color: color,
+            alpha: 1,
+            vy: -2,
+            lifetime: 60
+        });
     }
 
     useInventoryItem(slotIndex) {
@@ -3573,7 +3634,7 @@ class Game {
         }
 
         if (this.state !== 'playing' && this.state !== 'paused') return;
-        if (this.state === 'paused') return; // Pause freezes gameplay
+        if (this.state === 'paused' || this.showHelp) return; // Pause freezes gameplay
 
         this.updateItemEffects();
         this.updateCombo();
@@ -3662,6 +3723,16 @@ class Game {
             item.update();
             return item.lifetime > 0;
         });
+        
+        // Update floating texts
+        if (this.floatingTexts) {
+            this.floatingTexts = this.floatingTexts.filter(ft => {
+                ft.y += ft.vy;
+                ft.alpha -= 0.02;
+                ft.lifetime--;
+                return ft.lifetime > 0 && ft.alpha > 0;
+            });
+        }
         
         // Remove UFOs that went off-screen
         this.ufos = this.ufos.filter(ufo => !ufo.offScreen);
@@ -3890,6 +3961,10 @@ class Game {
             this.drawStartScreen(ctx);
             this.skillTreeUI.draw(ctx);
             this.saveLoadUI.draw(ctx);
+            // Draw touch controls on start screen too
+            if (this.touchControls) {
+                this.touchControls.draw(ctx);
+            }
             ctx.restore();
             return;
         }
@@ -3938,6 +4013,7 @@ class Game {
 
         this.drawComboIndicator(ctx);
         this.drawItemEffectIndicators(ctx);
+        this.drawFloatingTexts(ctx);
         
         // Draw flash overlay
         if (this.flashAlpha > 0) {
@@ -3963,7 +4039,119 @@ class Game {
         // Draw save/load UI overlay (if visible)
         this.saveLoadUI.draw(ctx);
         
+        // Draw help popup (if visible)
+        if (this.showHelp) {
+            this.drawHelpScreen(ctx);
+        }
+        
         ctx.restore();
+    }
+    
+    drawHelpScreen(ctx) {
+        // Semi-transparent overlay
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        // Help box
+        const boxWidth = 700;
+        const boxHeight = 500;
+        const boxX = (CANVAS_WIDTH - boxWidth) / 2;
+        const boxY = (CANVAS_HEIGHT - boxHeight) / 2;
+        
+        // Box background
+        ctx.fillStyle = '#0a0020';
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+        ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+        
+        // Title
+        ctx.save();
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 15;
+        ctx.fillStyle = '#00ffff';
+        ctx.font = 'bold 28px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('HELP & CONTROLS', CANVAS_WIDTH / 2, boxY + 40);
+        ctx.restore();
+        
+        let y = boxY + 80;
+        const leftCol = boxX + 30;
+        const rightCol = boxX + 370;
+        
+        // Controls section
+        ctx.fillStyle = '#ffff00';
+        ctx.font = 'bold 16px "Courier New", monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText('CONTROLS', leftCol, y);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '14px "Courier New", monospace';
+        y += 25;
+        ctx.fillText('Arrow Keys / WASD - Move ship', leftCol, y);
+        y += 20;
+        ctx.fillText('SPACE - Shoot', leftCol, y);
+        y += 20;
+        ctx.fillText('1-5 - Use inventory item', leftCol, y);
+        y += 20;
+        ctx.fillText('M - Toggle sound effects', leftCol, y);
+        y += 20;
+        ctx.fillText('N - Toggle music', leftCol, y);
+        y += 20;
+        ctx.fillText('K - Skill tree', leftCol, y);
+        y += 20;
+        ctx.fillText('P / ESC - Pause', leftCol, y);
+        y += 20;
+        ctx.fillText('H - This help screen', leftCol, y);
+        
+        // Powerups section
+        y = boxY + 80;
+        ctx.fillStyle = '#ff00ff';
+        ctx.font = 'bold 16px "Courier New", monospace';
+        ctx.fillText('POWER-UPS (auto-activate)', rightCol, y);
+        
+        ctx.font = '14px "Courier New", monospace';
+        y += 25;
+        Object.entries(POWERUP_TYPES).forEach(([key, powerup]) => {
+            ctx.fillStyle = powerup.color;
+            ctx.fillText(`${powerup.symbol} - ${powerup.name}`, rightCol, y);
+            y += 20;
+        });
+        
+        // Items section
+        y += 15;
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 16px "Courier New", monospace';
+        ctx.fillText('ITEMS (press 1-5 to use)', rightCol, y);
+        
+        ctx.font = '14px "Courier New", monospace';
+        y += 25;
+        Object.entries(ITEM_TYPES).forEach(([key, item]) => {
+            ctx.fillStyle = item.color;
+            ctx.fillText(`${item.symbol} - ${item.name}: ${item.description}`, rightCol, y);
+            y += 20;
+        });
+        
+        // Tips section
+        y = boxY + 380;
+        ctx.fillStyle = '#00ff00';
+        ctx.font = 'bold 16px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('TIPS', CANVAS_WIDTH / 2, y);
+        
+        ctx.fillStyle = '#aaaaaa';
+        ctx.font = '13px "Courier New", monospace';
+        y += 25;
+        ctx.fillText('Destroy asteroids to collect power-ups and items', CANVAS_WIDTH / 2, y);
+        y += 18;
+        ctx.fillText('Items go to inventory - press 1-5 to use them!', CANVAS_WIDTH / 2, y);
+        y += 18;
+        ctx.fillText('Build combos for score multipliers', CANVAS_WIDTH / 2, y);
+        
+        // Close instruction
+        ctx.fillStyle = '#888888';
+        ctx.font = '14px "Courier New", monospace';
+        ctx.fillText('Press H or ESC to close', CANVAS_WIDTH / 2, boxY + boxHeight - 20);
     }
 
     drawStartScreen(ctx) {
@@ -3995,14 +4183,23 @@ class Game {
             ctx.fillStyle = '#ffffff';
             ctx.font = '24px "Courier New", monospace';
             ctx.textAlign = 'center';
-            ctx.fillText('Press ENTER to Start', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
+            // Show touch-friendly start message on mobile
+            if (this.touchControls && this.touchControls.isTouchDevice) {
+                ctx.fillText('Tap to Start', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
+            } else {
+                ctx.fillText('Press ENTER to Start', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
+            }
         }
         
-        // Sound instructions
+        // Sound instructions / Touch hint
         ctx.fillStyle = '#666666';
         ctx.font = '14px "Courier New", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('M = Toggle SFX  |  N = Toggle Music', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
+        if (this.touchControls && this.touchControls.isTouchDevice) {
+            ctx.fillText('Left side = Move  |  Right side = Fire', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
+        } else {
+            ctx.fillText('M = Toggle SFX  |  N = Toggle Music', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
+        }
         
         // Skill tree hint
         ctx.save();
@@ -4013,14 +4210,23 @@ class Game {
         ctx.fillText(`Press K for Skill Tree (${this.skillTree.skillPoints} points)`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 120);
         ctx.restore();
         
+        // Help hint
+        ctx.save();
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = '#00ffff';
+        ctx.font = '14px "Courier New", monospace';
+        ctx.fillText('Press H for Help & Controls', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 145);
+        ctx.restore();
+        
         // Load game hint (if saves exist)
         if (this.saveLoadUI.saveManager.hasSaves()) {
             ctx.save();
             ctx.shadowColor = '#00ff88';
             ctx.shadowBlur = 10;
             ctx.fillStyle = '#00ff88';
-            ctx.font = '16px "Courier New", monospace';
-            ctx.fillText('Press L to Load Saved Game', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 150);
+            ctx.font = '14px "Courier New", monospace';
+            ctx.fillText('Press L to Load Saved Game', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 168);
             ctx.restore();
         }
         
@@ -4199,11 +4405,13 @@ class Game {
             ctx.font = '20px "Courier New", monospace';
             ctx.fillText('Enter your initials:', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
             
-            // Draw initials boxes
+            // Draw initials boxes - properly centered
             const boxWidth = 40;
-            const startX = CANVAS_WIDTH / 2 - boxWidth * 1.5;
+            const boxGap = 10;
+            const totalWidth = boxWidth * 3 + boxGap * 2; // 140px total
+            const startX = CANVAS_WIDTH / 2 - totalWidth / 2;
             for (let i = 0; i < 3; i++) {
-                const x = startX + i * (boxWidth + 10);
+                const x = startX + i * (boxWidth + boxGap);
                 const y = CANVAS_HEIGHT / 2 + 75;
                 
                 // Box background
@@ -4282,7 +4490,21 @@ class Game {
         });
     }
 
-
+    drawFloatingTexts(ctx) {
+        if (!this.floatingTexts) return;
+        
+        this.floatingTexts.forEach(ft => {
+            ctx.save();
+            ctx.globalAlpha = ft.alpha;
+            ctx.shadowColor = ft.color;
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = ft.color;
+            ctx.font = 'bold 16px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(ft.text, ft.x, ft.y);
+            ctx.restore();
+        });
+    }
 
     drawComboIndicator(ctx) {
         if (this.comboCount < 2) return;
