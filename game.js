@@ -3354,9 +3354,40 @@ class Game {
             this.inventory.push(item.type);
             this.updateInventoryUI();
             soundManager.playItemCollect();
+            
+            // Visual feedback - show item name
+            const itemInfo = ITEM_TYPES[item.type];
+            this.showFloatingText(`+${itemInfo.name}`, item.x, item.y, itemInfo.color);
+            this.triggerFlash(itemInfo.color, 0.15);
+            
+            // Spawn collection particles
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                this.particles.push(new Particle(
+                    item.x, item.y,
+                    Math.cos(angle) * 3, Math.sin(angle) * 3,
+                    itemInfo.color, 20
+                ));
+            }
             return true;
+        } else {
+            // Inventory full feedback
+            this.showFloatingText('INVENTORY FULL!', item.x, item.y - 20, '#ff4444');
         }
         return false;
+    }
+    
+    showFloatingText(text, x, y, color) {
+        if (!this.floatingTexts) this.floatingTexts = [];
+        this.floatingTexts.push({
+            text: text,
+            x: x,
+            y: y,
+            color: color,
+            alpha: 1,
+            vy: -2,
+            lifetime: 60
+        });
     }
 
     useInventoryItem(slotIndex) {
@@ -3676,6 +3707,16 @@ class Game {
             return item.lifetime > 0;
         });
         
+        // Update floating texts
+        if (this.floatingTexts) {
+            this.floatingTexts = this.floatingTexts.filter(ft => {
+                ft.y += ft.vy;
+                ft.alpha -= 0.02;
+                ft.lifetime--;
+                return ft.lifetime > 0 && ft.alpha > 0;
+            });
+        }
+        
         // Remove UFOs that went off-screen
         this.ufos = this.ufos.filter(ufo => !ufo.offScreen);
         
@@ -3951,6 +3992,7 @@ class Game {
 
         this.drawComboIndicator(ctx);
         this.drawItemEffectIndicators(ctx);
+        this.drawFloatingTexts(ctx);
         
         // Draw flash overlay
         if (this.flashAlpha > 0) {
@@ -4418,7 +4460,21 @@ class Game {
         });
     }
 
-
+    drawFloatingTexts(ctx) {
+        if (!this.floatingTexts) return;
+        
+        this.floatingTexts.forEach(ft => {
+            ctx.save();
+            ctx.globalAlpha = ft.alpha;
+            ctx.shadowColor = ft.color;
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = ft.color;
+            ctx.font = 'bold 16px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(ft.text, ft.x, ft.y);
+            ctx.restore();
+        });
+    }
 
     drawComboIndicator(ctx) {
         if (this.comboCount < 2) return;
