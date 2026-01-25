@@ -1,4 +1,4 @@
-// Game constants
+﻿// Game constants
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const FPS = 60;
@@ -1819,6 +1819,936 @@ class AchievementManager {
 const achievementManager = new AchievementManager();
 
 
+// ============== ENVIRONMENTAL HAZARDS CONSTANTS ==============
+const HAZARD_SPAWN_INTERVAL = 1800; // 30 seconds at 60fps
+const BLACK_HOLE_LIFETIME = 600; // 10 seconds
+const BLACK_HOLE_PULL_RADIUS = 200;
+const BLACK_HOLE_KILL_RADIUS = 25;
+const BLACK_HOLE_STRENGTH = 0.15;
+const SOLAR_FLARE_WARNING_TIME = 180; // 3 seconds warning
+const SOLAR_FLARE_ACTIVE_TIME = 60; // 1 second of danger
+const ASTEROID_FIELD_LIFETIME = 480; // 8 seconds
+const ASTEROID_FIELD_SIZE = 150;
+const ASTEROID_FIELD_DENSITY = 8;
+
+// ============== BLACK HOLE CLASS ==============
+// Creates gravitational pull on all objects
+class BlackHole {
+    constructor(x, y, game) {
+        this.x = x;
+        this.y = y;
+        this.game = game;
+        this.lifetime = BLACK_HOLE_LIFETIME;
+        this.maxLifetime = BLACK_HOLE_LIFETIME;
+        this.phase = 0;
+        this.rotationPhase = 0;
+        this.spawnAnimation = 0;
+        this.particles = [];
+        
+        // Play spawn sound
+        this.playSpawnSound();
+    }
+    
+    playSpawnSound() {
+        if (!soundManager.initialized) return;
+        soundManager.resume();
+        
+        const now = soundManager.audioContext.currentTime;
+        
+        // Deep rumbling bass
+        const bass = soundManager.audioContext.createOscillator();
+        const bassGain = soundManager.audioContext.createGain();
+        
+        bass.type = 'sine';
+        bass.frequency.setValueAtTime(30, now);
+        bass.frequency.exponentialRampToValueAtTime(60, now + 0.5);
+        bass.frequency.exponentialRampToValueAtTime(40, now + 1);
+        
+        bassGain.gain.setValueAtTime(0, now);
+        bassGain.gain.linearRampToValueAtTime(0.3, now + 0.3);
+        bassGain.gain.exponentialRampToValueAtTime(0.01, now + 1);
+        
+        bass.connect(bassGain);
+        bassGain.connect(soundManager.masterGain);
+        
+        bass.start(now);
+        bass.stop(now + 1);
+        
+        // Eerie warble
+        const warble = soundManager.audioContext.createOscillator();
+        const warbleGain = soundManager.audioContext.createGain();
+        
+        warble.type = 'sine';
+        warble.frequency.setValueAtTime(200, now);
+        warble.frequency.exponentialRampToValueAtTime(100, now + 0.8);
+        
+        const lfo = soundManager.audioContext.createOscillator();
+        const lfoGain = soundManager.audioContext.createGain();
+        lfo.type = 'sine';
+        lfo.frequency.value = 8;
+        lfoGain.gain.value = 30;
+        lfo.connect(lfoGain);
+        lfoGain.connect(warble.frequency);
+        lfo.start(now);
+        lfo.stop(now + 0.8);
+        
+        warbleGain.gain.setValueAtTime(0.1, now);
+        warbleGain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+        
+        warble.connect(warbleGain);
+        warbleGain.connect(soundManager.masterGain);
+        
+        warble.start(now);
+        warble.stop(now + 0.8);
+    }
+    
+    update() {
+        this.lifetime--;
+        this.phase += 0.05;
+        this.rotationPhase += 0.03;
+        this.spawnAnimation = Math.min(1, this.spawnAnimation + 0.02);
+        
+        // Spawn swirling particles
+        if (Math.random() < 0.3) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = BLACK_HOLE_PULL_RADIUS * (0.5 + Math.random() * 0.5);
+            this.particles.push({
+                x: this.x + Math.cos(angle) * dist,
+                y: this.y + Math.sin(angle) * dist,
+                angle: angle,
+                dist: dist,
+                life: 60,
+                maxLife: 60,
+                size: 1 + Math.random() * 2
+            });
+        }
+        
+        // Update particles (spiral inward)
+        this.particles = this.particles.filter(p => {
+            p.life--;
+            p.angle += 0.1 + (1 - p.dist / BLACK_HOLE_PULL_RADIUS) * 0.1;
+            p.dist -= 2;
+            p.x = this.x + Math.cos(p.angle) * p.dist;
+            p.y = this.y + Math.sin(p.angle) * p.dist;
+            return p.life > 0 && p.dist > BLACK_HOLE_KILL_RADIUS;
+        });
+        
+        // Apply gravitational pull to game objects
+        this.applyGravity();
+    }
+    
+    applyGravity() {
+        const pullStrength = BLACK_HOLE_STRENGTH * this.spawnAnimation;
+        
+        // Pull ship
+        if (this.game.ship && !this.game.ship.invulnerable) {
+            this.pullObject(this.game.ship, pullStrength);
+        }
+        
+        // Pull asteroids
+        this.game.asteroids.forEach(asteroid => {
+            if (!this.game.freezeActive) {
+                this.pullObject(asteroid, pullStrength * 0.8);
+            }
+        });
+        
+        // Pull bullets
+        this.game.bullets.forEach(bullet => {
+            this.pullObject(bullet, pullStrength * 0.5);
+        });
+        
+        // Pull enemy bullets
+        this.game.enemyBullets.forEach(bullet => {
+            this.pullObject(bullet, pullStrength * 0.5);
+        });
+        
+        // Pull items and powerups (strongly)
+        this.game.items.forEach(item => {
+            this.pullObject(item, pullStrength * 1.5);
+        });
+        
+        this.game.powerUps.forEach(powerUp => {
+            this.pullObject(powerUp, pullStrength * 1.5);
+        });
+        
+        // Pull UFOs
+        this.game.ufos.forEach(ufo => {
+            if (!ufo.frozen) {
+                this.pullObject(ufo, pullStrength * 0.6);
+            }
+        });
+    }
+    
+    pullObject(obj, strength) {
+        const dx = this.x - obj.x;
+        const dy = this.y - obj.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < BLACK_HOLE_PULL_RADIUS && dist > 0) {
+            const force = strength * (1 - dist / BLACK_HOLE_PULL_RADIUS);
+            obj.vx += (dx / dist) * force;
+            obj.vy += (dy / dist) * force;
+        }
+    }
+    
+    checkShipCollision() {
+        if (!this.game.ship || this.game.ship.invulnerable) return false;
+        
+        const dx = this.x - this.game.ship.x;
+        const dy = this.y - this.game.ship.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        return dist < BLACK_HOLE_KILL_RADIUS + SHIP_SIZE;
+    }
+    
+    draw(ctx) {
+        const scale = this.spawnAnimation;
+        const fadeOut = this.lifetime < 60 ? this.lifetime / 60 : 1;
+        
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.globalAlpha = fadeOut;
+        
+        // Draw swirling particles first
+        this.particles.forEach(p => {
+            const alpha = (p.life / p.maxLife) * fadeOut;
+            ctx.fillStyle = `rgba(128, 0, 255, ${alpha})`;
+            ctx.beginPath();
+            ctx.arc(p.x - this.x, p.y - this.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        
+        // Outer accretion disk
+        ctx.save();
+        ctx.rotate(this.rotationPhase);
+        
+        for (let i = 0; i < 3; i++) {
+            const diskRadius = (BLACK_HOLE_PULL_RADIUS * 0.6 - i * 20) * scale;
+            const gradient = ctx.createRadialGradient(0, 0, diskRadius * 0.3, 0, 0, diskRadius);
+            gradient.addColorStop(0, 'transparent');
+            gradient.addColorStop(0.5, `rgba(128, 0, 255, ${0.1 - i * 0.02})`);
+            gradient.addColorStop(0.8, `rgba(200, 100, 255, ${0.15 - i * 0.03})`);
+            gradient.addColorStop(1, 'transparent');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, diskRadius, diskRadius * 0.3, this.rotationPhase * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+        
+        // Event horizon (black center)
+        const holeRadius = BLACK_HOLE_KILL_RADIUS * scale;
+        const holeGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, holeRadius * 1.5);
+        holeGradient.addColorStop(0, '#000000');
+        holeGradient.addColorStop(0.6, '#000000');
+        holeGradient.addColorStop(0.8, '#1a0033');
+        holeGradient.addColorStop(1, 'transparent');
+        
+        ctx.fillStyle = holeGradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, holeRadius * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Glowing ring around event horizon
+        const ringPulse = 1 + Math.sin(this.phase * 2) * 0.1;
+        ctx.strokeStyle = '#9933ff';
+        ctx.lineWidth = 3 * ringPulse;
+        ctx.shadowColor = '#cc66ff';
+        ctx.shadowBlur = 20;
+        ctx.beginPath();
+        ctx.arc(0, 0, holeRadius * ringPulse, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Inner bright ring
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(0, 0, holeRadius * 0.8 * ringPulse, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        ctx.restore();
+        
+        // Warning radius indicator (subtle)
+        if (this.lifetime > 60) {
+            ctx.save();
+            ctx.strokeStyle = `rgba(128, 0, 255, ${0.2 * fadeOut})`;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, BLACK_HOLE_PULL_RADIUS * scale, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+}
+
+// ============== SOLAR FLARE CLASS ==============
+// Screen-wide beam that damages anything in its path
+class SolarFlare {
+    constructor(game) {
+        this.game = game;
+        this.state = 'warning'; // 'warning', 'active', 'fading'
+        this.timer = SOLAR_FLARE_WARNING_TIME;
+        this.maxWarningTime = SOLAR_FLARE_WARNING_TIME;
+        
+        // Random direction (horizontal or vertical)
+        this.isHorizontal = Math.random() > 0.5;
+        
+        // Position - either Y position for horizontal, or X for vertical
+        if (this.isHorizontal) {
+            this.position = 100 + Math.random() * (CANVAS_HEIGHT - 200);
+            this.beamWidth = 80;
+        } else {
+            this.position = 100 + Math.random() * (CANVAS_WIDTH - 200);
+            this.beamWidth = 80;
+        }
+        
+        this.phase = 0;
+        this.intensity = 0;
+        this.particles = [];
+        
+        // Play warning sound
+        this.playWarningSound();
+    }
+    
+    playWarningSound() {
+        if (!soundManager.initialized) return;
+        soundManager.resume();
+        
+        const now = soundManager.audioContext.currentTime;
+        
+        // Rising alarm tone
+        const alarm = soundManager.audioContext.createOscillator();
+        const alarmGain = soundManager.audioContext.createGain();
+        
+        alarm.type = 'square';
+        alarm.frequency.setValueAtTime(200, now);
+        alarm.frequency.linearRampToValueAtTime(400, now + 0.2);
+        alarm.frequency.linearRampToValueAtTime(200, now + 0.4);
+        alarm.frequency.linearRampToValueAtTime(400, now + 0.6);
+        
+        alarmGain.gain.setValueAtTime(0.15, now);
+        alarmGain.gain.setValueAtTime(0.15, now + 0.5);
+        alarmGain.gain.exponentialRampToValueAtTime(0.01, now + 0.7);
+        
+        alarm.connect(alarmGain);
+        alarmGain.connect(soundManager.masterGain);
+        
+        alarm.start(now);
+        alarm.stop(now + 0.7);
+    }
+    
+    playFireSound() {
+        if (!soundManager.initialized) return;
+        soundManager.resume();
+        
+        const now = soundManager.audioContext.currentTime;
+        
+        // Intense beam sound
+        const beam = soundManager.audioContext.createOscillator();
+        const beamGain = soundManager.audioContext.createGain();
+        
+        beam.type = 'sawtooth';
+        beam.frequency.setValueAtTime(100, now);
+        beam.frequency.exponentialRampToValueAtTime(50, now + 0.5);
+        
+        beamGain.gain.setValueAtTime(0.3, now);
+        beamGain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+        
+        const filter = soundManager.audioContext.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(500, now);
+        filter.frequency.exponentialRampToValueAtTime(100, now + 0.5);
+        
+        beam.connect(filter);
+        filter.connect(beamGain);
+        beamGain.connect(soundManager.masterGain);
+        
+        beam.start(now);
+        beam.stop(now + 0.6);
+        
+        // Add crackling noise
+        const bufferSize = soundManager.audioContext.sampleRate * 0.5;
+        const noiseBuffer = soundManager.audioContext.createBuffer(1, bufferSize, soundManager.audioContext.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        
+        for (let i = 0; i < bufferSize; i++) {
+            output[i] = Math.random() * 2 - 1;
+        }
+        
+        const noise = soundManager.audioContext.createBufferSource();
+        noise.buffer = noiseBuffer;
+        
+        const noiseFilter = soundManager.audioContext.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.value = 2000;
+        noiseFilter.Q.value = 1;
+        
+        const noiseGain = soundManager.audioContext.createGain();
+        noiseGain.gain.setValueAtTime(0.2, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+        
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(soundManager.masterGain);
+        
+        noise.start(now);
+        noise.stop(now + 0.5);
+    }
+    
+    update() {
+        this.timer--;
+        this.phase += 0.15;
+        
+        if (this.state === 'warning') {
+            this.intensity = (this.maxWarningTime - this.timer) / this.maxWarningTime * 0.3;
+            
+            if (this.timer <= 0) {
+                this.state = 'active';
+                this.timer = SOLAR_FLARE_ACTIVE_TIME;
+                this.playFireSound();
+                this.game.screenShake.trigger(15);
+                this.game.triggerFlash('#ffff00', 0.4);
+            }
+        } else if (this.state === 'active') {
+            this.intensity = 1;
+            
+            // Spawn fire particles
+            for (let i = 0; i < 5; i++) {
+                if (this.isHorizontal) {
+                    this.particles.push({
+                        x: Math.random() * CANVAS_WIDTH,
+                        y: this.position + (Math.random() - 0.5) * this.beamWidth,
+                        vx: (Math.random() - 0.5) * 3,
+                        vy: (Math.random() - 0.5) * 5,
+                        life: 20 + Math.random() * 20,
+                        size: 2 + Math.random() * 4
+                    });
+                } else {
+                    this.particles.push({
+                        x: this.position + (Math.random() - 0.5) * this.beamWidth,
+                        y: Math.random() * CANVAS_HEIGHT,
+                        vx: (Math.random() - 0.5) * 5,
+                        vy: (Math.random() - 0.5) * 3,
+                        life: 20 + Math.random() * 20,
+                        size: 2 + Math.random() * 4
+                    });
+                }
+            }
+            
+            if (this.timer <= 0) {
+                this.state = 'fading';
+                this.timer = 30;
+            }
+        } else if (this.state === 'fading') {
+            this.intensity = this.timer / 30;
+        }
+        
+        // Update particles
+        this.particles = this.particles.filter(p => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life--;
+            p.size *= 0.95;
+            return p.life > 0;
+        });
+    }
+    
+    isInBeam(x, y, radius = 0) {
+        if (this.state !== 'active') return false;
+        
+        if (this.isHorizontal) {
+            return Math.abs(y - this.position) < (this.beamWidth / 2 + radius);
+        } else {
+            return Math.abs(x - this.position) < (this.beamWidth / 2 + radius);
+        }
+    }
+    
+    isFinished() {
+        return this.state === 'fading' && this.timer <= 0;
+    }
+    
+    draw(ctx) {
+        ctx.save();
+        
+        const warningAlpha = this.state === 'warning' ? 
+            0.3 + Math.sin(this.phase * 2) * 0.2 : 0;
+        
+        // Warning zone
+        if (this.state === 'warning') {
+            ctx.fillStyle = `rgba(255, 200, 0, ${warningAlpha * 0.3})`;
+            ctx.strokeStyle = `rgba(255, 200, 0, ${warningAlpha})`;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([15, 15]);
+            
+            if (this.isHorizontal) {
+                ctx.fillRect(0, this.position - this.beamWidth / 2, CANVAS_WIDTH, this.beamWidth);
+                ctx.strokeRect(0, this.position - this.beamWidth / 2, CANVAS_WIDTH, this.beamWidth);
+            } else {
+                ctx.fillRect(this.position - this.beamWidth / 2, 0, this.beamWidth, CANVAS_HEIGHT);
+                ctx.strokeRect(this.position - this.beamWidth / 2, 0, this.beamWidth, CANVAS_HEIGHT);
+            }
+            
+            // Warning text
+            ctx.setLineDash([]);
+            ctx.fillStyle = `rgba(255, 255, 0, ${warningAlpha})`;
+            ctx.font = 'bold 24px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            
+            const countdown = Math.ceil(this.timer / 60);
+            if (this.isHorizontal) {
+                ctx.fillText(`! SOLAR FLARE ${countdown} !`, CANVAS_WIDTH / 2, this.position);
+            } else {
+                ctx.save();
+                ctx.translate(this.position, CANVAS_HEIGHT / 2);
+                ctx.rotate(-Math.PI / 2);
+                ctx.fillText(`! SOLAR FLARE ${countdown} !`, 0, 0);
+                ctx.restore();
+            }
+        }
+        
+        // Active beam
+        if (this.state === 'active' || this.state === 'fading') {
+            const beamGradient = this.isHorizontal ?
+                ctx.createLinearGradient(0, this.position - this.beamWidth / 2, 0, this.position + this.beamWidth / 2) :
+                ctx.createLinearGradient(this.position - this.beamWidth / 2, 0, this.position + this.beamWidth / 2, 0);
+            
+            beamGradient.addColorStop(0, `rgba(255, 100, 0, 0)`);
+            beamGradient.addColorStop(0.2, `rgba(255, 150, 0, ${this.intensity * 0.5})`);
+            beamGradient.addColorStop(0.4, `rgba(255, 200, 50, ${this.intensity * 0.8})`);
+            beamGradient.addColorStop(0.5, `rgba(255, 255, 200, ${this.intensity})`);
+            beamGradient.addColorStop(0.6, `rgba(255, 200, 50, ${this.intensity * 0.8})`);
+            beamGradient.addColorStop(0.8, `rgba(255, 150, 0, ${this.intensity * 0.5})`);
+            beamGradient.addColorStop(1, `rgba(255, 100, 0, 0)`);
+            
+            ctx.fillStyle = beamGradient;
+            ctx.shadowColor = '#ffaa00';
+            ctx.shadowBlur = 30 * this.intensity;
+            
+            if (this.isHorizontal) {
+                ctx.fillRect(0, this.position - this.beamWidth / 2, CANVAS_WIDTH, this.beamWidth);
+            } else {
+                ctx.fillRect(this.position - this.beamWidth / 2, 0, this.beamWidth, CANVAS_HEIGHT);
+            }
+        }
+        
+        // Particles
+        this.particles.forEach(p => {
+            const alpha = p.life / 40;
+            ctx.fillStyle = `rgba(255, ${150 + Math.random() * 100}, 0, ${alpha})`;
+            ctx.shadowColor = '#ffaa00';
+            ctx.shadowBlur = 5;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        
+        ctx.restore();
+    }
+}
+
+// ============== ASTEROID FIELD CLASS ==============
+// Dense cluster of small asteroids drifting across the screen
+class AsteroidField {
+    constructor(game) {
+        this.game = game;
+        this.lifetime = ASTEROID_FIELD_LIFETIME;
+        
+        // Start from a random edge
+        const side = Math.floor(Math.random() * 4);
+        const angle = Math.random() * Math.PI * 0.5 - Math.PI * 0.25; // Slight angle variation
+        
+        switch(side) {
+            case 0: // Top
+                this.x = Math.random() * CANVAS_WIDTH;
+                this.y = -ASTEROID_FIELD_SIZE;
+                this.vx = Math.sin(angle) * 1.5;
+                this.vy = 1.5;
+                break;
+            case 1: // Right
+                this.x = CANVAS_WIDTH + ASTEROID_FIELD_SIZE;
+                this.y = Math.random() * CANVAS_HEIGHT;
+                this.vx = -1.5;
+                this.vy = Math.sin(angle) * 1.5;
+                break;
+            case 2: // Bottom
+                this.x = Math.random() * CANVAS_WIDTH;
+                this.y = CANVAS_HEIGHT + ASTEROID_FIELD_SIZE;
+                this.vx = Math.sin(angle) * 1.5;
+                this.vy = -1.5;
+                break;
+            case 3: // Left
+                this.x = -ASTEROID_FIELD_SIZE;
+                this.y = Math.random() * CANVAS_HEIGHT;
+                this.vx = 1.5;
+                this.vy = Math.sin(angle) * 1.5;
+                break;
+        }
+        
+        // Create mini asteroids within the field
+        this.miniAsteroids = [];
+        for (let i = 0; i < ASTEROID_FIELD_DENSITY; i++) {
+            const offsetAngle = Math.random() * Math.PI * 2;
+            const offsetDist = Math.random() * ASTEROID_FIELD_SIZE * 0.8;
+            this.miniAsteroids.push({
+                offsetX: Math.cos(offsetAngle) * offsetDist,
+                offsetY: Math.sin(offsetAngle) * offsetDist,
+                radius: 8 + Math.random() * 12,
+                rotation: Math.random() * Math.PI * 2,
+                rotSpeed: (Math.random() - 0.5) * 0.1,
+                hue: 20 + Math.random() * 20,
+                vertices: this.generateVertices(8 + Math.random() * 12)
+            });
+        }
+        
+        this.phase = 0;
+        this.playSpawnSound();
+    }
+    
+    generateVertices(radius) {
+        const vertices = [];
+        const count = 6 + Math.floor(Math.random() * 4);
+        for (let i = 0; i < count; i++) {
+            const angle = (i / count) * Math.PI * 2;
+            const dist = radius * (0.7 + Math.random() * 0.3);
+            vertices.push({ x: Math.cos(angle) * dist, y: Math.sin(angle) * dist });
+        }
+        return vertices;
+    }
+    
+    playSpawnSound() {
+        if (!soundManager.initialized) return;
+        soundManager.resume();
+        
+        const now = soundManager.audioContext.currentTime;
+        
+        // Rumbling approach sound
+        const rumble = soundManager.audioContext.createOscillator();
+        const rumbleGain = soundManager.audioContext.createGain();
+        
+        rumble.type = 'triangle';
+        rumble.frequency.value = 60;
+        
+        // LFO for rumble
+        const lfo = soundManager.audioContext.createOscillator();
+        const lfoGain = soundManager.audioContext.createGain();
+        lfo.type = 'sine';
+        lfo.frequency.value = 4;
+        lfoGain.gain.value = 20;
+        lfo.connect(lfoGain);
+        lfoGain.connect(rumble.frequency);
+        lfo.start(now);
+        lfo.stop(now + 1);
+        
+        rumbleGain.gain.setValueAtTime(0, now);
+        rumbleGain.gain.linearRampToValueAtTime(0.15, now + 0.3);
+        rumbleGain.gain.exponentialRampToValueAtTime(0.01, now + 1);
+        
+        rumble.connect(rumbleGain);
+        rumbleGain.connect(soundManager.masterGain);
+        
+        rumble.start(now);
+        rumble.stop(now + 1);
+    }
+    
+    update() {
+        this.lifetime--;
+        this.x += this.vx;
+        this.y += this.vy;
+        this.phase += 0.05;
+        
+        // Update mini asteroid rotations
+        this.miniAsteroids.forEach(a => {
+            a.rotation += a.rotSpeed;
+        });
+    }
+    
+    isOffScreen() {
+        return this.x < -ASTEROID_FIELD_SIZE * 2 || 
+               this.x > CANVAS_WIDTH + ASTEROID_FIELD_SIZE * 2 ||
+               this.y < -ASTEROID_FIELD_SIZE * 2 || 
+               this.y > CANVAS_HEIGHT + ASTEROID_FIELD_SIZE * 2;
+    }
+    
+    checkCollision(x, y, radius) {
+        for (const asteroid of this.miniAsteroids) {
+            const ax = this.x + asteroid.offsetX;
+            const ay = this.y + asteroid.offsetY;
+            const dx = x - ax;
+            const dy = y - ay;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist < asteroid.radius + radius) {
+                return { x: ax, y: ay, asteroid };
+            }
+        }
+        return null;
+    }
+    
+    removeMiniAsteroid(asteroid) {
+        const idx = this.miniAsteroids.indexOf(asteroid);
+        if (idx > -1) {
+            this.miniAsteroids.splice(idx, 1);
+        }
+    }
+    
+    draw(ctx) {
+        ctx.save();
+        
+        // Draw field boundary (subtle dust cloud)
+        const cloudAlpha = 0.1 + Math.sin(this.phase) * 0.05;
+        const cloudGradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, ASTEROID_FIELD_SIZE);
+        cloudGradient.addColorStop(0, `rgba(255, 150, 100, ${cloudAlpha})`);
+        cloudGradient.addColorStop(0.7, `rgba(255, 100, 50, ${cloudAlpha * 0.5})`);
+        cloudGradient.addColorStop(1, 'transparent');
+        
+        ctx.fillStyle = cloudGradient;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, ASTEROID_FIELD_SIZE, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw mini asteroids
+        this.miniAsteroids.forEach(asteroid => {
+            const ax = this.x + asteroid.offsetX;
+            const ay = this.y + asteroid.offsetY;
+            
+            ctx.save();
+            ctx.translate(ax, ay);
+            ctx.rotate(asteroid.rotation);
+            
+            // Glow
+            ctx.shadowColor = '#ff6600';
+            ctx.shadowBlur = 8;
+            
+            // Fill
+            const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, asteroid.radius);
+            gradient.addColorStop(0, `hsl(${asteroid.hue}, 70%, 20%)`);
+            gradient.addColorStop(1, `hsl(${asteroid.hue}, 80%, 8%)`);
+            
+            ctx.fillStyle = gradient;
+            ctx.strokeStyle = '#ff6600';
+            ctx.lineWidth = 1.5;
+            
+            ctx.beginPath();
+            asteroid.vertices.forEach((v, i) => {
+                if (i === 0) ctx.moveTo(v.x, v.y);
+                else ctx.lineTo(v.x, v.y);
+            });
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            
+            ctx.restore();
+        });
+        
+        ctx.restore();
+    }
+}
+
+// ============== ENVIRONMENTAL HAZARDS MANAGER ==============
+class EnvironmentalHazardsManager {
+    constructor(game) {
+        this.game = game;
+        this.blackHoles = [];
+        this.solarFlares = [];
+        this.asteroidFields = [];
+        this.spawnTimer = HAZARD_SPAWN_INTERVAL / 2; // First hazard comes sooner
+        this.hazardLevel = 0; // Increases with game level
+    }
+    
+    reset() {
+        this.blackHoles = [];
+        this.solarFlares = [];
+        this.asteroidFields = [];
+        this.spawnTimer = HAZARD_SPAWN_INTERVAL / 2;
+        this.hazardLevel = 0;
+    }
+    
+    update() {
+        // Update hazard level based on game level
+        this.hazardLevel = Math.min(this.game.level / 5, 3);
+        
+        // Spawn new hazards periodically (more frequent at higher levels)
+        this.spawnTimer--;
+        const spawnInterval = HAZARD_SPAWN_INTERVAL / (1 + this.hazardLevel * 0.3);
+        
+        if (this.spawnTimer <= 0) {
+            this.spawnRandomHazard();
+            this.spawnTimer = spawnInterval;
+        }
+        
+        // Update black holes
+        this.blackHoles = this.blackHoles.filter(hole => {
+            hole.update();
+            
+            // Check ship collision with event horizon
+            if (hole.checkShipCollision()) {
+                if (this.game.ship && !this.game.ship.hasShield) {
+                    this.game.createExplosion(this.game.ship.x, this.game.ship.y, 25);
+                    this.game.ship = null;
+                    this.game.loseLife();
+                } else if (this.game.ship && this.game.ship.hasShield) {
+                    soundManager.playShieldHit();
+                    this.game.triggerFlash('#9933ff', 0.3);
+                }
+            }
+            
+            return hole.lifetime > 0;
+        });
+        
+        // Update solar flares
+        this.solarFlares = this.solarFlares.filter(flare => {
+            flare.update();
+            
+            // Check ship collision during active phase
+            if (this.game.ship && !this.game.ship.invulnerable && flare.isInBeam(this.game.ship.x, this.game.ship.y, SHIP_SIZE)) {
+                if (!this.game.ship.hasShield) {
+                    this.game.createExplosion(this.game.ship.x, this.game.ship.y, 25);
+                    this.game.ship = null;
+                    this.game.loseLife();
+                } else {
+                    soundManager.playShieldHit();
+                    this.game.triggerFlash('#ffaa00', 0.2);
+                }
+            }
+            
+            // Damage asteroids in beam
+            if (flare.state === 'active') {
+                for (let i = this.game.asteroids.length - 1; i >= 0; i--) {
+                    const asteroid = this.game.asteroids[i];
+                    if (flare.isInBeam(asteroid.x, asteroid.y, asteroid.radius)) {
+                        this.game.createExplosion(asteroid.x, asteroid.y, asteroid.size * 4);
+                        if (asteroid.size > 1) {
+                            for (let k = 0; k < 2; k++) {
+                                this.game.asteroids.push(new Asteroid(asteroid.x, asteroid.y, asteroid.size - 1, this.game));
+                            }
+                        }
+                        this.game.asteroids.splice(i, 1);
+                    }
+                }
+                
+                // Damage UFOs in beam
+                for (let i = this.game.ufos.length - 1; i >= 0; i--) {
+                    const ufo = this.game.ufos[i];
+                    if (flare.isInBeam(ufo.x, ufo.y, UFO_SIZE)) {
+                        this.game.createUfoExplosion(ufo.x, ufo.y);
+                        this.game.ufos.splice(i, 1);
+                    }
+                }
+            }
+            
+            return !flare.isFinished();
+        });
+        
+        // Update asteroid fields
+        this.asteroidFields = this.asteroidFields.filter(field => {
+            field.update();
+            
+            // Check ship collision
+            if (this.game.ship && !this.game.ship.invulnerable) {
+                const hit = field.checkCollision(this.game.ship.x, this.game.ship.y, SHIP_SIZE);
+                if (hit) {
+                    if (!this.game.ship.hasShield) {
+                        this.game.createExplosion(this.game.ship.x, this.game.ship.y, 25);
+                        this.game.ship = null;
+                        this.game.loseLife();
+                    } else {
+                        soundManager.playShieldHit();
+                        this.game.createExplosion(hit.x, hit.y, 10);
+                        field.removeMiniAsteroid(hit.asteroid);
+                    }
+                }
+            }
+            
+            // Check bullet collisions
+            for (let i = this.game.bullets.length - 1; i >= 0; i--) {
+                const bullet = this.game.bullets[i];
+                const hit = field.checkCollision(bullet.x, bullet.y, 4);
+                if (hit) {
+                    this.game.bullets.splice(i, 1);
+                    this.game.createExplosion(hit.x, hit.y, 8);
+                    this.game.addScore(5);
+                    field.removeMiniAsteroid(hit.asteroid);
+                }
+            }
+            
+            return !field.isOffScreen() && field.miniAsteroids.length > 0;
+        });
+    }
+    
+    spawnRandomHazard() {
+        // Don't spawn hazards during boss fights
+        if (this.game.boss) return;
+        
+        // Don't spawn too many hazards at once
+        const totalHazards = this.blackHoles.length + this.solarFlares.length + this.asteroidFields.length;
+        if (totalHazards >= 2 + Math.floor(this.hazardLevel)) return;
+        
+        const hazardType = Math.random();
+        
+        if (hazardType < 0.35) {
+            // Black hole (35% chance)
+            this.spawnBlackHole();
+        } else if (hazardType < 0.65) {
+            // Solar flare (30% chance)
+            this.spawnSolarFlare();
+        } else {
+            // Asteroid field (35% chance)
+            this.spawnAsteroidField();
+        }
+    }
+    
+    spawnBlackHole() {
+        // Don't spawn too close to ship or screen edges
+        let x, y, attempts = 0;
+        do {
+            x = 100 + Math.random() * (CANVAS_WIDTH - 200);
+            y = 100 + Math.random() * (CANVAS_HEIGHT - 200);
+            attempts++;
+        } while (this.game.ship && 
+                 Math.hypot(x - this.game.ship.x, y - this.game.ship.y) < BLACK_HOLE_PULL_RADIUS + 100 &&
+                 attempts < 10);
+        
+        this.blackHoles.push(new BlackHole(x, y, this.game));
+        this.game.triggerFlash('#9933ff', 0.2);
+    }
+    
+    spawnSolarFlare() {
+        this.solarFlares.push(new SolarFlare(this.game));
+    }
+    
+    spawnAsteroidField() {
+        this.asteroidFields.push(new AsteroidField(this.game));
+    }
+    
+    draw(ctx) {
+        // Draw in order: fields (back), black holes (middle), flares (front)
+        this.asteroidFields.forEach(field => field.draw(ctx));
+        this.blackHoles.forEach(hole => hole.draw(ctx));
+        this.solarFlares.forEach(flare => flare.draw(ctx));
+    }
+    
+    // For freeze effect
+    freezeHazards() {
+        // Black holes continue pulling even when frozen (gravity doesn't stop!)
+        // But we slow down asteroid fields
+        this.asteroidFields.forEach(field => {
+            field.vx *= 0.1;
+            field.vy *= 0.1;
+        });
+    }
+    
+    unfreezeHazards() {
+        this.asteroidFields.forEach(field => {
+            field.vx *= 10;
+            field.vy *= 10;
+        });
+    }
+}
+
+
 // ============== STARFIELD CLASS ==============
 class StarField {
     constructor() {
@@ -2503,6 +3433,9 @@ class Game {
         this.enemyBullets = [];
         this.ufoSpawnTimer = this.getRandomUfoSpawnTime();
 
+        // Environmental hazards system
+        this.hazardsManager = new EnvironmentalHazardsManager(this);
+
         // Visual systems
         this.starField = new StarField();
         this.screenShake = new ScreenShake();
@@ -2695,6 +3628,9 @@ class Game {
         this.ufos = [];
         this.enemyBullets = [];
         this.ufoSpawnTimer = this.getRandomUfoSpawnTime();
+
+        // Environmental hazards system
+        this.hazardsManager = new EnvironmentalHazardsManager(this);
         this.magnetActive = false;
         this.magnetTimer = 0;
         this.scoreMultiplier = 1;
@@ -2751,12 +3687,18 @@ class Game {
         this.ufos = [];
         this.enemyBullets = [];
         this.ufoSpawnTimer = this.getRandomUfoSpawnTime();
+
+        // Environmental hazards system
+        this.hazardsManager = new EnvironmentalHazardsManager(this);
         this.magnetActive = false;
         this.magnetTimer = 0;
         this.scoreMultiplier = 1;
         this.scoreMultiplierTimer = 0;
         this.freezeActive = false;
         this.freezeTimer = 0;
+
+        // Reset environmental hazards
+        this.hazardsManager.reset();
         this.challengeStartTime = Date.now();
         this.challengeAsteroidsDestroyed = 0;
         this.isNewChallengeRecord = false;
@@ -3474,6 +4416,9 @@ class Game {
         // Update UFOs
         this.ufos.forEach(ufo => ufo.update());
         
+        // Update environmental hazards
+        this.hazardsManager.update();
+        
         // Update enemy bullets
         this.enemyBullets = this.enemyBullets.filter(bullet => {
             bullet.update();
@@ -3760,6 +4705,9 @@ class Game {
         this.trailParticles.forEach(particle => particle.draw(ctx));
         this.explosionParticles.forEach(particle => particle.draw(ctx));
         this.particles.forEach(particle => particle.draw(ctx));
+        
+        // Draw environmental hazards
+        this.hazardsManager.draw(ctx);
         this.items.forEach(item => item.draw(ctx));
         this.powerUps.forEach(powerUp => powerUp.draw(ctx));
         this.asteroids.forEach(asteroid => asteroid.draw(ctx));
