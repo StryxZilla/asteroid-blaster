@@ -1,4 +1,4 @@
-// Game constants
+﻿// Game constants
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const FPS = 60;
@@ -32,6 +32,21 @@ const UFO_SHOOT_INTERVAL = 90; // 1.5 seconds
 const UFO_BULLET_SPEED = 4;
 const UFO_POINTS = 500;
 
+// Boss constants
+const BOSS_LEVELS = [5, 10, 15, 20, 25, 30];
+const BOSS_SIZE = 60;
+const BOSS_BASE_HEALTH = 10;
+const BOSS_HEALTH_PER_TIER = 3;
+const BOSS_POINTS = 2000;
+const BOSS_SHOOT_INTERVAL = 60;
+const BOSS_BULLET_SPEED = 3.5;
+// Combo system constants
+const COMBO_TIMEOUT = 120; // 2 seconds at 60fps before combo breaks
+const COMBO_MULTIPLIER_CAP = 2.0; // Maximum score multiplier from combo
+const COMBO_MULTIPLIER_STEP = 0.1; // Multiplier increase per kill (reaches 2x at 11 kills)
+const COMBO_MILESTONES = [5, 10, 15, 20, 25, 50, 100]; // Trigger celebration at these counts
+
+
 // Color palette - Neon cyberpunk theme
 const COLORS = {
     shipPrimary: '#00ffff',
@@ -52,63 +67,12 @@ const COLORS = {
     ufoPrimary: '#00ff00',
     ufoSecondary: '#88ff88',
     ufoGlow: '#00ff44',
-    ufoBullet: '#88ff00'
+    ufoBullet: '#88ff00',
+    // Combo colors
+    combo: '#ff00ff',
+    comboGlow: '#ff66ff',
+    comboMax: '#ffff00'
 };
-// Asteroid variant types - visual diversity for Geometry Wars-style variety
-const ASTEROID_VARIANTS = {
-    ROCK: {
-        name: 'Rock',
-        weight: 40,
-        strokeColor: '#ff6600',
-        glowColor: '#ff4400',
-        hueRange: [20, 40],
-        fillGradient: (hue) => [`hsl(${hue}, 70%, 15%)`, `hsl(${hue}, 80%, 5%)`],
-        innerStroke: (hue) => `hsl(${hue}, 60%, 30%)`,
-        specialEffect: null
-    },
-    CRYSTAL: {
-        name: 'Crystal',
-        weight: 20,
-        strokeColor: '#00ffff',
-        glowColor: '#00aaff',
-        hueRange: [180, 220],
-        fillGradient: (hue) => [`hsla(${hue}, 80%, 40%, 0.3)`, `hsla(${hue}, 90%, 20%, 0.5)`],
-        innerStroke: (hue) => `hsla(${hue}, 100%, 70%, 0.6)`,
-        specialEffect: 'sparkle'
-    },
-    METALLIC: {
-        name: 'Metallic',
-        weight: 20,
-        strokeColor: '#ffcc00',
-        glowColor: '#ffaa00',
-        hueRange: [40, 60],
-        fillGradient: (hue) => [`hsl(${hue}, 30%, 50%)`, `hsl(${hue}, 20%, 20%)`],
-        innerStroke: (hue) => `hsl(${hue}, 40%, 70%)`,
-        specialEffect: 'shine'
-    },
-    ORGANIC: {
-        name: 'Organic',
-        weight: 20,
-        strokeColor: '#00ff66',
-        glowColor: '#00ff44',
-        hueRange: [100, 140],
-        fillGradient: (hue) => [`hsl(${hue}, 70%, 25%)`, `hsl(${hue}, 80%, 8%)`],
-        innerStroke: (hue) => `hsl(${hue}, 90%, 50%)`,
-        specialEffect: 'pulse'
-    }
-};
-
-// Select random asteroid variant based on weights
-function selectAsteroidVariant() {
-    const totalWeight = Object.values(ASTEROID_VARIANTS).reduce((sum, v) => sum + v.weight, 0);
-    let roll = Math.random() * totalWeight;
-    for (const [key, variant] of Object.entries(ASTEROID_VARIANTS)) {
-        roll -= variant.weight;
-        if (roll <= 0) return key;
-    }
-    return 'ROCK';
-}
-
 
 // Power-up types
 const POWERUP_TYPES = {
@@ -132,6 +96,969 @@ const MAX_INVENTORY_SLOTS = 5;
 const ITEM_SPAWN_CHANCE = 0.25;
 const ITEM_SIZE = 10;
 const ITEM_LIFETIME = 480;
+
+// ============== HIGH SCORE MANAGER CLASS ==============
+// Persistent leaderboard with localStorage
+
+class HighScoreManager {
+    constructor() {
+        this.storageKey = 'asteroids_neon_highscores';
+        this.maxScores = 10;
+        this.scores = this.load();
+    }
+    
+    load() {
+        try {
+            const data = localStorage.getItem(this.storageKey);
+            if (data) {
+                return JSON.parse(data);
+            }
+        } catch (e) {
+            console.warn('Failed to load high scores:', e);
+        }
+        return [];
+    }
+    
+    save() {
+        try {
+            localStorage.setItem(this.storageKey, JSON.stringify(this.scores));
+        } catch (e) {
+            console.warn('Failed to save high scores:', e);
+        }
+    }
+    
+    isHighScore(score) {
+        if (score <= 0) return false;
+        if (this.scores.length < this.maxScores) return true;
+        return score > this.scores[this.scores.length - 1].score;
+    }
+    
+    addScore(initials, score, level) {
+        const entry = {
+            initials: initials.toUpperCase().substring(0, 3).padEnd(3, '_'),
+            score: score,
+            level: level,
+            date: new Date().toISOString().split('T')[0]
+        };
+        this.scores.push(entry);
+        this.scores.sort((a, b) => b.score - a.score);
+        this.scores = this.scores.slice(0, this.maxScores);
+        this.save();
+        return this.scores.findIndex(s => s === entry) + 1;
+    }
+    
+    getScores() { return this.scores; }
+    
+    getRank(score) {
+        for (let i = 0; i < this.scores.length; i++) {
+            if (score > this.scores[i].score) return i + 1;
+        }
+        if (this.scores.length < this.maxScores) return this.scores.length + 1;
+        return -1;
+    }
+    
+    getTopScore() {
+        return this.scores.length > 0 ? this.scores[0].score : 0;
+    }
+}
+
+const highScoreManager = new HighScoreManager();
+
+// ============== SKILL TREE SYSTEM ==============
+// Persistent progression with unlockable abilities
+
+const SKILL_CATEGORIES = {
+    OFFENSE: { name: 'Offense', color: '#ff4444', icon: '!', description: 'Increase damage and firepower' },
+    DEFENSE: { name: 'Defense', color: '#44ff44', icon: 'O', description: 'Improve survivability' },
+    UTILITY: { name: 'Utility', color: '#4444ff', icon: '>', description: 'Enhance utility and bonuses' }
+};
+
+const SKILLS = {
+    // === OFFENSE SKILLS ===
+    RAPID_FIRE_MASTERY: {
+        category: 'OFFENSE', name: 'Rapid Fire Mastery', description: 'Permanently reduce shot cooldown',
+        maxLevel: 5, costPerLevel: [1, 2, 3, 4, 5],
+        effect: (level) => ({ shootCooldownReduction: level * 0.15 }), position: { x: 0, y: 0 }
+    },
+    BULLET_VELOCITY: {
+        category: 'OFFENSE', name: 'Bullet Velocity', description: 'Faster bullets travel further',
+        maxLevel: 3, costPerLevel: [1, 2, 3],
+        effect: (level) => ({ bulletSpeedBonus: level * 0.2 }), position: { x: 1, y: 0 }
+    },
+    PIERCING_SHOTS: {
+        category: 'OFFENSE', name: 'Piercing Shots', description: 'Chance for bullets to pierce targets',
+        maxLevel: 3, costPerLevel: [2, 3, 4],
+        effect: (level) => ({ pierceChance: level * 0.15 }), position: { x: 2, y: 0 }, requires: ['BULLET_VELOCITY']
+    },
+    EXPLOSIVE_ROUNDS: {
+        category: 'OFFENSE', name: 'Explosive Rounds', description: 'Kills create small explosions',
+        maxLevel: 3, costPerLevel: [3, 4, 5],
+        effect: (level) => ({ explosionRadius: level * 15 }), position: { x: 2, y: 1 }, requires: ['PIERCING_SHOTS']
+    },
+    CRITICAL_HIT: {
+        category: 'OFFENSE', name: 'Critical Strike', description: 'Chance for double damage',
+        maxLevel: 5, costPerLevel: [2, 2, 3, 3, 4],
+        effect: (level) => ({ critChance: level * 0.08 }), position: { x: 1, y: 1 }
+    },
+    // === DEFENSE SKILLS ===
+    EXTRA_LIVES: {
+        category: 'DEFENSE', name: 'Extra Lives', description: 'Start with additional lives',
+        maxLevel: 3, costPerLevel: [3, 5, 7],
+        effect: (level) => ({ startingLives: level }), position: { x: 0, y: 0 }
+    },
+    SHIELD_DURATION: {
+        category: 'DEFENSE', name: 'Shield Mastery', description: 'Shield power-ups last longer',
+        maxLevel: 5, costPerLevel: [1, 2, 2, 3, 3],
+        effect: (level) => ({ shieldDurationBonus: level * 0.2 }), position: { x: 1, y: 0 }
+    },
+    REGENERATION: {
+        category: 'DEFENSE', name: 'Hull Regeneration', description: 'Slowly regenerate lives over time',
+        maxLevel: 3, costPerLevel: [4, 6, 8],
+        effect: (level) => ({ regenInterval: Math.max(1800, 3600 - level * 600) }), position: { x: 1, y: 1 }, requires: ['EXTRA_LIVES']
+    },
+    SPAWN_PROTECTION: {
+        category: 'DEFENSE', name: 'Spawn Protection', description: 'Longer invulnerability after respawn',
+        maxLevel: 3, costPerLevel: [1, 2, 3],
+        effect: (level) => ({ spawnInvulnBonus: level * 60 }), position: { x: 2, y: 0 }
+    },
+    EMERGENCY_SHIELD: {
+        category: 'DEFENSE', name: 'Emergency Shield', description: 'Chance to auto-activate shield on hit',
+        maxLevel: 3, costPerLevel: [3, 5, 7],
+        effect: (level) => ({ emergencyShieldChance: level * 0.1 }), position: { x: 2, y: 1 }, requires: ['SHIELD_DURATION']
+    },
+    // === UTILITY SKILLS ===
+    MAGNET_RANGE: {
+        category: 'UTILITY', name: 'Magnetic Pull', description: 'Increased item attraction range',
+        maxLevel: 5, costPerLevel: [1, 1, 2, 2, 3],
+        effect: (level) => ({ magnetRangeBonus: level * 30 }), position: { x: 0, y: 0 }
+    },
+    POWERUP_DURATION: {
+        category: 'UTILITY', name: 'Power Efficiency', description: 'All power-ups last longer',
+        maxLevel: 5, costPerLevel: [1, 2, 2, 3, 3],
+        effect: (level) => ({ powerUpDurationBonus: level * 0.15 }), position: { x: 1, y: 0 }
+    },
+    SCORE_MULTIPLIER: {
+        category: 'UTILITY', name: 'Score Hunter', description: 'Permanent score bonus',
+        maxLevel: 5, costPerLevel: [2, 3, 4, 5, 6],
+        effect: (level) => ({ scoreBonus: level * 0.1 }), position: { x: 2, y: 0 }
+    },
+    LUCKY_DROPS: {
+        category: 'UTILITY', name: 'Lucky Drops', description: 'Increased item drop chance',
+        maxLevel: 3, costPerLevel: [2, 3, 4],
+        effect: (level) => ({ dropChanceBonus: level * 0.1 }), position: { x: 1, y: 1 }, requires: ['MAGNET_RANGE']
+    },
+    INVENTORY_EXPANSION: {
+        category: 'UTILITY', name: 'Deep Pockets', description: 'Additional inventory slots',
+        maxLevel: 2, costPerLevel: [4, 6],
+        effect: (level) => ({ extraInventorySlots: level }), position: { x: 0, y: 1 }
+    },
+    XP_BOOST: {
+        category: 'UTILITY', name: 'Quick Learner', description: 'Earn skill points faster',
+        maxLevel: 3, costPerLevel: [3, 5, 7],
+        effect: (level) => ({ xpBonus: level * 0.15 }), position: { x: 2, y: 1 }, requires: ['SCORE_MULTIPLIER']
+    }
+};
+
+class SkillTree {
+    constructor() {
+        this.skillLevels = {};
+        this.skillPoints = 0;
+        this.totalPointsEarned = 0;
+        Object.keys(SKILLS).forEach(skillId => { this.skillLevels[skillId] = 0; });
+        this.load();
+    }
+    save() {
+        try {
+            localStorage.setItem('asteroids_skill_tree', JSON.stringify({
+                skillLevels: this.skillLevels, skillPoints: this.skillPoints, totalPointsEarned: this.totalPointsEarned
+            }));
+        } catch (e) { console.warn('Could not save skill tree:', e); }
+    }
+    load() {
+        try {
+            const saved = localStorage.getItem('asteroids_skill_tree');
+            if (saved) {
+                const data = JSON.parse(saved);
+                this.skillLevels = { ...this.skillLevels, ...data.skillLevels };
+                this.skillPoints = data.skillPoints || 0;
+                this.totalPointsEarned = data.totalPointsEarned || 0;
+            }
+        } catch (e) { console.warn('Could not load skill tree:', e); }
+    }
+    getSkillLevel(skillId) { return this.skillLevels[skillId] || 0; }
+    getSkillEffect(skillId) {
+        const level = this.getSkillLevel(skillId);
+        return level === 0 ? null : SKILLS[skillId].effect(level);
+    }
+    getAllEffects() {
+        const effects = {};
+        Object.keys(SKILLS).forEach(skillId => {
+            const effect = this.getSkillEffect(skillId);
+            if (effect) Object.assign(effects, effect);
+        });
+        return effects;
+    }
+    canUpgradeSkill(skillId) {
+        const skill = SKILLS[skillId];
+        const currentLevel = this.getSkillLevel(skillId);
+        if (currentLevel >= skill.maxLevel) return false;
+        if (this.skillPoints < skill.costPerLevel[currentLevel]) return false;
+        if (skill.requires) {
+            for (const reqId of skill.requires) { if (this.getSkillLevel(reqId) === 0) return false; }
+        }
+        return true;
+    }
+    upgradeSkill(skillId) {
+        if (!this.canUpgradeSkill(skillId)) return false;
+        const skill = SKILLS[skillId];
+        const currentLevel = this.getSkillLevel(skillId);
+        this.skillPoints -= skill.costPerLevel[currentLevel];
+        this.skillLevels[skillId] = currentLevel + 1;
+        this.save();
+        return true;
+    }
+    addSkillPoints(points) {
+        this.skillPoints += points;
+        this.totalPointsEarned += points;
+        this.save();
+    }
+    reset() {
+        let refund = 0;
+        Object.keys(SKILLS).forEach(skillId => {
+            const skill = SKILLS[skillId];
+            const level = this.getSkillLevel(skillId);
+            for (let i = 0; i < level; i++) refund += skill.costPerLevel[i];
+            this.skillLevels[skillId] = 0;
+        });
+        this.skillPoints += refund;
+        this.save();
+    }
+}
+
+class SkillTreeUI {
+    constructor(skillTree, game) {
+        this.skillTree = skillTree;
+        this.game = game;
+        this.visible = false;
+        this.selectedCategory = 'OFFENSE';
+        this.hoveredSkill = null;
+        this.animPhase = 0;
+        this.nodeSize = 40;
+        this.nodeSpacing = 100;
+        this.categoryTabWidth = 120;
+    }
+    toggle() { this.visible = !this.visible; if (this.visible) soundManager.playItemCollect(); }
+    handleClick(x, y) {
+        if (!this.visible) return false;
+        const canvasRect = this.game.canvas.getBoundingClientRect();
+        const scaleX = CANVAS_WIDTH / canvasRect.width;
+        const scaleY = CANVAS_HEIGHT / canvasRect.height;
+        x = (x - canvasRect.left) * scaleX;
+        y = (y - canvasRect.top) * scaleY;
+        
+        const tabY = 80;
+        const categories = Object.keys(SKILL_CATEGORIES);
+        categories.forEach((cat, i) => {
+            const tabX = 150 + i * (this.categoryTabWidth + 20);
+            if (x >= tabX && x <= tabX + this.categoryTabWidth && y >= tabY && y <= tabY + 40) {
+                this.selectedCategory = cat;
+                soundManager.playItemCollect();
+            }
+        });
+        
+        const baseX = 200, baseY = 200;
+        Object.entries(SKILLS).forEach(([skillId, skill]) => {
+            if (skill.category !== this.selectedCategory) return;
+            const nodeX = baseX + skill.position.x * this.nodeSpacing;
+            const nodeY = baseY + skill.position.y * this.nodeSpacing;
+            const dist = Math.sqrt((x - nodeX) ** 2 + (y - nodeY) ** 2);
+            if (dist <= this.nodeSize / 2) {
+                if (this.skillTree.canUpgradeSkill(skillId)) {
+                    this.skillTree.upgradeSkill(skillId);
+                    soundManager.playPowerUp();
+                } else soundManager.playShieldHit();
+            }
+        });
+        
+        if (x >= CANVAS_WIDTH - 60 && x <= CANVAS_WIDTH - 20 && y >= 30 && y <= 70) this.toggle();
+        if (x >= 30 && x <= 130 && y >= CANVAS_HEIGHT - 60 && y <= CANVAS_HEIGHT - 30) {
+            this.skillTree.reset();
+            soundManager.playItemUse();
+        }
+        return true;
+    }
+    handleMouseMove(x, y) {
+        if (!this.visible) return;
+        const canvasRect = this.game.canvas.getBoundingClientRect();
+        x = (x - canvasRect.left) * (CANVAS_WIDTH / canvasRect.width);
+        y = (y - canvasRect.top) * (CANVAS_HEIGHT / canvasRect.height);
+        this.hoveredSkill = null;
+        const baseX = 200, baseY = 200;
+        Object.entries(SKILLS).forEach(([skillId, skill]) => {
+            if (skill.category !== this.selectedCategory) return;
+            const nodeX = baseX + skill.position.x * this.nodeSpacing;
+            const nodeY = baseY + skill.position.y * this.nodeSpacing;
+            if (Math.sqrt((x - nodeX) ** 2 + (y - nodeY) ** 2) <= this.nodeSize / 2) this.hoveredSkill = skillId;
+        });
+    }
+    draw(ctx) {
+        if (!this.visible) return;
+        this.animPhase += 0.03;
+        ctx.fillStyle = 'rgba(0, 0, 20, 0.95)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        ctx.save();
+        ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 20;
+        ctx.fillStyle = '#00ffff'; ctx.font = 'bold 36px "Courier New", monospace';
+        ctx.textAlign = 'center'; ctx.fillText('SKILL TREE', CANVAS_WIDTH / 2, 50);
+        ctx.restore();
+        
+        ctx.save();
+        ctx.shadowColor = '#ffff00'; ctx.shadowBlur = 10;
+        ctx.fillStyle = '#ffff00'; ctx.font = 'bold 18px "Courier New", monospace';
+        ctx.textAlign = 'right'; ctx.fillText(`Skill Points: ${this.skillTree.skillPoints}`, CANVAS_WIDTH - 30, 55);
+        ctx.restore();
+        
+        this.drawCategoryTabs(ctx);
+        this.drawSkillNodes(ctx);
+        if (this.hoveredSkill) this.drawSkillDetails(ctx, this.hoveredSkill);
+        
+        ctx.save();
+        ctx.strokeStyle = '#ff4444'; ctx.lineWidth = 3; ctx.shadowColor = '#ff4444'; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.moveTo(CANVAS_WIDTH - 55, 35); ctx.lineTo(CANVAS_WIDTH - 25, 65);
+        ctx.moveTo(CANVAS_WIDTH - 25, 35); ctx.lineTo(CANVAS_WIDTH - 55, 65); ctx.stroke();
+        ctx.restore();
+        
+        ctx.save();
+        ctx.strokeStyle = '#ff8800'; ctx.fillStyle = '#ff880030'; ctx.lineWidth = 2;
+        ctx.shadowColor = '#ff8800'; ctx.shadowBlur = 10;
+        ctx.fillRect(30, CANVAS_HEIGHT - 60, 100, 30); ctx.strokeRect(30, CANVAS_HEIGHT - 60, 100, 30);
+        ctx.fillStyle = '#ff8800'; ctx.font = '14px "Courier New", monospace';
+        ctx.textAlign = 'center'; ctx.fillText('RESET', 80, CANVAS_HEIGHT - 40);
+        ctx.restore();
+        
+        ctx.fillStyle = '#666666'; ctx.font = '12px "Courier New", monospace';
+        ctx.textAlign = 'center'; ctx.fillText('Click skills to upgrade Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•Î“Ã¶Â¼â”œâ”‚ Press K to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
+    }
+    drawCategoryTabs(ctx) {
+        const tabY = 80;
+        Object.keys(SKILL_CATEGORIES).forEach((catId, i) => {
+            const cat = SKILL_CATEGORIES[catId];
+            const tabX = 150 + i * (this.categoryTabWidth + 20);
+            const isSelected = catId === this.selectedCategory;
+            ctx.save();
+            ctx.fillStyle = isSelected ? cat.color + '40' : '#22222280';
+            ctx.strokeStyle = cat.color; ctx.lineWidth = isSelected ? 3 : 1;
+            ctx.shadowColor = cat.color; ctx.shadowBlur = isSelected ? 15 : 5;
+            ctx.beginPath(); ctx.roundRect(tabX, tabY, this.categoryTabWidth, 40, 5); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = isSelected ? '#ffffff' : cat.color;
+            ctx.font = `${isSelected ? 'bold ' : ''}14px "Courier New", monospace`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(`${cat.icon} ${cat.name}`, tabX + this.categoryTabWidth / 2, tabY + 20);
+            ctx.restore();
+        });
+    }
+    drawSkillNodes(ctx) {
+        const baseX = 200, baseY = 200;
+        const category = SKILL_CATEGORIES[this.selectedCategory];
+        Object.entries(SKILLS).forEach(([skillId, skill]) => {
+            if (skill.category !== this.selectedCategory || !skill.requires) return;
+            const nodeX = baseX + skill.position.x * this.nodeSpacing;
+            const nodeY = baseY + skill.position.y * this.nodeSpacing;
+            skill.requires.forEach(reqId => {
+                const reqSkill = SKILLS[reqId];
+                if (reqSkill.category !== this.selectedCategory) return;
+                const reqX = baseX + reqSkill.position.x * this.nodeSpacing;
+                const reqY = baseY + reqSkill.position.y * this.nodeSpacing;
+                const isUnlocked = this.skillTree.getSkillLevel(reqId) > 0;
+                ctx.save();
+                ctx.strokeStyle = isUnlocked ? category.color : '#333333'; ctx.lineWidth = 2;
+                ctx.shadowColor = isUnlocked ? category.color : 'transparent'; ctx.shadowBlur = 10;
+                ctx.setLineDash(isUnlocked ? [] : [5, 5]);
+                ctx.beginPath(); ctx.moveTo(reqX, reqY); ctx.lineTo(nodeX, nodeY); ctx.stroke();
+                ctx.restore();
+            });
+        });
+        Object.entries(SKILLS).forEach(([skillId, skill]) => {
+            if (skill.category !== this.selectedCategory) return;
+            const nodeX = baseX + skill.position.x * this.nodeSpacing;
+            const nodeY = baseY + skill.position.y * this.nodeSpacing;
+            const level = this.skillTree.getSkillLevel(skillId);
+            const canUpgrade = this.skillTree.canUpgradeSkill(skillId);
+            const isHovered = this.hoveredSkill === skillId;
+            const isMaxed = level >= skill.maxLevel;
+            let isLocked = false;
+            if (skill.requires) { for (const reqId of skill.requires) { if (this.skillTree.getSkillLevel(reqId) === 0) { isLocked = true; break; } } }
+            ctx.save();
+            let pulse = canUpgrade ? 1 + Math.sin(this.animPhase * 3) * 0.1 : 1;
+            if (isHovered) pulse *= 1.15;
+            let nodeColor = isLocked ? '#333333' : (isMaxed ? '#ffff00' : category.color);
+            ctx.shadowColor = nodeColor; ctx.shadowBlur = level > 0 ? 20 : 10;
+            ctx.fillStyle = level > 0 ? nodeColor + '40' : '#111111';
+            ctx.strokeStyle = nodeColor; ctx.lineWidth = isHovered ? 3 : 2;
+            ctx.beginPath(); ctx.arc(nodeX, nodeY, this.nodeSize / 2 * pulse, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            if (skill.maxLevel > 1) {
+                const pipRadius = 4, pipSpacing = 12;
+                const startX = nodeX - ((skill.maxLevel - 1) * pipSpacing) / 2;
+                for (let i = 0; i < skill.maxLevel; i++) {
+                    ctx.fillStyle = i < level ? '#ffffff' : '#333333';
+                    ctx.beginPath(); ctx.arc(startX + i * pipSpacing, nodeY + this.nodeSize / 2 + 10, pipRadius, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+            ctx.fillStyle = isLocked ? '#555555' : '#ffffff';
+            ctx.font = '11px "Courier New", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            const words = skill.name.split(' ');
+            if (words.length > 1 && skill.name.length > 10) {
+                ctx.fillText(words[0], nodeX, nodeY - 5);
+                ctx.fillText(words.slice(1).join(' '), nodeX, nodeY + 8);
+            } else ctx.fillText(skill.name, nodeX, nodeY);
+            ctx.restore();
+        });
+    }
+    drawSkillDetails(ctx, skillId) {
+        const skill = SKILLS[skillId];
+        const level = this.skillTree.getSkillLevel(skillId);
+        const canUpgrade = this.skillTree.canUpgradeSkill(skillId);
+        const category = SKILL_CATEGORIES[skill.category];
+        const panelX = 450, panelY = 180, panelWidth = 300, panelHeight = 200;
+        ctx.save();
+        ctx.fillStyle = '#0a0a1a'; ctx.strokeStyle = category.color; ctx.lineWidth = 2;
+        ctx.shadowColor = category.color; ctx.shadowBlur = 15;
+        ctx.beginPath(); ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 10); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = category.color; ctx.font = 'bold 18px "Courier New", monospace';
+        ctx.textAlign = 'left'; ctx.fillText(skill.name, panelX + 15, panelY + 30);
+        ctx.fillStyle = '#aaaaaa'; ctx.font = '14px "Courier New", monospace';
+        ctx.fillText(`Level: ${level} / ${skill.maxLevel}`, panelX + 15, panelY + 55);
+        ctx.fillStyle = '#ffffff'; ctx.font = '13px "Courier New", monospace';
+        ctx.fillText(skill.description, panelX + 15, panelY + 80);
+        if (level > 0) {
+            const effectText = this.formatEffect(skill.effect(level));
+            ctx.fillStyle = '#00ff00'; ctx.font = '12px "Courier New", monospace';
+            ctx.fillText(`Current: ${effectText}`, panelX + 15, panelY + 110);
+        }
+        if (level < skill.maxLevel) {
+            const cost = skill.costPerLevel[level];
+            const nextEffectText = this.formatEffect(skill.effect(level + 1));
+            ctx.fillStyle = canUpgrade ? '#ffff00' : '#ff4444'; ctx.font = '12px "Courier New", monospace';
+            ctx.fillText(`Next: ${nextEffectText}`, panelX + 15, panelY + 135);
+            ctx.fillText(`Cost: ${cost} point${cost > 1 ? 's' : ''}`, panelX + 15, panelY + 155);
+        } else {
+            ctx.fillStyle = '#ffff00'; ctx.font = 'bold 14px "Courier New", monospace';
+            ctx.fillText('MAXED OUT!', panelX + 15, panelY + 145);
+        }
+        if (skill.requires && skill.requires.length > 0) {
+            const allMet = skill.requires.every(req => this.skillTree.getSkillLevel(req) > 0);
+            ctx.fillStyle = allMet ? '#00ff00' : '#ff4444'; ctx.font = '11px "Courier New", monospace';
+            ctx.fillText(`Requires: ${skill.requires.map(req => SKILLS[req].name).join(', ')}`, panelX + 15, panelY + 180);
+        }
+        ctx.restore();
+    }
+    formatEffect(effect) {
+        const key = Object.keys(effect)[0];
+        const value = effect[key];
+        const labels = {
+            shootCooldownReduction: `${Math.round(value * 100)}% faster firing`,
+            bulletSpeedBonus: `${Math.round(value * 100)}% bullet speed`,
+            pierceChance: `${Math.round(value * 100)}% pierce chance`,
+            explosionRadius: `${value}px explosion`,
+            critChance: `${Math.round(value * 100)}% crit chance`,
+            startingLives: `+${value} starting lives`,
+            shieldDurationBonus: `${Math.round(value * 100)}% shield duration`,
+            regenInterval: `Regen every ${Math.round(value / 60)}s`,
+            spawnInvulnBonus: `+${value / 60}s spawn protection`,
+            emergencyShieldChance: `${Math.round(value * 100)}% auto-shield`,
+            magnetRangeBonus: `+${value}px magnet range`,
+            powerUpDurationBonus: `${Math.round(value * 100)}% power-up duration`,
+            scoreBonus: `+${Math.round(value * 100)}% score`,
+            dropChanceBonus: `+${Math.round(value * 100)}% drop rate`,
+            extraInventorySlots: `+${value} inventory slot${value > 1 ? 's' : ''}`,
+            xpBonus: `+${Math.round(value * 100)}% skill point gain`
+        };
+        return labels[key] || `${key}: ${value}`;
+    }
+}
+
+// ============== SAVE MANAGER CLASS ==============
+// Handles save/load game functionality with localStorage
+
+const SAVE_VERSION = 1;
+const MAX_SAVE_SLOTS = 3;
+const SAVE_KEY_PREFIX = 'asteroids_save_';
+
+class SaveManager {
+    constructor(game) {
+        this.game = game;
+    }
+    
+    getSlotKey(slot) {
+        return `${SAVE_KEY_PREFIX}slot_${slot}`;
+    }
+    
+    getAllSaves() {
+        const saves = [];
+        for (let i = 1; i <= MAX_SAVE_SLOTS; i++) {
+            const data = this.loadRaw(i);
+            if (data) {
+                saves.push({
+                    slot: i,
+                    level: data.level,
+                    score: data.score,
+                    date: new Date(data.savedAt),
+                    skillPoints: data.skillTree?.skillPoints || 0
+                });
+            } else {
+                saves.push({ slot: i, empty: true });
+            }
+        }
+        return saves;
+    }
+    
+    loadRaw(slot) {
+        try {
+            const key = this.getSlotKey(slot);
+            const json = localStorage.getItem(key);
+            if (!json) return null;
+            return JSON.parse(json);
+        } catch (e) {
+            console.warn(`Failed to load save slot ${slot}:`, e);
+            return null;
+        }
+    }
+    
+    save(slot) {
+        if (slot < 1 || slot > MAX_SAVE_SLOTS) {
+            console.error('Invalid save slot:', slot);
+            return false;
+        }
+        
+        const game = this.game;
+        
+        const saveData = {
+            version: SAVE_VERSION,
+            savedAt: Date.now(),
+            score: game.score,
+            lives: game.lives,
+            level: game.level,
+            maxCombo: game.maxCombo,
+            inventory: game.inventory.map(item => item.type),
+            magnetTimer: game.magnetTimer,
+            magnetActive: game.magnetActive,
+            scoreMultiplierTimer: game.scoreMultiplierTimer,
+            scoreMultiplier: game.scoreMultiplier,
+            freezeTimer: game.freezeTimer,
+            freezeActive: game.freezeActive,
+            ship: game.ship ? {
+                x: game.ship.x,
+                y: game.ship.y,
+                angle: game.ship.angle,
+                vx: game.ship.vx,
+                vy: game.ship.vy,
+                hasShield: game.ship.hasShield,
+                hasRapidFire: game.ship.hasRapidFire,
+                hasTripleShot: game.ship.hasTripleShot,
+                hasSpeedBoost: game.ship.hasSpeedBoost,
+                shieldTimer: game.ship.shieldTimer,
+                rapidFireTimer: game.ship.rapidFireTimer,
+                tripleShotTimer: game.ship.tripleShotTimer,
+                speedBoostTimer: game.ship.speedBoostTimer
+            } : null,
+            skillTree: {
+                skillLevels: game.skillTree.skillLevels,
+                skillPoints: game.skillTree.skillPoints,
+                totalPointsEarned: game.skillTree.totalPointsEarned
+            }
+        };
+        
+        try {
+            const key = this.getSlotKey(slot);
+            localStorage.setItem(key, JSON.stringify(saveData));
+            console.log(`Game saved to slot ${slot}`);
+            if (soundManager.playSaveSound) soundManager.playSaveSound();
+            return true;
+        } catch (e) {
+            console.error('Failed to save game:', e);
+            return false;
+        }
+    }
+    
+    load(slot) {
+        const data = this.loadRaw(slot);
+        if (!data) {
+            console.warn('No save data in slot:', slot);
+            return false;
+        }
+        
+        const game = this.game;
+        
+        game.state = 'playing';
+        game.ship = new Ship(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, game);
+        game.asteroids = [];
+        game.bullets = [];
+        game.particles = [];
+        game.trailParticles = [];
+        game.explosionParticles = [];
+        game.powerUps = [];
+        game.items = [];
+        game.inventory = [];
+        game.ufos = [];
+        game.enemyBullets = [];
+        game.boss = null;
+        game.bossLevel = false;
+        game.comboCount = 0;
+        game.comboTimer = 0;
+        game.comboDisplayTimer = 0;
+        
+        game.score = data.score || 0;
+        game.lives = data.lives || 3;
+        game.level = data.level || 1;
+        game.maxCombo = data.maxCombo || 0;
+        
+        if (data.inventory && Array.isArray(data.inventory)) {
+            data.inventory.forEach(type => {
+                if (ITEM_TYPES[type]) {
+                    game.inventory.push({ type: type });
+                }
+            });
+        }
+        
+        game.magnetActive = data.magnetActive || false;
+        game.magnetTimer = data.magnetTimer || 0;
+        game.scoreMultiplier = data.scoreMultiplier || 1;
+        game.scoreMultiplierTimer = data.scoreMultiplierTimer || 0;
+        game.freezeActive = data.freezeActive || false;
+        game.freezeTimer = data.freezeTimer || 0;
+        
+        if (data.ship && game.ship) {
+            game.ship.x = data.ship.x || CANVAS_WIDTH / 2;
+            game.ship.y = data.ship.y || CANVAS_HEIGHT / 2;
+            game.ship.angle = data.ship.angle || 0;
+            game.ship.vx = data.ship.vx || 0;
+            game.ship.vy = data.ship.vy || 0;
+            game.ship.hasShield = data.ship.hasShield || false;
+            game.ship.hasRapidFire = data.ship.hasRapidFire || false;
+            game.ship.hasTripleShot = data.ship.hasTripleShot || false;
+            game.ship.hasSpeedBoost = data.ship.hasSpeedBoost || false;
+            game.ship.shieldTimer = data.ship.shieldTimer || 0;
+            game.ship.rapidFireTimer = data.ship.rapidFireTimer || 0;
+            game.ship.tripleShotTimer = data.ship.tripleShotTimer || 0;
+            game.ship.speedBoostTimer = data.ship.speedBoostTimer || 0;
+        }
+        
+        if (data.skillTree) {
+            if (data.skillTree.skillLevels) {
+                Object.keys(data.skillTree.skillLevels).forEach(skillId => {
+                    if (game.skillTree.skillLevels.hasOwnProperty(skillId)) {
+                        game.skillTree.skillLevels[skillId] = data.skillTree.skillLevels[skillId];
+                    }
+                });
+            }
+            game.skillTree.skillPoints = data.skillTree.skillPoints || 0;
+            game.skillTree.totalPointsEarned = data.skillTree.totalPointsEarned || 0;
+        }
+        
+        const effects = game.skillTree.getAllEffects();
+        game.maxInventorySlots = MAX_INVENTORY_SLOTS + (effects.extraInventorySlots || 0);
+        
+        if (BOSS_LEVELS.includes(game.level)) {
+            game.bossLevel = true;
+            game.boss = new Boss(game);
+        } else {
+            game.spawnAsteroids(3 + game.level);
+        }
+        
+        game.ufoSpawnTimer = game.getRandomUfoSpawnTime();
+        game.updateUI();
+        game.updateInventoryUI();
+        game.triggerFlash('#00ff88', 0.3);
+        if (soundManager.playLoadSound) soundManager.playLoadSound();
+        
+        console.log(`Game loaded from slot ${slot}`);
+        return true;
+    }
+    
+    deleteSave(slot) {
+        try {
+            const key = this.getSlotKey(slot);
+            localStorage.removeItem(key);
+            console.log(`Deleted save slot ${slot}`);
+            return true;
+        } catch (e) {
+            console.error('Failed to delete save:', e);
+            return false;
+        }
+    }
+    
+    hasSaves() {
+        for (let i = 1; i <= MAX_SAVE_SLOTS; i++) {
+            if (this.loadRaw(i)) return true;
+        }
+        return false;
+    }
+    
+    autoSave() {
+        let targetSlot = 1;
+        let oldestTime = Infinity;
+        
+        for (let i = 1; i <= MAX_SAVE_SLOTS; i++) {
+            const data = this.loadRaw(i);
+            if (!data) {
+                targetSlot = i;
+                break;
+            }
+            if (data.savedAt < oldestTime) {
+                oldestTime = data.savedAt;
+                targetSlot = i;
+            }
+        }
+        
+        return this.save(targetSlot);
+    }
+}
+
+// ============== SAVE/LOAD UI CLASS ==============
+class SaveLoadUI {
+    constructor(game) {
+        this.game = game;
+        this.visible = false;
+        this.mode = 'save';
+        this.hoveredSlot = -1;
+        this.hoveredButton = null;
+        this.saveManager = new SaveManager(game);
+        this.confirmDelete = -1;
+    }
+    
+    open(mode) {
+        this.mode = mode;
+        this.visible = true;
+        this.hoveredSlot = -1;
+        this.hoveredButton = null;
+        this.confirmDelete = -1;
+    }
+    
+    close() {
+        this.visible = false;
+        this.confirmDelete = -1;
+    }
+    
+    toggle(mode) {
+        if (this.visible && this.mode === mode) {
+            this.close();
+        } else {
+            this.open(mode);
+        }
+    }
+    
+    handleClick(x, y) {
+        if (!this.visible) return false;
+        
+        const canvasRect = this.game.canvas.getBoundingClientRect();
+        const scaleX = CANVAS_WIDTH / canvasRect.width;
+        const scaleY = CANVAS_HEIGHT / canvasRect.height;
+        x = (x - canvasRect.left) * scaleX;
+        y = (y - canvasRect.top) * scaleY;
+        
+        const centerX = CANVAS_WIDTH / 2;
+        const startY = 150;
+        const slotHeight = 80;
+        const slotWidth = 350;
+        
+        const closeX = centerX + slotWidth / 2 - 30;
+        const closeY = startY - 40;
+        if (Math.abs(x - closeX) < 15 && Math.abs(y - closeY) < 15) {
+            this.close();
+            return true;
+        }
+        
+        const saves = this.saveManager.getAllSaves();
+        for (let i = 0; i < saves.length; i++) {
+            const slotY = startY + i * (slotHeight + 10);
+            const slot = saves[i];
+            
+            if (x >= centerX - slotWidth / 2 && x <= centerX + slotWidth / 2 &&
+                y >= slotY && y <= slotY + slotHeight) {
+                
+                const deleteX = centerX + slotWidth / 2 - 35;
+                const deleteY = slotY + slotHeight / 2;
+                if (!slot.empty && Math.abs(x - deleteX) < 20 && Math.abs(y - deleteY) < 15) {
+                    if (this.confirmDelete === slot.slot) {
+                        this.saveManager.deleteSave(slot.slot);
+                        this.confirmDelete = -1;
+                        soundManager.playExplosion(0.5);
+                    } else {
+                        this.confirmDelete = slot.slot;
+                    }
+                    return true;
+                }
+                
+                this.confirmDelete = -1;
+                
+                if (this.mode === 'save') {
+                    if (this.saveManager.save(slot.slot)) {
+                        this.game.triggerFlash('#00ff00', 0.2);
+                    }
+                    return true;
+                } else if (this.mode === 'load' && !slot.empty) {
+                    if (this.saveManager.load(slot.slot)) {
+                        this.close();
+                    }
+                    return true;
+                }
+            }
+        }
+        
+        return true;
+    }
+    
+    handleMouseMove(x, y) {
+        if (!this.visible) return;
+        
+        const canvasRect = this.game.canvas.getBoundingClientRect();
+        const scaleX = CANVAS_WIDTH / canvasRect.width;
+        const scaleY = CANVAS_HEIGHT / canvasRect.height;
+        x = (x - canvasRect.left) * scaleX;
+        y = (y - canvasRect.top) * scaleY;
+        
+        const centerX = CANVAS_WIDTH / 2;
+        const startY = 150;
+        const slotHeight = 80;
+        const slotWidth = 350;
+        
+        this.hoveredSlot = -1;
+        this.hoveredButton = null;
+        
+        const closeX = centerX + slotWidth / 2 - 30;
+        const closeY = startY - 40;
+        if (Math.abs(x - closeX) < 15 && Math.abs(y - closeY) < 15) {
+            this.hoveredButton = 'close';
+            return;
+        }
+        
+        const saves = this.saveManager.getAllSaves();
+        for (let i = 0; i < saves.length; i++) {
+            const slotY = startY + i * (slotHeight + 10);
+            
+            if (x >= centerX - slotWidth / 2 && x <= centerX + slotWidth / 2 &&
+                y >= slotY && y <= slotY + slotHeight) {
+                this.hoveredSlot = i;
+                
+                const deleteX = centerX + slotWidth / 2 - 35;
+                const deleteY = slotY + slotHeight / 2;
+                if (Math.abs(x - deleteX) < 20 && Math.abs(y - deleteY) < 15) {
+                    this.hoveredButton = 'delete';
+                }
+                break;
+            }
+        }
+    }
+    
+    draw(ctx) {
+        if (!this.visible) return;
+        
+        const centerX = CANVAS_WIDTH / 2;
+        const startY = 150;
+        const slotHeight = 80;
+        const slotWidth = 350;
+        
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        ctx.save();
+        ctx.shadowColor = this.mode === 'save' ? '#00ff00' : '#00ffff';
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = this.mode === 'save' ? '#00ff00' : '#00ffff';
+        ctx.font = 'bold 32px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.mode === 'save' ? 'SAVE GAME' : 'LOAD GAME', centerX, startY - 50);
+        ctx.restore();
+        
+        const closeX = centerX + slotWidth / 2 - 30;
+        const closeY = startY - 40;
+        ctx.save();
+        ctx.strokeStyle = this.hoveredButton === 'close' ? '#ff6666' : '#888888';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(closeX - 10, closeY - 10);
+        ctx.lineTo(closeX + 10, closeY + 10);
+        ctx.moveTo(closeX + 10, closeY - 10);
+        ctx.lineTo(closeX - 10, closeY + 10);
+        ctx.stroke();
+        ctx.restore();
+        
+        const saves = this.saveManager.getAllSaves();
+        for (let i = 0; i < saves.length; i++) {
+            const slotY = startY + i * (slotHeight + 10);
+            const slot = saves[i];
+            const isHovered = this.hoveredSlot === i;
+            const isDeleteHovered = isHovered && this.hoveredButton === 'delete';
+            const isConfirmingDelete = this.confirmDelete === slot.slot;
+            
+            ctx.fillStyle = isHovered ? 'rgba(255, 255, 255, 0.1)' : 'rgba(30, 30, 50, 0.8)';
+            ctx.fillRect(centerX - slotWidth / 2, slotY, slotWidth, slotHeight);
+            
+            ctx.strokeStyle = isHovered ? '#00ffff' : '#444466';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(centerX - slotWidth / 2, slotY, slotWidth, slotHeight);
+            
+            ctx.textAlign = 'left';
+            const textX = centerX - slotWidth / 2 + 20;
+            
+            if (slot.empty) {
+                ctx.fillStyle = '#666666';
+                ctx.font = '18px "Courier New", monospace';
+                ctx.fillText(`SLOT ${slot.slot}`, textX, slotY + 30);
+                ctx.fillStyle = '#444444';
+                ctx.font = '14px "Courier New", monospace';
+                ctx.fillText('Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•â•¬Ã´â”œÃ§â”¬Ã‘ Empty Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•â•¬Ã´â”œÃ§â”¬Ã‘', textX, slotY + 55);
+            } else {
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 18px "Courier New", monospace';
+                ctx.fillText(`SLOT ${slot.slot}`, textX, slotY + 25);
+                
+                ctx.fillStyle = '#00ffff';
+                ctx.font = '14px "Courier New", monospace';
+                ctx.fillText(`Level ${slot.level}  Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•Î“Ã¶Â¼â”œâ”‚  Score: ${slot.score.toLocaleString()}`, textX, slotY + 48);
+                
+                ctx.fillStyle = '#888888';
+                ctx.font = '12px "Courier New", monospace';
+                const dateStr = slot.date.toLocaleDateString() + ' ' + slot.date.toLocaleTimeString();
+                ctx.fillText(`${dateStr}  Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•Î“Ã¶Â¼â”œâ”‚  ${slot.skillPoints} skill pts`, textX, slotY + 68);
+                
+                const deleteX = centerX + slotWidth / 2 - 35;
+                const deleteY = slotY + slotHeight / 2;
+                
+                ctx.save();
+                if (isConfirmingDelete) {
+                    ctx.fillStyle = '#ff4444';
+                    ctx.font = 'bold 10px "Courier New", monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('CONFIRM?', deleteX, deleteY - 8);
+                    ctx.fillText('CLICK', deleteX, deleteY + 8);
+                } else {
+                    ctx.strokeStyle = isDeleteHovered ? '#ff6666' : '#666666';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(deleteX - 8, deleteY - 8);
+                    ctx.lineTo(deleteX + 8, deleteY + 8);
+                    ctx.moveTo(deleteX + 8, deleteY - 8);
+                    ctx.lineTo(deleteX - 8, deleteY + 8);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+        }
+        
+        ctx.fillStyle = '#666666';
+        ctx.font = '14px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        const instrY = startY + 3 * (slotHeight + 10) + 30;
+        if (this.mode === 'save') {
+            ctx.fillText('Click a slot to save your progress', centerX, instrY);
+        } else {
+            ctx.fillText('Click a saved game to load it', centerX, instrY);
+        }
+        ctx.fillText('Press ESC to close', centerX, instrY + 25);
+    }
+}
 
 // ============== SOUND MANAGER CLASS ==============
 // Procedural audio using Web Audio API - no external files needed!
@@ -490,7 +1417,7 @@ class SoundManager {
         const lfoGain = this.audioContext.createGain();
         lfo.type = 'sine';
         lfo.frequency.value = 8; // 8 Hz wobble
-        lfoGain.gain.value = 10; // ┬▒10 Hz variation
+        lfoGain.gain.value = 10; // +/-10 Hz variation
         
         lfo.connect(lfoGain);
         lfoGain.connect(this.engineOscillator.frequency);
@@ -975,156 +1902,429 @@ class SoundManager {
 
 // Global sound manager instance
 const soundManager = new SoundManager();
-// ============== STATS MANAGER CLASS ==============
-// Comprehensive statistics tracking with localStorage persistence
-class StatsManager {
+
+// ============== MUSIC MANAGER CLASS ==============
+// Procedural synthwave/chiptune background music
+// Generates dynamic music that responds to gameplay intensity
+
+class MusicManager {
     constructor() {
-        this.storageKey = 'asteroids_neon_stats';
-        this.stats = this.load();
-        this.sessionStartTime = null;
-        this.sessionStats = this.createEmptySessionStats();
+        this.audioContext = null;
+        this.masterGain = null;
+        this.initialized = false;
+        this.playing = false;
+        this.muted = false;
+        
+        // Music parameters
+        this.bpm = 120;
+        this.currentBeat = 0;
+        this.beatInterval = null;
+        
+        // Intensity system (0-1) - affects tempo, filter, layers
+        this.intensity = 0.3;
+        this.targetIntensity = 0.3;
+        
+        // Track state
+        this.bassOsc = null;
+        this.bassGain = null;
+        this.arpeggioOsc = null;
+        this.arpeggioGain = null;
+        this.padOsc = null;
+        this.padGain = null;
+        
+        // Filters for intensity modulation
+        this.bassFilter = null;
+        this.arpeggioFilter = null;
+        
+        // Musical data
+        this.key = 'A'; // A minor for that synthwave feel
+        this.scale = [0, 2, 3, 5, 7, 8, 10]; // Natural minor scale intervals
+        this.baseNote = 55; // A1 = 55Hz
+        
+        // Chord progressions (in scale degrees)
+        this.progressions = [
+            [0, 5, 3, 4], // Am, Fm, Dm, Em
+            [0, 3, 5, 4], // Am, Dm, Fm, Em
+            [0, 4, 5, 3], // Am, Em, Fm, Dm
+        ];
+        this.currentProgression = 0;
+        this.currentChordIndex = 0;
+        
+        // Arpeggio patterns
+        this.arpeggioPatterns = [
+            [0, 4, 7, 12, 7, 4], // Up and down
+            [0, 7, 4, 12, 4, 7], // Jumping
+            [0, 4, 7, 4, 12, 7, 4, 0], // Extended
+        ];
+        this.currentArpPattern = 0;
+        this.arpIndex = 0;
+        
+        // Drum pattern
+        this.kickPattern = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1];
+        this.snarePattern = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0];
+        this.hihatPattern = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0];
     }
     
-    createEmptyStats() {
-        return {
-            totalPlaytime: 0,
-            gamesPlayed: 0,
-            totalScore: 0,
-            highestScore: 0,
-            highestLevel: 0,
-            asteroidsDestroyed: { small: 0, medium: 0, large: 0, total: 0 },
-            ufosDestroyed: 0,
-            bossesDefeated: 0,
-            shotsFired: 0,
-            shotsHit: 0,
-            deaths: 0,
-            livesLost: 0,
-            powerUpsCollected: { SHIELD: 0, RAPID_FIRE: 0, TRIPLE_SHOT: 0, SPEED_BOOST: 0, EXTRA_LIFE: 0, total: 0 },
-            itemsCollected: { REPAIR_KIT: 0, BOMB: 0, FREEZE: 0, MAGNET: 0, SCORE_BOOST: 0, total: 0 },
-            itemsUsed: 0,
-            highestCombo: 0,
-            totalComboKills: 0,
-            firstPlayDate: null,
-            lastPlayDate: null
-        };
-    }
-    
-    createEmptySessionStats() {
-        return { playTime: 0, score: 0, level: 0, asteroidsDestroyed: 0, ufosDestroyed: 0, bossesDefeated: 0, shotsFired: 0, shotsHit: 0, deaths: 0, powerUpsCollected: 0, itemsCollected: 0, highestCombo: 0 };
-    }
-    
-    load() {
+    init() {
+        if (this.initialized) return;
+        
         try {
-            const saved = localStorage.getItem(this.storageKey);
-            if (saved) {
-                const loaded = JSON.parse(saved);
-                return this.mergeStats(this.createEmptyStats(), loaded);
-            }
-        } catch (e) { console.warn('Failed to load stats:', e); }
-        return this.createEmptyStats();
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            this.masterGain = this.audioContext.createGain();
+            this.masterGain.gain.value = 0.15; // Music quieter than SFX
+            this.masterGain.connect(this.audioContext.destination);
+            this.initialized = true;
+        } catch (e) {
+            console.warn('Music: Web Audio API not supported:', e);
+        }
     }
     
-    mergeStats(base, loaded) {
-        const result = { ...base };
-        for (const key in loaded) {
-            if (typeof loaded[key] === 'object' && loaded[key] !== null && !Array.isArray(loaded[key])) {
-                result[key] = { ...base[key], ...loaded[key] };
-            } else {
-                result[key] = loaded[key];
+    resume() {
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+            this.audioContext.resume();
+        }
+    }
+    
+    toggleMute() {
+        this.muted = !this.muted;
+        if (this.masterGain) {
+            this.masterGain.gain.value = this.muted ? 0 : 0.15;
+        }
+        return this.muted;
+    }
+    
+    // Convert scale degree to frequency
+    scaleToFreq(degree, octave = 0) {
+        const octaveOffset = Math.floor(degree / 7);
+        const noteInScale = ((degree % 7) + 7) % 7;
+        const semitone = this.scale[noteInScale];
+        return this.baseNote * Math.pow(2, (semitone + (octave + octaveOffset) * 12) / 12);
+    }
+    
+    // Get current chord notes
+    getCurrentChordNotes() {
+        const progression = this.progressions[this.currentProgression];
+        const root = progression[this.currentChordIndex];
+        return [root, root + 2, root + 4]; // Triad in scale degrees
+    }
+    
+    start() {
+        if (!this.initialized || this.playing) return;
+        this.resume();
+        
+        this.playing = true;
+        this.currentBeat = 0;
+        
+        // Create persistent oscillators for smooth sound
+        this.setupBass();
+        this.setupArpeggio();
+        this.setupPad();
+        
+        // Start beat loop
+        const beatTime = 60000 / (this.bpm * 4); // 16th notes
+        this.beatInterval = setInterval(() => this.tick(), beatTime);
+    }
+    
+    stop() {
+        if (!this.playing) return;
+        
+        this.playing = false;
+        
+        if (this.beatInterval) {
+            clearInterval(this.beatInterval);
+            this.beatInterval = null;
+        }
+        
+        // Fade out and clean up oscillators
+        const now = this.audioContext.currentTime;
+        
+        if (this.bassGain) {
+            this.bassGain.gain.linearRampToValueAtTime(0, now + 0.5);
+            setTimeout(() => {
+                if (this.bassOsc) { this.bassOsc.stop(); this.bassOsc = null; }
+            }, 600);
+        }
+        
+        if (this.arpeggioGain) {
+            this.arpeggioGain.gain.linearRampToValueAtTime(0, now + 0.5);
+            setTimeout(() => {
+                if (this.arpeggioOsc) { this.arpeggioOsc.stop(); this.arpeggioOsc = null; }
+            }, 600);
+        }
+        
+        if (this.padGain) {
+            this.padGain.gain.linearRampToValueAtTime(0, now + 1);
+            setTimeout(() => {
+                if (this.padOsc) { this.padOsc.stop(); this.padOsc = null; }
+            }, 1100);
+        }
+    }
+    
+    setupBass() {
+        const now = this.audioContext.currentTime;
+        
+        this.bassOsc = this.audioContext.createOscillator();
+        this.bassGain = this.audioContext.createGain();
+        this.bassFilter = this.audioContext.createBiquadFilter();
+        
+        this.bassOsc.type = 'sawtooth';
+        this.bassOsc.frequency.value = this.scaleToFreq(0, 1);
+        
+        this.bassFilter.type = 'lowpass';
+        this.bassFilter.frequency.value = 400;
+        this.bassFilter.Q.value = 2;
+        
+        this.bassGain.gain.value = 0;
+        
+        this.bassOsc.connect(this.bassFilter);
+        this.bassFilter.connect(this.bassGain);
+        this.bassGain.connect(this.masterGain);
+        
+        this.bassOsc.start(now);
+    }
+    
+    setupArpeggio() {
+        const now = this.audioContext.currentTime;
+        
+        this.arpeggioOsc = this.audioContext.createOscillator();
+        this.arpeggioGain = this.audioContext.createGain();
+        this.arpeggioFilter = this.audioContext.createBiquadFilter();
+        
+        this.arpeggioOsc.type = 'square';
+        this.arpeggioOsc.frequency.value = this.scaleToFreq(0, 3);
+        
+        this.arpeggioFilter.type = 'lowpass';
+        this.arpeggioFilter.frequency.value = 2000;
+        this.arpeggioFilter.Q.value = 1;
+        
+        this.arpeggioGain.gain.value = 0;
+        
+        this.arpeggioOsc.connect(this.arpeggioFilter);
+        this.arpeggioFilter.connect(this.arpeggioGain);
+        this.arpeggioGain.connect(this.masterGain);
+        
+        this.arpeggioOsc.start(now);
+    }
+    
+    setupPad() {
+        const now = this.audioContext.currentTime;
+        
+        // Pad is a chord made of multiple detuned oscillators
+        this.padOsc = this.audioContext.createOscillator();
+        this.padGain = this.audioContext.createGain();
+        
+        const padFilter = this.audioContext.createBiquadFilter();
+        padFilter.type = 'lowpass';
+        padFilter.frequency.value = 800;
+        
+        this.padOsc.type = 'sine';
+        this.padOsc.frequency.value = this.scaleToFreq(0, 2);
+        
+        this.padGain.gain.value = 0;
+        
+        this.padOsc.connect(padFilter);
+        padFilter.connect(this.padGain);
+        this.padGain.connect(this.masterGain);
+        
+        this.padOsc.start(now);
+    }
+    
+    tick() {
+        if (!this.playing || this.muted) return;
+        
+        const now = this.audioContext.currentTime;
+        const beat16 = this.currentBeat % 16;
+        const beat4 = Math.floor(this.currentBeat / 4) % 4;
+        const bar = Math.floor(this.currentBeat / 16);
+        
+        // Smooth intensity transitions
+        this.intensity += (this.targetIntensity - this.intensity) * 0.02;
+        
+        // === BASS ===
+        if (beat16 % 4 === 0) { // Quarter notes
+            const chordNotes = this.getCurrentChordNotes();
+            const bassNote = this.scaleToFreq(chordNotes[0], 1);
+            
+            this.bassOsc.frequency.setValueAtTime(bassNote, now);
+            this.bassGain.gain.setValueAtTime(0.6 + this.intensity * 0.3, now);
+            this.bassGain.gain.exponentialRampToValueAtTime(0.3, now + 0.2);
+        }
+        
+        // === ARPEGGIO ===
+        const pattern = this.arpeggioPatterns[this.currentArpPattern];
+        const arpNote = pattern[this.arpIndex % pattern.length];
+        const chordNotes = this.getCurrentChordNotes();
+        const arpDegree = chordNotes[arpNote % 3] + Math.floor(arpNote / 3) * 7;
+        const arpFreq = this.scaleToFreq(arpDegree, 3);
+        
+        this.arpeggioOsc.frequency.setValueAtTime(arpFreq, now);
+        
+        // Arpeggio envelope - more prominent at higher intensity
+        const arpVol = 0.1 + this.intensity * 0.25;
+        this.arpeggioGain.gain.setValueAtTime(arpVol, now);
+        this.arpeggioGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        
+        this.arpIndex++;
+        
+        // === PAD - Changes with chord ===
+        if (beat16 === 0) {
+            const padNote = this.scaleToFreq(chordNotes[0], 2);
+            this.padOsc.frequency.exponentialRampToValueAtTime(padNote, now + 0.5);
+            this.padGain.gain.linearRampToValueAtTime(0.15 + this.intensity * 0.1, now + 0.5);
+        }
+        
+        // === DRUMS ===
+        this.playDrums(beat16, now);
+        
+        // === FILTER MODULATION based on intensity ===
+        const bassFilterFreq = 300 + this.intensity * 800;
+        const arpFilterFreq = 1500 + this.intensity * 2500;
+        this.bassFilter.frequency.linearRampToValueAtTime(bassFilterFreq, now + 0.1);
+        this.arpeggioFilter.frequency.linearRampToValueAtTime(arpFilterFreq, now + 0.1);
+        
+        // === CHORD PROGRESSION ===
+        if (beat16 === 0) {
+            this.currentChordIndex = (this.currentChordIndex + 1) % 4;
+            
+            // Occasionally change progression
+            if (bar > 0 && bar % 8 === 0) {
+                this.currentProgression = (this.currentProgression + 1) % this.progressions.length;
+            }
+            
+            // Occasionally change arpeggio pattern
+            if (bar > 0 && bar % 4 === 0) {
+                this.currentArpPattern = (this.currentArpPattern + 1) % this.arpeggioPatterns.length;
             }
         }
-        return result;
+        
+        this.currentBeat++;
     }
     
-    save() {
-        try { localStorage.setItem(this.storageKey, JSON.stringify(this.stats)); }
-        catch (e) { console.warn('Failed to save stats:', e); }
-    }
-    
-    startSession() {
-        this.sessionStartTime = Date.now();
-        this.sessionStats = this.createEmptySessionStats();
-        this.stats.gamesPlayed++;
-        if (!this.stats.firstPlayDate) this.stats.firstPlayDate = new Date().toISOString();
-        this.stats.lastPlayDate = new Date().toISOString();
-        this.save();
-    }
-    
-    endSession(finalScore, finalLevel) {
-        if (this.sessionStartTime) {
-            const playTimeSeconds = Math.floor((Date.now() - this.sessionStartTime) / 1000);
-            this.stats.totalPlaytime += playTimeSeconds;
-            this.sessionStats.playTime = playTimeSeconds;
+    playDrums(beat16, now) {
+        // Drums are more prominent at higher intensity
+        const drumVolume = 0.1 + this.intensity * 0.15;
+        
+        // Kick drum
+        if (this.kickPattern[beat16]) {
+            this.playKick(now, drumVolume);
         }
-        this.sessionStats.score = finalScore;
-        this.sessionStats.level = finalLevel;
-        this.stats.totalScore += finalScore;
-        if (finalScore > this.stats.highestScore) this.stats.highestScore = finalScore;
-        if (finalLevel > this.stats.highestLevel) this.stats.highestLevel = finalLevel;
-        this.save();
+        
+        // Snare (only at medium+ intensity)
+        if (this.intensity > 0.4 && this.snarePattern[beat16]) {
+            this.playSnare(now, drumVolume * 0.8);
+        }
+        
+        // Hi-hat (only at higher intensity)
+        if (this.intensity > 0.6 && this.hihatPattern[beat16]) {
+            this.playHihat(now, drumVolume * 0.3);
+        }
     }
     
-    recordAsteroidDestroyed(size) {
-        this.stats.asteroidsDestroyed.total++;
-        this.sessionStats.asteroidsDestroyed++;
-        if (size === 1) this.stats.asteroidsDestroyed.small++;
-        else if (size === 2) this.stats.asteroidsDestroyed.medium++;
-        else if (size >= 3) this.stats.asteroidsDestroyed.large++;
-        this.stats.shotsHit++;
-        this.sessionStats.shotsHit++;
+    playKick(time, volume) {
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(150, time);
+        osc.frequency.exponentialRampToValueAtTime(30, time + 0.15);
+        
+        gain.gain.setValueAtTime(volume, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+        
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        
+        osc.start(time);
+        osc.stop(time + 0.2);
     }
     
-    recordUfoDestroyed() {
-        this.stats.ufosDestroyed++;
-        this.sessionStats.ufosDestroyed++;
-        this.stats.shotsHit++;
-        this.sessionStats.shotsHit++;
+    playSnare(time, volume) {
+        // Noise for snare body
+        const bufferSize = this.audioContext.sampleRate * 0.15;
+        const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+        
+        const noise = this.audioContext.createBufferSource();
+        noise.buffer = buffer;
+        
+        const noiseFilter = this.audioContext.createBiquadFilter();
+        noiseFilter.type = 'highpass';
+        noiseFilter.frequency.value = 1000;
+        
+        const noiseGain = this.audioContext.createGain();
+        noiseGain.gain.setValueAtTime(volume, time);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.12);
+        
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(this.masterGain);
+        
+        noise.start(time);
+        noise.stop(time + 0.15);
+        
+        // Body tone
+        const osc = this.audioContext.createOscillator();
+        const oscGain = this.audioContext.createGain();
+        
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(180, time);
+        osc.frequency.exponentialRampToValueAtTime(80, time + 0.05);
+        
+        oscGain.gain.setValueAtTime(volume * 0.5, time);
+        oscGain.gain.exponentialRampToValueAtTime(0.01, time + 0.08);
+        
+        osc.connect(oscGain);
+        oscGain.connect(this.masterGain);
+        
+        osc.start(time);
+        osc.stop(time + 0.1);
     }
     
-    recordBossDefeated() { this.stats.bossesDefeated++; this.sessionStats.bossesDefeated++; this.save(); }
-    recordShotFired(count = 1) { this.stats.shotsFired += count; this.sessionStats.shotsFired += count; }
-    recordDeath() { this.stats.deaths++; this.sessionStats.deaths++; this.save(); }
-    recordLifeLost() { this.stats.livesLost++; }
-    
-    recordPowerUpCollected(type) {
-        this.stats.powerUpsCollected.total++;
-        this.sessionStats.powerUpsCollected++;
-        if (this.stats.powerUpsCollected[type] !== undefined) this.stats.powerUpsCollected[type]++;
+    playHihat(time, volume) {
+        const bufferSize = this.audioContext.sampleRate * 0.05;
+        const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+        
+        const noise = this.audioContext.createBufferSource();
+        noise.buffer = buffer;
+        
+        const filter = this.audioContext.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.value = 7000;
+        
+        const gain = this.audioContext.createGain();
+        gain.gain.setValueAtTime(volume, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.04);
+        
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+        
+        noise.start(time);
+        noise.stop(time + 0.05);
     }
     
-    recordItemCollected(type) {
-        this.stats.itemsCollected.total++;
-        this.sessionStats.itemsCollected++;
-        if (this.stats.itemsCollected[type] !== undefined) this.stats.itemsCollected[type]++;
+    // Set intensity based on game state (0-1)
+    // Called from game to react to gameplay
+    setIntensity(value) {
+        this.targetIntensity = Math.max(0, Math.min(1, value));
     }
     
-    recordItemUsed() { this.stats.itemsUsed++; }
-    
-    recordCombo(comboCount) {
-        this.stats.totalComboKills += comboCount;
-        if (comboCount > this.stats.highestCombo) this.stats.highestCombo = comboCount;
-        if (comboCount > this.sessionStats.highestCombo) this.sessionStats.highestCombo = comboCount;
-    }
-    
-    getAccuracy() {
-        if (this.stats.shotsFired === 0) return 0;
-        return Math.round((this.stats.shotsHit / this.stats.shotsFired) * 100);
-    }
-    
-    formatPlaytime(seconds) {
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = seconds % 60;
-        if (hours > 0) return hours + 'h ' + minutes + 'm ' + secs + 's';
-        if (minutes > 0) return minutes + 'm ' + secs + 's';
-        return secs + 's';
-    }
-    
-    resetStats() { this.stats = this.createEmptyStats(); this.sessionStats = this.createEmptySessionStats(); this.save(); }
+    // Convenience methods for common game states
+    setCalm() { this.setIntensity(0.3); }
+    setNormal() { this.setIntensity(0.5); }
+    setIntense() { this.setIntensity(0.75); }
+    setBoss() { this.setIntensity(1.0); }
 }
 
-// Global stats manager instance
-const statsManager = new StatsManager();
+// Create global music manager instance
+const musicManager = new MusicManager();
 
 
 // ============== STARFIELD CLASS ==============
@@ -1342,56 +2542,326 @@ class ExplosionParticle {
 }
 
 // ============== SCREEN SHAKE CLASS ==============
-// Enhanced for that Geometry Wars juice!
 class ScreenShake {
     constructor() {
         this.intensity = 0;
         this.offsetX = 0;
         this.offsetY = 0;
         this.angle = 0;
-        this.rotation = 0;           // Camera rotation for extra punch
-        this.trauma = 0;             // Trauma accumulation for smooth shaking
     }
 
     trigger(intensity) {
-        // Stack trauma instead of just taking max - multiple hits feel impactful
-        this.trauma = Math.min(1.0, this.trauma + intensity * 0.02);
         this.intensity = Math.max(this.intensity, intensity);
     }
 
     update() {
         if (this.intensity > 0.1) {
-            // Use trauma^2 for non-linear shake (feels more natural)
-            const shake = this.trauma * this.trauma;
-            
-            // Random direction with slight bias toward last direction
             this.angle = Math.random() * Math.PI * 2;
-            this.offsetX = Math.cos(this.angle) * this.intensity * shake;
-            this.offsetY = Math.sin(this.angle) * this.intensity * shake;
-            
-            // Subtle rotation adds polish (max ~2 degrees for big hits)
-            this.rotation = (Math.random() - 0.5) * shake * 0.035;
-            
-            // Decay both intensity and trauma
+            this.offsetX = Math.cos(this.angle) * this.intensity;
+            this.offsetY = Math.sin(this.angle) * this.intensity;
             this.intensity *= SCREEN_SHAKE_DECAY;
-            this.trauma *= 0.95;
         } else {
             this.intensity = 0;
             this.offsetX = 0;
             this.offsetY = 0;
-            this.rotation = 0;
-            this.trauma = 0;
         }
     }
 
     apply(ctx) {
-        ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
-        ctx.rotate(this.rotation);
-        ctx.translate(-CANVAS_WIDTH / 2 + this.offsetX, -CANVAS_HEIGHT / 2 + this.offsetY);
+        ctx.translate(this.offsetX, this.offsetY);
     }
 }
 
 // ============== GAME CLASS ==============
+// ============== MOBILE TOUCH CONTROLS ==============
+// Virtual joystick and fire button for touch devices
+
+class TouchControlManager {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.isTouchDevice = this.detectTouch();
+        this.enabled = this.isTouchDevice;
+        
+        // Virtual joystick state (left side)
+        this.joystick = {
+            active: false,
+            touchId: null,
+            baseX: 0,
+            baseY: 0,
+            currentX: 0,
+            currentY: 0,
+            dx: 0,  // -1 to 1
+            dy: 0,  // -1 to 1
+            radius: 50,
+            deadzone: 0.15
+        };
+        
+        // Fire button state (right side)
+        this.fireButton = {
+            active: false,
+            touchId: null,
+            x: 0,
+            y: 0,
+            radius: 45,
+            firing: false
+        };
+        
+        // Visual positions (updated on resize)
+        this.updateLayout();
+        
+        // Touch state for game integration
+        this.virtualKeys = {
+            'ArrowLeft': false,
+            'ArrowRight': false,
+            'ArrowUp': false,
+            ' ': false  // Space for shooting
+        };
+        
+        if (this.isTouchDevice) {
+            this.setupTouchEvents();
+            // Prevent scrolling/zooming on canvas
+            this.canvas.style.touchAction = 'none';
+        }
+        
+        // Handle resize
+        window.addEventListener('resize', () => this.updateLayout());
+    }
+    
+    detectTouch() {
+        return ('ontouchstart' in window) || 
+               (navigator.maxTouchPoints > 0) || 
+               (navigator.msMaxTouchPoints > 0);
+    }
+    
+    updateLayout() {
+        const rect = this.canvas.getBoundingClientRect();
+        const padding = 30;
+        const bottomOffset = 100;
+        
+        // Joystick base position (bottom-left)
+        this.joystick.baseX = padding + this.joystick.radius + 20;
+        this.joystick.baseY = rect.height - bottomOffset;
+        this.joystick.currentX = this.joystick.baseX;
+        this.joystick.currentY = this.joystick.baseY;
+        
+        // Fire button position (bottom-right)
+        this.fireButton.x = rect.width - padding - this.fireButton.radius - 20;
+        this.fireButton.y = rect.height - bottomOffset;
+    }
+    
+    setupTouchEvents() {
+        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
+        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
+        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
+        this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e), { passive: false });
+    }
+    
+    handleTouchStart(e) {
+        e.preventDefault();
+        
+        for (const touch of e.changedTouches) {
+            const pos = this.getTouchPos(touch);
+            
+            // Check if touching left half (joystick zone)
+            if (pos.x < this.canvas.width / 2 && this.joystick.touchId === null) {
+                this.joystick.active = true;
+                this.joystick.touchId = touch.identifier;
+                this.joystick.baseX = pos.x;
+                this.joystick.baseY = pos.y;
+                this.joystick.currentX = pos.x;
+                this.joystick.currentY = pos.y;
+            }
+            // Check if touching right half (fire zone)
+            else if (pos.x >= this.canvas.width / 2 && this.fireButton.touchId === null) {
+                this.fireButton.active = true;
+                this.fireButton.touchId = touch.identifier;
+                this.fireButton.firing = true;
+            }
+        }
+        
+        this.updateVirtualKeys();
+    }
+    
+    handleTouchMove(e) {
+        e.preventDefault();
+        
+        for (const touch of e.changedTouches) {
+            if (touch.identifier === this.joystick.touchId) {
+                const pos = this.getTouchPos(touch);
+                const dx = pos.x - this.joystick.baseX;
+                const dy = pos.y - this.joystick.baseY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const maxDist = this.joystick.radius * 1.5;
+                
+                // Clamp joystick position
+                if (distance > maxDist) {
+                    const angle = Math.atan2(dy, dx);
+                    this.joystick.currentX = this.joystick.baseX + Math.cos(angle) * maxDist;
+                    this.joystick.currentY = this.joystick.baseY + Math.sin(angle) * maxDist;
+                } else {
+                    this.joystick.currentX = pos.x;
+                    this.joystick.currentY = pos.y;
+                }
+                
+                // Normalize to -1 to 1
+                this.joystick.dx = (this.joystick.currentX - this.joystick.baseX) / maxDist;
+                this.joystick.dy = (this.joystick.currentY - this.joystick.baseY) / maxDist;
+            }
+        }
+        
+        this.updateVirtualKeys();
+    }
+    
+    handleTouchEnd(e) {
+        for (const touch of e.changedTouches) {
+            if (touch.identifier === this.joystick.touchId) {
+                this.joystick.active = false;
+                this.joystick.touchId = null;
+                this.joystick.currentX = this.joystick.baseX;
+                this.joystick.currentY = this.joystick.baseY;
+                this.joystick.dx = 0;
+                this.joystick.dy = 0;
+            }
+            if (touch.identifier === this.fireButton.touchId) {
+                this.fireButton.active = false;
+                this.fireButton.touchId = null;
+                this.fireButton.firing = false;
+            }
+        }
+        
+        this.updateVirtualKeys();
+    }
+    
+    getTouchPos(touch) {
+        const rect = this.canvas.getBoundingClientRect();
+        return {
+            x: (touch.clientX - rect.left) * (this.canvas.width / rect.width),
+            y: (touch.clientY - rect.top) * (this.canvas.height / rect.height)
+        };
+    }
+    
+    updateVirtualKeys() {
+        const deadzone = this.joystick.deadzone;
+        
+        // Horizontal movement (turn left/right)
+        this.virtualKeys['ArrowLeft'] = this.joystick.dx < -deadzone;
+        this.virtualKeys['ArrowRight'] = this.joystick.dx > deadzone;
+        
+        // Vertical movement (thrust) - pushing UP (negative Y) means thrust
+        this.virtualKeys['ArrowUp'] = this.joystick.dy < -deadzone;
+        
+        // Fire button
+        this.virtualKeys[' '] = this.fireButton.firing;
+    }
+    
+    // Merge virtual keys with physical keys
+    getKeys(physicalKeys) {
+        if (!this.enabled) return physicalKeys;
+        
+        return {
+            ...physicalKeys,
+            'ArrowLeft': physicalKeys['ArrowLeft'] || physicalKeys['a'] || physicalKeys['A'] || this.virtualKeys['ArrowLeft'],
+            'ArrowRight': physicalKeys['ArrowRight'] || physicalKeys['d'] || physicalKeys['D'] || this.virtualKeys['ArrowRight'],
+            'ArrowUp': physicalKeys['ArrowUp'] || physicalKeys['w'] || physicalKeys['W'] || this.virtualKeys['ArrowUp'],
+            ' ': physicalKeys[' '] || this.virtualKeys[' ']
+        };
+    }
+    
+    draw(ctx) {
+        if (!this.enabled || !this.isTouchDevice) return;
+        
+        ctx.save();
+        
+        // === DRAW VIRTUAL JOYSTICK ===
+        const jx = this.joystick.baseX;
+        const jy = this.joystick.baseY;
+        const jr = this.joystick.radius;
+        
+        // Outer ring (base)
+        ctx.beginPath();
+        ctx.arc(jx, jy, jr, 0, Math.PI * 2);
+        ctx.strokeStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.6)' : 'rgba(0, 255, 255, 0.25)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        // Base fill
+        ctx.fillStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.15)' : 'rgba(0, 255, 255, 0.05)';
+        ctx.fill();
+        
+        // Inner nub
+        const nubX = this.joystick.currentX;
+        const nubY = this.joystick.currentY;
+        const nubRadius = jr * 0.5;
+        
+        ctx.beginPath();
+        ctx.arc(nubX, nubY, nubRadius, 0, Math.PI * 2);
+        ctx.fillStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.8)' : 'rgba(0, 255, 255, 0.4)';
+        ctx.fill();
+        
+        // Nub glow
+        if (this.joystick.active) {
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.arc(nubX, nubY, nubRadius * 0.7, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 255, 255, 0.6)';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+        
+        // Direction indicators
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.4)';
+        ctx.fillText('^', jx, jy - jr - 8);  // Up = thrust
+        
+        // === DRAW FIRE BUTTON ===
+        const fx = this.fireButton.x;
+        const fy = this.fireButton.y;
+        const fr = this.fireButton.radius;
+        
+        // Outer ring
+        ctx.beginPath();
+        ctx.arc(fx, fy, fr, 0, Math.PI * 2);
+        ctx.strokeStyle = this.fireButton.active ? 'rgba(255, 0, 255, 0.8)' : 'rgba(255, 0, 255, 0.3)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        // Button fill
+        ctx.fillStyle = this.fireButton.active ? 'rgba(255, 0, 255, 0.4)' : 'rgba(255, 0, 255, 0.1)';
+        ctx.fill();
+        
+        // Button glow when active
+        if (this.fireButton.active) {
+            ctx.shadowColor = '#ff00ff';
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.arc(fx, fy, fr * 0.8, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 0, 255, 0.5)';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+        
+        // Fire label
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = this.fireButton.active ? '#ff88ff' : 'rgba(255, 0, 255, 0.5)';
+        ctx.fillText('FIRE', fx, fy);
+        
+        // === TOUCH HINT (show briefly on start screen) ===
+        
+        ctx.restore();
+    }
+    
+    // Handle auto-fire when button held
+    shouldAutoFire() {
+        return this.enabled && this.fireButton.firing;
+    }
+}
+
+
+
 class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
@@ -1416,6 +2886,10 @@ class Game {
         this.ufos = [];
         this.enemyBullets = [];
         this.ufoSpawnTimer = this.getRandomUfoSpawnTime();
+        
+        // Boss system
+        this.boss = null;
+        this.bossLevel = false;
 
         // Visual systems
         this.starField = new StarField();
@@ -1432,6 +2906,13 @@ class Game {
         this.scoreMultiplierTimer = 0;
         this.freezeActive = false;
         this.freezeTimer = 0;
+        // Combo system
+        this.comboCount = 0;
+        this.comboTimer = 0;
+        this.comboDisplayTimer = 0;
+        this.maxCombo = 0;
+        this.lastKillX = 0;
+        this.lastKillY = 0;
 
         // Animation timers
         this.time = 0;
@@ -1439,17 +2920,22 @@ class Game {
         
         // Engine sound state tracking
         this.wasThrusting = false;
+        
+        // Skill tree system
+        this.skillTree = new SkillTree();
+        this.skillTreeUI = new SkillTreeUI(this.skillTree, this);
+        this.regenTimer = 0;
+        
+        // Save/Load system
+                this.saveLoadUI = new SaveLoadUI(this);
 
-        // ============== COMBO SYSTEM ==============
-        // Geometry Wars-style kill combo tracking
-        this.combo = 0;                  // Current kill streak
-        this.comboTimer = 0;             // Frames until combo resets
-        this.comboMultiplier = 1;        // Score multiplier from combo
-        this.comboDisplayTimer = 0;      // How long to show combo popup
-        this.comboAnimScale = 0;         // Scale animation for juicy feedback
-        this.lastComboX = 0;             // Position for combo popup
-        this.lastComboY = 0;
-        this.maxComboThisGame = 0;       // Track best combo this session
+        // High score entry state
+        this.isEnteringInitials = false;
+        this.newHighScoreRank = 0;
+        this.initials = '';
+
+                // Mobile touch controls
+        this.touchControls = new TouchControlManager(this.canvas);
 
         this.setupEventListeners();
         this.gameLoop();
@@ -1465,19 +2951,28 @@ class Game {
             
             // Initialize audio on first user interaction
             soundManager.init();
+            musicManager.init();
 
             if (e.key === 'Enter') {
-                if (this.state === 'start' || this.state === 'gameover') {
+                if (this.state === 'gameover' && this.isEnteringInitials) {
+                    // Submit high score
+                    if (this.initials.length > 0) {
+                        highScoreManager.addScore(this.initials, this.score, this.level);
+                        this.isEnteringInitials = false;
+                        soundManager.playItemCollect();
+                    }
+                } else if (this.state === 'start' || this.state === 'gameover') {
                     this.startGame();
                 }
-
-            // Stats screen toggle
-            if ((e.key === 's' || e.key === 'S') && this.state === 'start') {
-                this.state = 'stats';
             }
-            if (e.key === 'Escape' && this.state === 'stats') {
-                this.state = 'start';
-            }
+            
+            // Handle initials input for high score entry
+            if (this.state === 'gameover' && this.isEnteringInitials) {
+                if (e.key === 'Backspace' && this.initials.length > 0) {
+                    this.initials = this.initials.slice(0, -1);
+                } else if (e.key.length === 1 && e.key.match(/[a-zA-Z]/) && this.initials.length < 3) {
+                    this.initials += e.key.toUpperCase();
+                }
             }
 
             if (e.key === ' ' && this.state === 'playing' && this.ship) {
@@ -1490,22 +2985,98 @@ class Game {
                 this.useInventoryItem(slotIndex);
             }
             
-            // Mute toggle with M key
+            // Mute toggle with M key (SFX)
             if (e.key === 'm' || e.key === 'M') {
                 soundManager.toggleMute();
+            }
+            
+            // Music toggle with N key
+            if (e.key === 'n' || e.key === 'N') {
+                musicManager.toggleMute();
+            }
+            
+            // Skill tree toggle with K key
+            if (e.key === 'k' || e.key === 'K') {
+                if (this.state === 'start' || this.state === 'playing') {
+                    this.skillTreeUI.toggle();
+                }
+            }
+            
+            // Save/Load controls and Pause
+            if (e.key === 'Escape') {
+                if (this.saveLoadUI.visible) {
+                    this.saveLoadUI.close();
+                } else if (this.skillTreeUI.visible) {
+                    this.skillTreeUI.toggle();
+                } else if (this.state === 'playing' || this.state === 'paused') {
+                    this.togglePause();
+                }
+            }
+
+            // P key to pause
+            if ((e.key === 'p' || e.key === 'P') && (this.state === 'playing' || this.state === 'paused')) {
+                if (!this.saveLoadUI.visible && !this.skillTreeUI.visible) {
+                    this.togglePause();
+                }
+            }
+
+            // R key to restart from pause menu
+            if ((e.key === 'r' || e.key === 'R') && this.state === 'paused') {
+                this.startGame();
+            }
+            
+            // F5 = Quick Save (during gameplay)
+            if (e.key === 'F5' && this.state === 'playing') {
+                e.preventDefault();
+                this.saveLoadUI.saveManager.autoSave();
+                this.triggerFlash('#00ff00', 0.15);
+            }
+            
+            // F9 = Load Menu (from start screen or during play)
+            if (e.key === 'F9') {
+                e.preventDefault();
+                if (this.state === 'start' || this.state === 'playing') {
+                    this.saveLoadUI.toggle('load');
+                }
+            }
+            
+            // L = Load menu on start screen
+            if ((e.key === 'l' || e.key === 'L') && this.state === 'start') {
+                this.saveLoadUI.toggle('load');
             }
         });
 
         window.addEventListener('keyup', (e) => {
             this.keys[e.key] = false;
         });
+        
+        // Mouse events for skill tree and save/load UI
+        this.canvas.addEventListener('click', (e) => {
+            // Save/Load UI takes priority
+            if (this.saveLoadUI.visible) {
+                this.saveLoadUI.handleClick(e.clientX, e.clientY);
+                return;
+            }
+            if (this.skillTreeUI.visible) {
+                this.skillTreeUI.handleClick(e.clientX, e.clientY);
+            }
+        });
+        
+        this.canvas.addEventListener('mousemove', (e) => {
+            this.saveLoadUI.handleMouseMove(e.clientX, e.clientY);
+            this.skillTreeUI.handleMouseMove(e.clientX, e.clientY);
+        });
     }
 
     startGame() {
         this.state = 'playing';
-        statsManager.startSession();
         this.score = 0;
-        this.lives = 3;
+        
+        // Apply skill bonuses
+        const effects = this.skillTree.getAllEffects();
+        this.lives = 3 + (effects.startingLives || 0);
+        this.maxInventorySlots = MAX_INVENTORY_SLOTS + (effects.extraInventorySlots || 0);
+        
         this.level = 1;
         this.ship = new Ship(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, this);
         this.asteroids = [];
@@ -1519,20 +3090,18 @@ class Game {
         this.ufos = [];
         this.enemyBullets = [];
         this.ufoSpawnTimer = this.getRandomUfoSpawnTime();
+        this.boss = null;
+        this.bossLevel = false;
         this.magnetActive = false;
         this.magnetTimer = 0;
         this.scoreMultiplier = 1;
         this.scoreMultiplierTimer = 0;
         this.freezeActive = false;
         this.freezeTimer = 0;
-
-        // Reset combo system
-        this.combo = 0;
+        this.comboCount = 0;
         this.comboTimer = 0;
-        this.comboMultiplier = 1;
         this.comboDisplayTimer = 0;
-        this.comboAnimScale = 0;
-        this.maxComboThisGame = 0;
+        this.maxCombo = 0;
 
         this.spawnAsteroids(4);
         this.updateUI();
@@ -1543,6 +3112,11 @@ class Game {
         
         // Play game start sound
         soundManager.playGameStart();
+        
+        // Start background music
+        musicManager.init();
+        musicManager.start();
+        musicManager.setNormal();
     }
 
     triggerFlash(color, alpha) {
@@ -1597,12 +3171,30 @@ class Game {
 
     nextLevel() {
         this.level++;
-        this.spawnAsteroids(3 + this.level);
         this.updateUI();
-        this.triggerFlash('#00ff00', 0.2);
         
-        // Play level complete fanfare
-        soundManager.playLevelComplete();
+        // Award skill point every level (with XP boost bonus)
+        const effects = this.skillTree.getAllEffects();
+        const xpBonus = effects.xpBonus || 0;
+        const basePoints = 1;
+        const bonusPoints = Math.random() < xpBonus ? 1 : 0;
+        this.skillTree.addSkillPoints(basePoints + bonusPoints);
+        
+        // Auto-save progress on level complete
+        this.saveLoadUI.saveManager.autoSave();
+        
+        // Check if this is a boss level
+        if (BOSS_LEVELS.includes(this.level)) {
+            this.bossLevel = true;
+            this.boss = new Boss(this);
+            this.triggerFlash('#ff0066', 0.4);
+            // Don't play normal level complete - boss appear sound plays instead
+        } else {
+            this.bossLevel = false;
+            this.spawnAsteroids(3 + this.level);
+            this.triggerFlash('#00ff00', 0.2);
+            soundManager.playLevelComplete();
+        }
     }
 
     updateUI() {
@@ -1611,17 +3203,43 @@ class Game {
         document.getElementById('level').textContent = this.level;
     }
 
+    togglePause() {
+        if (this.state === 'playing') {
+            this.state = 'paused';
+            this.pauseTime = Date.now();
+            soundManager.stopEngine();
+            musicManager.stop();
+        } else if (this.state === 'paused') {
+            this.state = 'playing';
+            if (musicManager.initialized && !musicManager.muted) {
+                musicManager.start();
+            }
+        }
+    }
+    
     gameOver() {
         this.state = 'gameover';
         this.triggerFlash('#ff0000', 0.5);
-        statsManager.endSession(this.score, this.level);
-        statsManager.recordDeath();
         
         // Stop engine sound if playing
         soundManager.stopEngine();
         
         // Play game over sound
         soundManager.playGameOver();
+        
+        // Stop background music
+        musicManager.stop();
+        
+        // Check for high score
+        if (highScoreManager.isHighScore(this.score)) {
+            this.isEnteringInitials = true;
+            this.newHighScoreRank = highScoreManager.getRank(this.score);
+            this.initials = '';
+            soundManager.playLevelComplete(); // Celebratory sound!
+        } else {
+            this.isEnteringInitials = false;
+            this.newHighScoreRank = 0;
+        }
     }
 
     loseLife() {
@@ -1629,7 +3247,6 @@ class Game {
         this.updateUI();
         this.screenShake.trigger(20);
         this.triggerFlash('#ff0000', 0.3);
-        statsManager.recordLifeLost();
         
         // Stop engine sound
         soundManager.stopEngine();
@@ -1641,49 +3258,40 @@ class Game {
         }
     }
 
-    addScore(points, x = null, y = null) {
-        // ============== COMBO SYSTEM ==============
-        // Increment combo on every kill
-        this.combo++;
-        this.comboTimer = 120; // 2 seconds at 60fps to keep combo alive
-        this.comboDisplayTimer = 60; // Show popup for 1 second
-        this.comboAnimScale = 1.5; // Start big for juicy pop effect
-        
-        // Store position for combo popup
-        if (x !== null) {
-            this.lastComboX = x;
-            this.lastComboY = y;
-        }
-        
-        // Calculate combo multiplier (1x, 1.5x, 2x, 2.5x, 3x max)
-        // Combos: 1-4 = 1x, 5-9 = 1.5x, 10-19 = 2x, 20-29 = 2.5x, 30+ = 3x
-        if (this.combo >= 30) {
-            this.comboMultiplier = 3;
-        } else if (this.combo >= 20) {
-            this.comboMultiplier = 2.5;
-        } else if (this.combo >= 10) {
-            this.comboMultiplier = 2;
-        } else if (this.combo >= 5) {
-            this.comboMultiplier = 1.5;
-        } else {
-            this.comboMultiplier = 1;
-        }
-        
-        // Track max combo for stats
-        if (this.combo > this.maxComboThisGame) {
-            this.maxComboThisGame = this.combo;
-            // Update stats manager if we beat our best
-            if (this.combo > statsManager.stats.highestCombo) {
-                statsManager.stats.highestCombo = this.combo;
-                statsManager.saveStats();
-            }
-        }
-        
-        // Apply both item multiplier AND combo multiplier
-        const totalMultiplier = this.scoreMultiplier * this.comboMultiplier;
-        this.score += Math.floor(points * totalMultiplier);
+    addScore(points) {
+        const comboMult = this.getComboMultiplier();
+        this.score += Math.floor(points * this.scoreMultiplier * comboMult);
         this.updateUI();
     }
+
+    // Register a kill for combo system
+    registerKill(x, y) {
+        this.comboCount++;
+        this.comboTimer = COMBO_TIMEOUT;
+        this.comboDisplayTimer = 60; // Show combo for 1 second
+        this.lastKillX = x;
+        this.lastKillY = y;
+        
+        // Track max combo
+        if (this.comboCount > this.maxCombo) {
+            this.maxCombo = this.comboCount;
+        }
+        
+        // Check for milestone celebrations
+        if (COMBO_MILESTONES.includes(this.comboCount)) {
+            soundManager.playComboMilestone(this.comboCount);
+            this.triggerFlash(COLORS.combo, 0.3);
+            this.screenShake.trigger(this.comboCount >= 10 ? 10 : 5);
+        }
+    }
+    
+    // Get current combo multiplier
+    getComboMultiplier() {
+        if (this.comboCount <= 1) return 1;
+        const mult = 1 + (this.comboCount - 1) * COMBO_MULTIPLIER_STEP;
+        return Math.min(mult, COMBO_MULTIPLIER_CAP);
+    }
+
 
     spawnPowerUp(x, y) {
         if (Math.random() < POWERUP_SPAWN_CHANCE) {
@@ -1754,16 +3362,16 @@ class Game {
                 break;
 
             case 'BOMB':
-                // Destroy all asteroids - MASSIVE COMBO POTENTIAL!
+                // Destroy all asteroids
                 this.asteroids.forEach(asteroid => {
                     this.createExplosion(asteroid.x, asteroid.y, asteroid.size * 8);
-                    this.addScore((4 - asteroid.size) * 10, asteroid.x, asteroid.y);
+                    this.addScore((4 - asteroid.size) * 10);
                 });
                 this.asteroids = [];
                 // Also destroy UFOs!
                 this.ufos.forEach(ufo => {
                     this.createExplosion(ufo.x, ufo.y, 20);
-                    this.addScore(UFO_POINTS / 2, ufo.x, ufo.y);
+                    this.addScore(UFO_POINTS / 2);
                 });
                 this.ufos = [];
                 this.enemyBullets = [];
@@ -1833,28 +3441,6 @@ class Game {
             }
         }
 
-        // ============== COMBO DECAY ==============
-        // Combo timer counts down - no kills = combo lost
-        if (this.comboTimer > 0) {
-            this.comboTimer--;
-            if (this.comboTimer <= 0 && this.combo > 0) {
-                // Combo broken! Reset everything
-                this.combo = 0;
-                this.comboMultiplier = 1;
-            }
-        }
-        
-        // Animate combo display
-        if (this.comboDisplayTimer > 0) {
-            this.comboDisplayTimer--;
-        }
-        
-        // Smooth scale animation
-        if (this.comboAnimScale > 1) {
-            this.comboAnimScale -= 0.05;
-            if (this.comboAnimScale < 1) this.comboAnimScale = 1;
-        }
-
         if (this.freezeActive) {
             this.freezeTimer--;
             if (this.freezeTimer <= 0) {
@@ -1880,6 +3466,24 @@ class Game {
             }
         }
     }
+
+    updateCombo() {
+        if (this.comboTimer > 0) {
+            this.comboTimer--;
+            if (this.comboTimer === 0) {
+                // Combo broken
+                if (this.comboCount >= 3) {
+                    soundManager.playComboBreak();
+                }
+                this.comboCount = 0;
+            }
+        }
+        
+        if (this.comboDisplayTimer > 0) {
+            this.comboDisplayTimer--;
+        }
+    }
+
 
     updateInventoryUI() {
         const container = document.getElementById('inventory');
@@ -1909,17 +3513,8 @@ class Game {
     }
 
     createExplosion(x, y, intensity) {
-        // JUICY screen shake - much stronger for big explosions!
-        // Geometry Wars style: big hits should FEEL powerful
-        const shakeIntensity = intensity * 2.5;
-        this.screenShake.trigger(shakeIntensity);
-        
-        // Screen flash for big explosions (large asteroids)
-        // Adds satisfying visual punch to major kills
-        if (intensity >= 15) {
-            // Orange flash for big asteroid explosions
-            this.triggerFlash('#ff6600', Math.min(0.4, intensity * 0.02));
-        }
+        // Screen shake based on explosion size
+        this.screenShake.trigger(intensity * 0.8);
         
         // Play explosion sound with size-based intensity
         soundManager.playExplosion(intensity / 15);
@@ -1940,14 +3535,9 @@ class Game {
         this.particles.push(new ShockwaveParticle(x, y, intensity * 3));
     }
     
-    // Create green UFO explosion - extra satisfying!
+    // Create green UFO explosion
     createUfoExplosion(x, y) {
-        // UFO kills deserve BIG screen shake - they're rare and exciting
-        this.screenShake.trigger(35);
-        
-        // Bright green flash for alien destruction satisfaction
-        this.triggerFlash('#00ff44', 0.5);
-        
+        this.screenShake.trigger(15);
         soundManager.playUfoDestroyed();
         
         // Green core particles
@@ -1982,9 +3572,21 @@ class Game {
             if (this.flashAlpha < 0.01) this.flashAlpha = 0;
         }
 
-        if (this.state !== 'playing') return;
+        if (this.state !== 'playing' && this.state !== 'paused') return;
+        if (this.state === 'paused') return; // Pause freezes gameplay
 
         this.updateItemEffects();
+        this.updateCombo();
+        
+        // Update music intensity based on game state
+        if (musicManager.playing) {
+            let intensity = 0.4; // Base playing intensity
+            intensity += this.asteroids.length * 0.02; // More asteroids = more intense
+            intensity += this.ufos.length * 0.1; // UFOs add intensity
+            if (this.boss) intensity = 1.0; // Boss = max intensity
+            if (this.comboCount >= 10) intensity = Math.min(1, intensity + 0.15); // Big combo boost
+            musicManager.setIntensity(intensity);
+        }
         
         // UFO spawning
         this.ufoSpawnTimer--;
@@ -1994,10 +3596,16 @@ class Game {
         }
 
         if (this.ship) {
-            this.ship.update(this.keys);
+            const mergedKeys = this.touchControls.getKeys(this.keys);
+            this.ship.update(mergedKeys);
             
-            // Handle engine sound
-            const isThrusting = this.keys['ArrowUp'] || this.keys['w'] || this.keys['W'];
+                        // Handle touch auto-fire
+            if (this.touchControls.shouldAutoFire()) {
+                this.ship.shoot();
+            }
+            
+            // Handle engine sound (check both keyboard and touch)
+            const isThrusting = mergedKeys['ArrowUp'];
             if (isThrusting && !this.wasThrusting) {
                 soundManager.startEngine();
             } else if (!isThrusting && this.wasThrusting) {
@@ -2057,10 +3665,23 @@ class Game {
         
         // Remove UFOs that went off-screen
         this.ufos = this.ufos.filter(ufo => !ufo.offScreen);
+        
+        // Update boss
+        if (this.boss) {
+            this.boss.update();
+            if (this.boss.isFinished()) {
+                this.boss = null;
+                this.bossLevel = false;
+                // After boss defeat, continue to next level
+                this.nextLevel();
+                return;
+            }
+        }
 
         this.checkCollisions();
 
-        if (this.asteroids.length === 0) {
+        // Level completion: no asteroids AND no active boss
+        if (this.asteroids.length === 0 && !this.boss && !this.bossLevel) {
             this.nextLevel();
         }
     }
@@ -2077,17 +3698,17 @@ class Game {
 
                     const asteroid = this.asteroids[j];
                     this.createExplosion(asteroid.x, asteroid.y, asteroid.size * 6);
-                    statsManager.recordAsteroidDestroyed(asteroid.size);
 
                     if (asteroid.size > 1) {
                         for (let k = 0; k < 2; k++) {
                             this.asteroids.push(
-                                new Asteroid(asteroid.x, asteroid.y, asteroid.size - 1, this, asteroid.variant)
+                                new Asteroid(asteroid.x, asteroid.y, asteroid.size - 1, this)
                             );
                         }
                     }
 
-                    this.addScore((4 - asteroid.size) * 20, asteroid.x, asteroid.y);
+                    this.addScore((4 - asteroid.size) * 20);
+                    this.registerKill(asteroid.x, asteroid.y);
                     this.spawnPowerUp(asteroid.x, asteroid.y);
                     this.spawnItem(asteroid.x, asteroid.y, asteroid.size);
                     this.asteroids.splice(j, 1);
@@ -2107,11 +3728,25 @@ class Game {
                     
                     const ufo = this.ufos[j];
                     this.createUfoExplosion(ufo.x, ufo.y);
-                    this.addScore(UFO_POINTS, ufo.x, ufo.y);
-                    statsManager.recordUfoDestroyed();
+                    this.addScore(UFO_POINTS);
+                    this.registerKill(ufo.x, ufo.y);
                     this.spawnUfoLoot(ufo.x, ufo.y);
                     this.ufos.splice(j, 1);
                     this.triggerFlash(COLORS.ufoPrimary, 0.2);
+                    break;
+                }
+            }
+        }
+        
+        // Bullet vs Boss
+        if (this.boss && !this.boss.defeated && !this.boss.entering) {
+            for (let i = this.bullets.length - 1; i >= 0; i--) {
+                if (this.circleCollision(
+                    this.bullets[i].x, this.bullets[i].y, 4,
+                    this.boss.x, this.boss.y, BOSS_SIZE
+                )) {
+                    this.bullets.splice(i, 1);
+                    this.boss.takeDamage();
                     break;
                 }
             }
@@ -2132,7 +3767,6 @@ class Game {
                     } else {
                         const asteroid = this.asteroids[i];
                         this.createExplosion(asteroid.x, asteroid.y, asteroid.size * 6);
-                    statsManager.recordAsteroidDestroyed(asteroid.size);
                         
                         // Play shield hit sound
                         soundManager.playShieldHit();
@@ -2140,7 +3774,7 @@ class Game {
                         if (asteroid.size > 1) {
                             for (let k = 0; k < 2; k++) {
                                 this.asteroids.push(
-                                    new Asteroid(asteroid.x, asteroid.y, asteroid.size - 1, this, asteroid.variant)
+                                    new Asteroid(asteroid.x, asteroid.y, asteroid.size - 1, this)
                                 );
                             }
                         }
@@ -2166,10 +3800,9 @@ class Game {
                         this.loseLife();
                         break;
                     } else {
-                        const ufo = this.ufos[i];
-                        this.createUfoExplosion(ufo.x, ufo.y);
+                        this.createUfoExplosion(this.ufos[i].x, this.ufos[i].y);
                         soundManager.playShieldHit();
-                        this.addScore(UFO_POINTS / 2, ufo.x, ufo.y);
+                        this.addScore(UFO_POINTS / 2);
                         this.ufos.splice(i, 1);
                     }
                 }
@@ -2255,18 +3888,33 @@ class Game {
 
         if (this.state === 'start') {
             this.drawStartScreen(ctx);
-            ctx.restore();
-            return;
-        }
-
-        if (this.state === 'stats') {
-            this.drawStatsScreen(ctx);
+            this.skillTreeUI.draw(ctx);
+            this.saveLoadUI.draw(ctx);
             ctx.restore();
             return;
         }
 
         if (this.state === 'gameover') {
             this.drawGameOverScreen(ctx);
+            ctx.restore();
+            return;
+        }
+
+        if (this.state === 'paused') {
+            // Draw game objects dimmed in background
+            this.trailParticles.forEach(particle => particle.draw(ctx));
+            this.explosionParticles.forEach(particle => particle.draw(ctx));
+            this.particles.forEach(particle => particle.draw(ctx));
+            this.items.forEach(item => item.draw(ctx));
+            this.powerUps.forEach(powerUp => powerUp.draw(ctx));
+            this.asteroids.forEach(asteroid => asteroid.draw(ctx));
+            this.ufos.forEach(ufo => ufo.draw(ctx));
+            if (this.boss) this.boss.draw(ctx);
+            this.enemyBullets.forEach(bullet => bullet.draw(ctx));
+            this.bullets.forEach(bullet => bullet.draw(ctx));
+            if (this.ship) this.ship.draw(ctx);
+
+            this.drawPauseMenu(ctx);
             ctx.restore();
             return;
         }
@@ -2279,6 +3927,7 @@ class Game {
         this.powerUps.forEach(powerUp => powerUp.draw(ctx));
         this.asteroids.forEach(asteroid => asteroid.draw(ctx));
         this.ufos.forEach(ufo => ufo.draw(ctx));
+        if (this.boss) this.boss.draw(ctx);
         this.enemyBullets.forEach(bullet => bullet.draw(ctx));
         this.bullets.forEach(bullet => bullet.draw(ctx));
         
@@ -2287,8 +3936,8 @@ class Game {
             this.ship.drawPowerUpIndicators(ctx);
         }
 
+        this.drawComboIndicator(ctx);
         this.drawItemEffectIndicators(ctx);
-        this.drawComboDisplay(ctx);
         
         // Draw flash overlay
         if (this.flashAlpha > 0) {
@@ -2307,6 +3956,12 @@ class Game {
         vignette.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
         ctx.fillStyle = vignette;
         ctx.fillRect(-20, -20, CANVAS_WIDTH + 40, CANVAS_HEIGHT + 40);
+        
+        // Draw skill tree UI overlay (if visible)
+        this.skillTreeUI.draw(ctx);
+        
+        // Draw save/load UI overlay (if visible)
+        this.saveLoadUI.draw(ctx);
         
         ctx.restore();
     }
@@ -2347,7 +4002,27 @@ class Game {
         ctx.fillStyle = '#666666';
         ctx.font = '14px "Courier New", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('M - Sound  |  S - Statistics', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
+        ctx.fillText('M = Toggle SFX  |  N = Toggle Music', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
+        
+        // Skill tree hint
+        ctx.save();
+        ctx.shadowColor = '#ffff00';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#ffff00';
+        ctx.font = '16px "Courier New", monospace';
+        ctx.fillText(`Press K for Skill Tree (${this.skillTree.skillPoints} points)`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 120);
+        ctx.restore();
+        
+        // Load game hint (if saves exist)
+        if (this.saveLoadUI.saveManager.hasSaves()) {
+            ctx.save();
+            ctx.shadowColor = '#00ff88';
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = '#00ff88';
+            ctx.font = '16px "Courier New", monospace';
+            ctx.fillText('Press L to Load Saved Game', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 150);
+            ctx.restore();
+        }
         
         // Draw decorative asteroids in background
         ctx.save();
@@ -2362,8 +4037,129 @@ class Game {
             ctx.stroke();
         }
         ctx.restore();
+        
+        // Draw high scores on right side
+        const scores = highScoreManager.getScores();
+        if (scores.length > 0) {
+            ctx.save();
+            ctx.textAlign = 'right';
+            
+            // Title
+            ctx.shadowColor = '#ffff00';
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = '#ffff00';
+            ctx.font = 'bold 18px "Courier New", monospace';
+            ctx.fillText('HIGH SCORES', CANVAS_WIDTH - 30, 40);
+            
+            // Scores list
+            ctx.shadowBlur = 5;
+            ctx.font = '14px "Courier New", monospace';
+            scores.slice(0, 5).forEach((entry, i) => {
+                const y = 65 + i * 22;
+                const color = i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : '#888888';
+                ctx.fillStyle = color;
+                ctx.fillText(`${i + 1}. ${entry.initials} ${entry.score.toLocaleString()}`, CANVAS_WIDTH - 30, y);
+            });
+            ctx.restore();
+        }
     }
 
+    drawPauseMenu(ctx) {
+        // Dim overlay
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 0, 20, 0.85)';
+        ctx.fillRect(-20, -20, CANVAS_WIDTH + 40, CANVAS_HEIGHT + 40);
+        ctx.restore();
+        
+        // Animated PAUSED title
+        const pulse = Math.sin(this.time * 0.08) * 0.15 + 1;
+        const glowIntensity = 25 + Math.sin(this.time * 0.1) * 10;
+        
+        ctx.save();
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = glowIntensity;
+        ctx.fillStyle = '#00ffff';
+        ctx.font = `bold ${48 * pulse}px "Courier New", monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText('PAUSED', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 100);
+        ctx.restore();
+        
+        // Current stats box
+        const boxY = CANVAS_HEIGHT / 2 - 50;
+        const boxWidth = 280;
+        const boxHeight = 120;
+        const boxX = CANVAS_WIDTH / 2 - boxWidth / 2;
+        
+        // Stats box background
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 20, 40, 0.9)';
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 8);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        
+        // Stats labels
+        ctx.save();
+        ctx.textAlign = 'left';
+        ctx.font = '18px "Courier New", monospace';
+        ctx.fillStyle = '#888888';
+        ctx.fillText('Score:', boxX + 20, boxY + 35);
+        ctx.fillText('Level:', boxX + 20, boxY + 65);
+        ctx.fillText('Lives:', boxX + 20, boxY + 95);
+        
+        // Stats values with glow
+        ctx.textAlign = 'right';
+        ctx.shadowBlur = 10;
+        
+        ctx.shadowColor = '#00ffff';
+        ctx.fillStyle = '#00ffff';
+        ctx.fillText(this.score.toLocaleString(), boxX + boxWidth - 20, boxY + 35);
+        
+        ctx.shadowColor = '#ffff00';
+        ctx.fillStyle = '#ffff00';
+        ctx.fillText(this.level, boxX + boxWidth - 20, boxY + 65);
+        
+        ctx.shadowColor = '#ff4466';
+        ctx.fillStyle = '#ff4466';
+        ctx.fillText(this.lives, boxX + boxWidth - 20, boxY + 95);
+        ctx.restore();
+        
+        // Menu options
+        const menuY = CANVAS_HEIGHT / 2 + 100;
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.font = '20px "Courier New", monospace';
+        
+        // Resume - blinking
+        if (Math.floor(this.time / 25) % 2 === 0) {
+            ctx.shadowColor = '#00ff88';
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = '#00ff88';
+            ctx.fillText('Press ESC or P to Resume', CANVAS_WIDTH / 2, menuY);
+        }
+        
+        // Restart option
+        ctx.shadowColor = '#ff8800';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#ff8800';
+        ctx.fillText('Press R to Restart', CANVAS_WIDTH / 2, menuY + 35);
+        ctx.restore();
+        
+        // Controls reminder at bottom
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.font = '14px "Courier New", monospace';
+        ctx.fillStyle = '#555555';
+        ctx.fillText('WASD/Arrows = Move  |  Space = Shoot  |  1-5 = Use Items', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 60);
+        ctx.fillText('M = SFX  |  N = Music  |  K = Skills  |  F5 = Save  |  F9 = Load', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 40);
+        ctx.restore();
+    }
+    
     drawGameOverScreen(ctx) {
         // Game over with red glow
         ctx.save();
@@ -2372,7 +4168,7 @@ class Game {
         ctx.fillStyle = '#ff0000';
         ctx.font = 'bold 48px "Courier New", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50);
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80);
         ctx.restore();
         
         // Score
@@ -2381,15 +4177,80 @@ class Game {
         ctx.shadowBlur = 15;
         ctx.fillStyle = '#ffffff';
         ctx.font = '24px "Courier New", monospace';
-        ctx.fillText(`Final Score: ${this.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
+        ctx.textAlign = 'center';
+        ctx.fillText(`Final Score: ${this.score.toLocaleString()}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
         ctx.restore();
         
-        // Restart prompt
-        if (Math.floor(this.time / 30) % 2 === 0) {
-            ctx.fillStyle = '#aaaaaa';
+        // High score entry or celebration
+        if (this.isEnteringInitials) {
+            // New high score celebration!
+            const pulse = Math.sin(this.time * 0.1) * 0.3 + 1;
+            ctx.save();
+            ctx.shadowColor = '#ffff00';
+            ctx.shadowBlur = 20 * pulse;
+            ctx.fillStyle = '#ffff00';
+            ctx.font = `bold ${24 * pulse}px "Courier New", monospace`;
+            ctx.fillText(`NEW HIGH SCORE! #${this.newHighScoreRank}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25);
+            ctx.restore();
+            
+            // Initials entry
+            ctx.save();
+            ctx.fillStyle = '#ffffff';
             ctx.font = '20px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('Press ENTER to Restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
+            ctx.fillText('Enter your initials:', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
+            
+            // Draw initials boxes
+            const boxWidth = 40;
+            const startX = CANVAS_WIDTH / 2 - boxWidth * 1.5;
+            for (let i = 0; i < 3; i++) {
+                const x = startX + i * (boxWidth + 10);
+                const y = CANVAS_HEIGHT / 2 + 75;
+                
+                // Box background
+                ctx.strokeStyle = i < this.initials.length ? '#00ffff' : '#444444';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, boxWidth, 45);
+                
+                // Letter
+                if (i < this.initials.length) {
+                    ctx.shadowColor = '#00ffff';
+                    ctx.shadowBlur = 10;
+                    ctx.fillStyle = '#00ffff';
+                    ctx.font = 'bold 32px "Courier New", monospace';
+                    ctx.fillText(this.initials[i], x + boxWidth/2, y + 34);
+                }
+                
+                // Cursor blink
+                if (i === this.initials.length && Math.floor(this.time / 20) % 2 === 0) {
+                    ctx.fillStyle = '#00ffff';
+                    ctx.fillRect(x + 10, y + 35, boxWidth - 20, 3);
+                }
+            }
+            ctx.restore();
+            
+            ctx.fillStyle = '#888888';
+            ctx.font = '14px "Courier New", monospace';
+            ctx.fillText('Press ENTER to confirm', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 145);
+        } else {
+            // Show rank if just submitted
+            const topScore = highScoreManager.getTopScore();
+            if (this.score === topScore && topScore > 0) {
+                ctx.save();
+                ctx.shadowColor = '#ffd700';
+                ctx.shadowBlur = 15;
+                ctx.fillStyle = '#ffd700';
+                ctx.font = 'bold 20px "Courier New", monospace';
+                ctx.fillText('TOP SCORE!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25);
+                ctx.restore();
+            }
+            
+            // Restart prompt
+            if (Math.floor(this.time / 30) % 2 === 0) {
+                ctx.fillStyle = '#aaaaaa';
+                ctx.font = '20px "Courier New", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('Press ENTER to Restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
+            }
         }
     }
 
@@ -2421,97 +4282,76 @@ class Game {
         });
     }
 
-    // ============== COMBO DISPLAY ==============
-    // Geometry Wars-style juicy combo indicator
-    drawComboDisplay(ctx) {
-        if (this.combo <= 0) return;
+
+
+    drawComboIndicator(ctx) {
+        if (this.comboCount < 2) return;
         
-        // Main combo counter in top-center
-        const comboAlpha = this.comboDisplayTimer > 0 ? 1 : Math.max(0, this.comboTimer / 60);
+        const mult = this.getComboMultiplier();
+        const isMaxed = mult >= COMBO_MULTIPLIER_CAP;
+        const comboColor = isMaxed ? COLORS.comboMax : COLORS.combo;
         
-        // Color based on multiplier tier - more vibrant at higher combos
-        let comboColor, glowColor;
-        if (this.comboMultiplier >= 3) {
-            comboColor = '#ff00ff';  // Magenta for max combo
-            glowColor = '#ff44ff';
-        } else if (this.comboMultiplier >= 2.5) {
-            comboColor = '#ff4400';  // Orange-red
-            glowColor = '#ff6622';
-        } else if (this.comboMultiplier >= 2) {
-            comboColor = '#ffff00';  // Yellow
-            glowColor = '#ffff44';
-        } else if (this.comboMultiplier >= 1.5) {
-            comboColor = '#00ff88';  // Green
-            glowColor = '#44ffaa';
-        } else {
-            comboColor = '#00ffff';  // Cyan (base combo)
-            glowColor = '#44ffff';
-        }
+        // Pulsing effect based on combo
+        const pulse = 1 + Math.sin(this.time * 0.2) * 0.1 * (this.comboCount / 10);
+        const alpha = this.comboDisplayTimer > 0 ? 1 : Math.max(0.4, this.comboTimer / COMBO_TIMEOUT);
         
-        // Draw combo counter at top center with scale animation
         ctx.save();
-        ctx.globalAlpha = comboAlpha;
+        ctx.globalAlpha = alpha;
         
-        const scale = this.comboAnimScale;
-        const centerX = CANVAS_WIDTH / 2;
-        const centerY = 40;
-        
-        ctx.translate(centerX, centerY);
-        ctx.scale(scale, scale);
+        // Position: top center of screen
+        const x = CANVAS_WIDTH / 2;
+        const y = 50;
         
         // Glow effect
-        ctx.shadowColor = glowColor;
-        ctx.shadowBlur = 20 + (this.comboMultiplier - 1) * 10;
+        ctx.shadowColor = comboColor;
+        ctx.shadowBlur = 20 + pulse * 10;
+        
+        // Combo count - big number
         ctx.fillStyle = comboColor;
-        ctx.font = 'bold 28px "Courier New", monospace';
+        ctx.font = `bold ${32 * pulse}px "Courier New", monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+        ctx.fillText(`${this.comboCount}x COMBO`, x, y);
         
-        // Draw multiplier text
-        const multiplierText = this.comboMultiplier > 1 ? ` x${this.comboMultiplier}` : '';
-        ctx.fillText(`${this.combo} HIT COMBO${multiplierText}`, 0, 0);
+        // Multiplier display
+        ctx.shadowBlur = 10;
+        ctx.font = 'bold 16px "Courier New", monospace';
+        ctx.fillStyle = isMaxed ? '#ffffff' : comboColor;
+        ctx.fillText(`SCORE x${mult.toFixed(1)}`, x, y + 28);
+        
+        // Timer bar
+        const barWidth = 100;
+        const barHeight = 4;
+        const timePercent = this.comboTimer / COMBO_TIMEOUT;
+        
+        ctx.shadowBlur = 5;
+        ctx.fillStyle = '#333333';
+        ctx.fillRect(x - barWidth / 2, y + 45, barWidth, barHeight);
+        
+        ctx.fillStyle = comboColor;
+        ctx.fillRect(x - barWidth / 2, y + 45, barWidth * timePercent, barHeight);
         
         ctx.restore();
         
-        // Draw combo timer bar below the text
-        if (this.comboTimer > 0) {
-            const barWidth = 150;
-            const barHeight = 4;
-            const barX = centerX - barWidth / 2;
-            const barY = centerY + 18;
-            const fillRatio = this.comboTimer / 120;
+        // Floating "+combo" text at kill location
+        if (this.comboDisplayTimer > 50 && this.comboCount > 1) {
+            const floatAlpha = (this.comboDisplayTimer - 50) / 10;
+            const floatY = this.lastKillY - (60 - this.comboDisplayTimer) * 2;
             
             ctx.save();
-            ctx.globalAlpha = comboAlpha * 0.8;
-            
-            // Background bar
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-            ctx.fillRect(barX, barY, barWidth, barHeight);
-            
-            // Fill bar with gradient
-            const gradient = ctx.createLinearGradient(barX, barY, barX + barWidth * fillRatio, barY);
-            gradient.addColorStop(0, comboColor);
-            gradient.addColorStop(1, glowColor);
-            ctx.fillStyle = gradient;
-            ctx.fillRect(barX, barY, barWidth * fillRatio, barHeight);
-            
+            ctx.globalAlpha = floatAlpha;
+            ctx.shadowColor = comboColor;
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = comboColor;
+            ctx.font = 'bold 18px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(`+${this.comboCount}`, this.lastKillX, floatY);
             ctx.restore();
         }
         
-        // Floating combo popup at kill location (for extra juice!)
-        if (this.comboDisplayTimer > 45 && this.combo >= 5) {
-            const popupAlpha = (this.comboDisplayTimer - 45) / 15;
-            const popupY = this.lastComboY - (60 - this.comboDisplayTimer) * 1.5;
-            
-            ctx.save();
-            ctx.globalAlpha = popupAlpha * 0.9;
-            ctx.shadowColor = comboColor;
-            ctx.shadowBlur = 15;
-            ctx.fillStyle = comboColor;
-            ctx.font = 'bold 20px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText(`+${this.combo}!`, this.lastComboX, popupY);
-            ctx.restore();
+        // Draw mobile touch controls overlay
+        if (this.touchControls) {
+            this.touchControls.draw(ctx);
         }
     }
 
@@ -2519,120 +4359,6 @@ class Game {
         this.update();
         this.draw();
         requestAnimationFrame(() => this.gameLoop());
-    }
-
-    // ============== STATS SCREEN ==============
-    drawStatsScreen(ctx) {
-        const s = statsManager.stats;
-        
-        // Title with golden glow
-        ctx.save();
-        ctx.shadowColor = '#ffd700';
-        ctx.shadowBlur = 25;
-        ctx.fillStyle = '#ffd700';
-        ctx.font = 'bold 40px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('STATISTICS', CANVAS_WIDTH / 2, 55);
-        ctx.restore();
-        
-        ctx.font = '14px "Courier New", monospace';
-        ctx.textAlign = 'left';
-        
-        const leftX = 50;
-        const rightX = CANVAS_WIDTH / 2 + 30;
-        let leftY = 100;
-        let rightY = 100;
-        const lineHeight = 22;
-        
-        const drawStatLine = (label, value, x, y, labelColor = '#888888', valueColor = '#ffffff') => {
-            ctx.fillStyle = labelColor;
-            ctx.fillText(label, x, y);
-            ctx.fillStyle = valueColor;
-            ctx.textAlign = 'right';
-            ctx.fillText(String(value), x + 230, y);
-            ctx.textAlign = 'left';
-        };
-        
-        const drawHeader = (text, x, y, color) => {
-            ctx.save();
-            ctx.shadowColor = color;
-            ctx.shadowBlur = 10;
-            ctx.fillStyle = color;
-            ctx.font = 'bold 16px "Courier New", monospace';
-            ctx.fillText(text, x, y);
-            ctx.font = '14px "Courier New", monospace';
-            ctx.restore();
-        };
-        
-        // Left column
-        drawHeader('GENERAL', leftX, leftY, '#00ffff');
-        leftY += lineHeight + 4;
-        drawStatLine('Games Played', s.gamesPlayed, leftX, leftY, '#888', '#00ff00');
-        leftY += lineHeight;
-        drawStatLine('Total Playtime', statsManager.formatPlaytime(s.totalPlaytime), leftX, leftY, '#888', '#00ff00');
-        leftY += lineHeight;
-        drawStatLine('Total Score', s.totalScore.toLocaleString(), leftX, leftY, '#888', '#ffd700');
-        leftY += lineHeight;
-        drawStatLine('Highest Score', s.highestScore.toLocaleString(), leftX, leftY, '#888', '#ffd700');
-        leftY += lineHeight;
-        drawStatLine('Highest Level', s.highestLevel, leftX, leftY, '#888', '#ffd700');
-        leftY += lineHeight * 1.3;
-        
-        drawHeader('COMBAT', leftX, leftY, '#ff6600');
-        leftY += lineHeight + 4;
-        drawStatLine('Asteroids (Total)', s.asteroidsDestroyed.total.toLocaleString(), leftX, leftY, '#888', '#ff6600');
-        leftY += lineHeight;
-        drawStatLine('  Large', s.asteroidsDestroyed.large.toLocaleString(), leftX, leftY);
-        leftY += lineHeight;
-        drawStatLine('  Medium', s.asteroidsDestroyed.medium.toLocaleString(), leftX, leftY);
-        leftY += lineHeight;
-        drawStatLine('  Small', s.asteroidsDestroyed.small.toLocaleString(), leftX, leftY);
-        leftY += lineHeight;
-        drawStatLine('UFOs Destroyed', s.ufosDestroyed.toLocaleString(), leftX, leftY, '#888', '#00ff00');
-        leftY += lineHeight;
-        drawStatLine('Bosses Defeated', s.bossesDefeated, leftX, leftY, '#888', '#ff00ff');
-        
-        // Right column
-        drawHeader('SHOOTING', rightX, rightY, '#ff00ff');
-        rightY += lineHeight + 4;
-        drawStatLine('Shots Fired', s.shotsFired.toLocaleString(), rightX, rightY, '#888', '#ff00ff');
-        rightY += lineHeight;
-        drawStatLine('Shots Hit', s.shotsHit.toLocaleString(), rightX, rightY, '#888', '#ff00ff');
-        rightY += lineHeight;
-        const acc = statsManager.getAccuracy();
-        drawStatLine('Accuracy', acc + '%', rightX, rightY, '#888', acc >= 50 ? '#00ff00' : '#ff6666');
-        rightY += lineHeight * 1.3;
-        
-        drawHeader('SURVIVAL', rightX, rightY, '#ff0000');
-        rightY += lineHeight + 4;
-        drawStatLine('Deaths', s.deaths, rightX, rightY, '#888', '#ff0000');
-        rightY += lineHeight;
-        drawStatLine('Lives Lost', s.livesLost, rightX, rightY, '#888', '#ff6666');
-        rightY += lineHeight * 1.3;
-        
-        drawHeader('COLLECTION', rightX, rightY, '#00ffff');
-        rightY += lineHeight + 4;
-        drawStatLine('Power-Ups', s.powerUpsCollected.total.toLocaleString(), rightX, rightY, '#888', '#00ffff');
-        rightY += lineHeight;
-        drawStatLine('Items Collected', s.itemsCollected.total.toLocaleString(), rightX, rightY, '#888', '#da70d6');
-        rightY += lineHeight;
-        drawStatLine('Items Used', s.itemsUsed.toLocaleString(), rightX, rightY, '#888', '#da70d6');
-        rightY += lineHeight;
-        drawStatLine('Highest Combo', s.highestCombo + 'x', rightX, rightY, '#888', s.highestCombo >= 10 ? '#ffd700' : '#ffffff');
-        
-        // Footer
-        ctx.fillStyle = '#666666';
-        ctx.font = '16px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        if (Math.floor(this.time / 40) % 2 === 0) {
-            ctx.fillText('Press ENTER or ESC to return', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 40);
-        }
-        
-        if (s.firstPlayDate) {
-            ctx.fillStyle = '#444444';
-            ctx.font = '12px "Courier New", monospace';
-            ctx.fillText('Playing since: ' + new Date(s.firstPlayDate).toLocaleDateString(), CANVAS_WIDTH / 2, CANVAS_HEIGHT - 15);
-        }
     }
 }
 
@@ -2877,21 +4603,16 @@ class EnemyBullet {
         this.trailCounter++;
         this.pulsePhase += 0.2;
         
-        // Spawn enhanced UFO trail particles with alien green glow
+        // Spawn trail particles (green)
         if (this.trailCounter % 3 === 0) {
-            // Cycle through alien green tones
-            const alienColors = [COLORS.ufoBullet, '#66ff44', '#44ff88', '#aaffaa', COLORS.ufoPrimary];
-            const colorPick = Math.random();
-            const particleColor = colorPick > 0.8 ? '#ffffff' : alienColors[Math.floor(Math.random() * alienColors.length)];
-            
             this.game.trailParticles.push(new TrailParticle(
-                this.x + (Math.random() - 0.5) * 3,
-                this.y + (Math.random() - 0.5) * 3,
-                particleColor,
-                1.5 + Math.random() * 2,
-                10 + Math.random() * 5,
-                -this.vx * 0.08 + (Math.random() - 0.5) * 0.4,
-                -this.vy * 0.08 + (Math.random() - 0.5) * 0.4
+                this.x,
+                this.y,
+                COLORS.ufoBullet,
+                2,
+                8,
+                -this.vx * 0.05,
+                -this.vy * 0.05
             ));
         }
         
@@ -3034,7 +4755,6 @@ class Ship {
         });
 
         this.shootCooldown = this.hasRapidFire ? 3 : 10;
-        statsManager.recordShotFired(angles.length);
         
         // Play laser sound
         soundManager.playLaser();
@@ -3332,7 +5052,7 @@ class Ship {
 
 // ============== ASTEROID CLASS ==============
 class Asteroid {
-    constructor(x, y, size, game, inheritVariant = null) {
+    constructor(x, y, size, game) {
         this.x = x;
         this.y = y;
         this.size = size;
@@ -3347,70 +5067,21 @@ class Asteroid {
         this.rotation = 0;
         this.rotationSpeed = (Math.random() - 0.5) * 0.04;
         this.pulsePhase = Math.random() * Math.PI * 2;
-        this.sparklePhase = Math.random() * Math.PI * 2;
 
-        // Assign variant (child asteroids inherit parent's variant)
-        this.variant = inheritVariant || selectAsteroidVariant();
-        const variantData = ASTEROID_VARIANTS[this.variant];
-        
-        // Color variation based on variant
-        this.hue = variantData.hueRange[0] + Math.random() * (variantData.hueRange[1] - variantData.hueRange[0]);
-
-        // Generate variant-specific vertices
+        // Generate jagged vertices
         this.vertices = [];
-        
-        if (this.variant === 'CRYSTAL') {
-            // Crystal: sharp angular faceted shape like a gem
-            const crystalCount = 6 + Math.floor(Math.random() * 3);
-            for (let i = 0; i < crystalCount; i++) {
-                const vertAngle = (i / crystalCount) * Math.PI * 2;
-                const isPoint = i % 2 === 0;
-                const distance = this.radius * (isPoint ? 1.0 : 0.5);
-                this.vertices.push({
-                    x: Math.cos(vertAngle) * distance,
-                    y: Math.sin(vertAngle) * distance
-                });
-            }
-        } else if (this.variant === 'ORGANIC') {
-            // Organic: bulbous smooth alien blob shape
-            const organicCount = 10 + Math.floor(Math.random() * 4);
-            for (let i = 0; i < organicCount; i++) {
-                const vertAngle = (i / organicCount) * Math.PI * 2;
-                const bulge = 0.7 + 0.3 * Math.sin(vertAngle * 3 + this.pulsePhase);
-                const distance = this.radius * bulge;
-                this.vertices.push({
-                    x: Math.cos(vertAngle) * distance,
-                    y: Math.sin(vertAngle) * distance
-                });
-            }
-            this.coreRadius = this.radius * 0.4;
-        } else if (this.variant === 'METALLIC') {
-            // Metallic: more regular hexagonal shape like space debris
-            const metalCount = 6;
-            for (let i = 0; i < metalCount; i++) {
-                const vertAngle = (i / metalCount) * Math.PI * 2;
-                const distance = this.radius * (0.85 + Math.random() * 0.15);
-                this.vertices.push({
-                    x: Math.cos(vertAngle) * distance,
-                    y: Math.sin(vertAngle) * distance
-                });
-            }
-            this.highlightAngle = Math.random() * Math.PI * 2;
-        } else {
-            // Rock: standard jagged asteroids
-            const vertexCount = ASTEROID_VERTICES + Math.floor(Math.random() * 3);
-            for (let i = 0; i < vertexCount; i++) {
-                const vertAngle = (i / vertexCount) * Math.PI * 2;
-                const distance = this.radius * (0.6 + Math.random() * 0.4);
-                this.vertices.push({
-                    x: Math.cos(vertAngle) * distance,
-                    y: Math.sin(vertAngle) * distance
-                });
-            }
+        const vertexCount = ASTEROID_VERTICES + Math.floor(Math.random() * 3);
+        for (let i = 0; i < vertexCount; i++) {
+            const vertAngle = (i / vertexCount) * Math.PI * 2;
+            const distance = this.radius * (0.6 + Math.random() * 0.4);
+            this.vertices.push({
+                x: Math.cos(vertAngle) * distance,
+                y: Math.sin(vertAngle) * distance
+            });
         }
         
-        // Trail particle counter for comet effect
-        this.trailCounter = 0;
+        // Color variation
+        this.hue = 20 + Math.random() * 20; // Orange-ish
     }
 
     update() {
@@ -3418,36 +5089,6 @@ class Asteroid {
         this.y += this.vy;
         this.rotation += this.rotationSpeed;
         this.pulsePhase += 0.05;
-        this.sparklePhase += 0.15;
-        this.trailCounter++;
-        
-        // Spawn comet-like trail particles behind asteroids
-        const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-        const trailRate = Math.max(3, 8 - this.size * 2);
-        
-        if (this.trailCounter % trailRate === 0 && speed > 0.3 && !this.game.freezeActive) {
-            const trailAngle = Math.atan2(-this.vy, -this.vx);
-            const offsetDist = this.radius * 0.6;
-            const spawnX = this.x + Math.cos(trailAngle) * offsetDist;
-            const spawnY = this.y + Math.sin(trailAngle) * offsetDist;
-            
-            const particleCount = Math.min(3, this.size);
-            for (let i = 0; i < particleCount; i++) {
-                const hueVariation = this.hue + (Math.random() - 0.5) * 15;
-                const lightness = 40 + Math.random() * 20;
-                const trailColor = `hsl(${hueVariation}, 80%, ${lightness}%)`;
-                
-                this.game.trailParticles.push(new TrailParticle(
-                    spawnX + (Math.random() - 0.5) * this.radius * 0.4,
-                    spawnY + (Math.random() - 0.5) * this.radius * 0.4,
-                    trailColor,
-                    1 + Math.random() * this.size,
-                    12 + Math.random() * 8,
-                    -this.vx * 0.15 + (Math.random() - 0.5) * 0.5,
-                    -this.vy * 0.15 + (Math.random() - 0.5) * 0.5
-                ));
-            }
-        }
 
         // Wrap
         if (this.x < -this.radius) this.x = CANVAS_WIDTH + this.radius;
@@ -3458,38 +5099,35 @@ class Asteroid {
 
     updateFrozenVisuals() {
         this.pulsePhase += 0.02;
-        this.sparklePhase += 0.05;
     }
 
     draw(ctx) {
         const pulse = 1 + Math.sin(this.pulsePhase) * 0.05;
         const frozen = this.game.freezeActive;
-        const variantData = ASTEROID_VARIANTS[this.variant];
         
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.rotation);
         ctx.scale(pulse, pulse);
 
-        // Outer glow - variant specific color
-        const glowColor = frozen ? '#87ceeb' : variantData.glowColor;
+        // Outer glow
+        const glowColor = frozen ? '#87ceeb' : COLORS.asteroidGlow;
         ctx.shadowColor = glowColor;
-        ctx.shadowBlur = this.variant === 'CRYSTAL' ? 20 : 15;
+        ctx.shadowBlur = 15;
 
-        // Fill with gradient - variant specific
+        // Fill with gradient
         const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.radius);
         if (frozen) {
             gradient.addColorStop(0, '#1a3344');
             gradient.addColorStop(1, '#0a1a22');
         } else {
-            const [color1, color2] = variantData.fillGradient(this.hue);
-            gradient.addColorStop(0, color1);
-            gradient.addColorStop(1, color2);
+            gradient.addColorStop(0, `hsl(${this.hue}, 70%, 15%)`);
+            gradient.addColorStop(1, `hsl(${this.hue}, 80%, 5%)`);
         }
         
         ctx.fillStyle = gradient;
-        ctx.strokeStyle = frozen ? '#87ceeb' : variantData.strokeColor;
-        ctx.lineWidth = this.variant === 'METALLIC' ? 3 : 2;
+        ctx.strokeStyle = frozen ? '#87ceeb' : COLORS.asteroidStroke;
+        ctx.lineWidth = 2;
 
         ctx.beginPath();
         for (let i = 0; i < this.vertices.length; i++) {
@@ -3501,124 +5139,18 @@ class Asteroid {
         ctx.fill();
         ctx.stroke();
 
-        // Draw variant-specific effects
-        if (!frozen) {
-            this.drawVariantEffects(ctx, variantData);
-        }
-
-        // Inner detail lines - variant specific
-        ctx.strokeStyle = frozen ? '#aaddee40' : variantData.innerStroke(this.hue);
+        // Inner crack details
+        ctx.strokeStyle = frozen ? '#aaddee40' : `hsl(${this.hue}, 60%, 30%)`;
         ctx.lineWidth = 1;
-        
-        if (this.variant === 'CRYSTAL') {
-            // Crystal facet lines from center to points
-            for (let i = 0; i < this.vertices.length; i += 2) {
-                ctx.beginPath();
-                ctx.moveTo(0, 0);
-                ctx.lineTo(this.vertices[i].x * 0.85, this.vertices[i].y * 0.85);
-                ctx.stroke();
-            }
-        } else if (this.variant === 'METALLIC') {
-            // Metallic panel seams
-            for (let i = 0; i < this.vertices.length; i++) {
-                const next = (i + 1) % this.vertices.length;
-                const midX = (this.vertices[i].x + this.vertices[next].x) * 0.5 * 0.7;
-                const midY = (this.vertices[i].y + this.vertices[next].y) * 0.5 * 0.7;
-                ctx.beginPath();
-                ctx.moveTo(0, 0);
-                ctx.lineTo(midX, midY);
-                ctx.stroke();
-            }
-        } else if (this.variant === 'ORGANIC') {
-            // Organic vein patterns curving from core
-            ctx.strokeStyle = `hsla(${this.hue}, 70%, 50%, 0.5)`;
-            for (let i = 0; i < 5; i++) {
-                const idx = Math.floor(i * this.vertices.length / 5);
-                ctx.beginPath();
-                ctx.moveTo(0, 0);
-                const cp1x = this.vertices[idx].x * 0.35;
-                const cp1y = this.vertices[idx].y * 0.35;
-                ctx.quadraticCurveTo(cp1x + (Math.random()-0.5)*10, cp1y + (Math.random()-0.5)*10, 
-                    this.vertices[idx].x * 0.75, this.vertices[idx].y * 0.75);
-                ctx.stroke();
-            }
-        } else {
-            // Rock: random crack lines
-            for (let i = 0; i < 3; i++) {
-                const startIdx = Math.floor(Math.random() * this.vertices.length);
-                ctx.beginPath();
-                ctx.moveTo(0, 0);
-                ctx.lineTo(this.vertices[startIdx].x * 0.7, this.vertices[startIdx].y * 0.7);
-                ctx.stroke();
-            }
+        for (let i = 0; i < 3; i++) {
+            const startIdx = Math.floor(Math.random() * this.vertices.length);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(this.vertices[startIdx].x * 0.7, this.vertices[startIdx].y * 0.7);
+            ctx.stroke();
         }
 
         ctx.restore();
-    }
-
-    drawVariantEffects(ctx, variantData) {
-        if (variantData.specialEffect === 'sparkle') {
-            // Crystal sparkle: animated bright points on facets
-            const sparkleCount = 2 + this.size;
-            ctx.fillStyle = '#ffffff';
-            for (let i = 0; i < sparkleCount; i++) {
-                const sparkleAngle = (i / sparkleCount) * Math.PI * 2 + this.sparklePhase;
-                const sparkleR = this.radius * (0.3 + 0.4 * Math.abs(Math.sin(this.sparklePhase * 2 + i)));
-                const sx = Math.cos(sparkleAngle) * sparkleR;
-                const sy = Math.sin(sparkleAngle) * sparkleR;
-                const sparkleSize = 1.5 + Math.sin(this.sparklePhase * 3 + i * 2) * 1.5;
-                if (sparkleSize > 1) {
-                    ctx.globalAlpha = 0.4 + Math.sin(this.sparklePhase * 3 + i) * 0.4;
-                    ctx.beginPath();
-                    ctx.arc(sx, sy, sparkleSize, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    // Add tiny cross sparkle for extra bling on larger sparkles
-                    if (sparkleSize > 2) {
-                        ctx.beginPath();
-                        ctx.moveTo(sx - sparkleSize*1.5, sy);
-                        ctx.lineTo(sx + sparkleSize*1.5, sy);
-                        ctx.moveTo(sx, sy - sparkleSize*1.5);
-                        ctx.lineTo(sx, sy + sparkleSize*1.5);
-                        ctx.strokeStyle = '#ffffff';
-                        ctx.lineWidth = 0.5;
-                        ctx.stroke();
-                    }
-                }
-            }
-            ctx.globalAlpha = 1;
-        } else if (variantData.specialEffect === 'shine') {
-            // Metallic specular highlight - simulates reflective surface
-            const shineX = Math.cos(this.highlightAngle) * this.radius * 0.35;
-            const shineY = Math.sin(this.highlightAngle) * this.radius * 0.35;
-            const shineGrad = ctx.createRadialGradient(shineX, shineY, 0, shineX, shineY, this.radius * 0.6);
-            shineGrad.addColorStop(0, 'rgba(255, 255, 255, 0.5)');
-            shineGrad.addColorStop(0.2, 'rgba(255, 255, 200, 0.2)');
-            shineGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-            ctx.fillStyle = shineGrad;
-            ctx.beginPath();
-            ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Add edge highlight for extra metallic feel
-            const edgeAngle = this.highlightAngle + Math.PI * 0.3;
-            ctx.strokeStyle = 'rgba(255, 255, 200, 0.3)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(0, 0, this.radius * 0.9, edgeAngle - 0.5, edgeAngle + 0.5);
-            ctx.stroke();
-        } else if (variantData.specialEffect === 'pulse') {
-            // Organic pulsing bio-luminescent core - alien feel
-            const corePulse = 0.7 + Math.sin(this.pulsePhase * 2) * 0.3;
-            const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.coreRadius * corePulse * 1.8);
-            coreGrad.addColorStop(0, `hsla(${this.hue}, 100%, 70%, ${0.5 + corePulse * 0.3})`);
-            coreGrad.addColorStop(0.4, `hsla(${this.hue}, 80%, 45%, ${0.3 * corePulse})`);
-            coreGrad.addColorStop(1, `hsla(${this.hue}, 60%, 20%, 0)`);
-            ctx.fillStyle = coreGrad;
-            ctx.beginPath();
-            ctx.arc(0, 0, this.coreRadius * corePulse * 1.8, 0, Math.PI * 2);
-            ctx.fill();
-        }
     }
 }
 
@@ -3640,21 +5172,16 @@ class Bullet {
         this.lifetime--;
         this.trailCounter++;
 
-        // Spawn enhanced trail particles with color variation
+        // Spawn trail particles
         if (this.trailCounter % 2 === 0) {
-            // Cycle through vibrant trail colors for Geometry Wars feel
-            const trailColors = [COLORS.bullet, '#ff66ff', '#cc00ff', '#ffffff', '#ff00cc'];
-            const colorIndex = this.trailCounter % trailColors.length;
-            const particleColor = Math.random() > 0.7 ? '#ffffff' : trailColors[Math.floor(colorIndex / 2) % trailColors.length];
-            
             this.game.trailParticles.push(new TrailParticle(
-                this.x + (Math.random() - 0.5) * 2,
-                this.y + (Math.random() - 0.5) * 2,
-                particleColor,
-                1.5 + Math.random() * 1.5,
-                12 + Math.random() * 6,
-                -this.vx * 0.12 + (Math.random() - 0.5) * 0.3,
-                -this.vy * 0.12 + (Math.random() - 0.5) * 0.3
+                this.x,
+                this.y,
+                COLORS.bullet,
+                2,
+                10,
+                -this.vx * 0.1,
+                -this.vy * 0.1
             ));
         }
 
@@ -3862,6 +5389,1172 @@ class Item {
         }
     }
 }
+
+// ============== BOSS CLASS ==============
+// ============== ENHANCED BOSS CLASS ==============
+// Multi-phase boss battles with escalating intensity
+// Phase 1 (100-66% health): Standard attacks
+// Phase 2 (66-33% health): Faster attacks, new patterns
+// Phase 3 (0-33% health): RAGE MODE - intense bullet hell
+
+class Boss {
+    constructor(game) {
+        this.game = game;
+        this.x = CANVAS_WIDTH / 2;
+        this.y = -BOSS_SIZE * 2;
+        
+        this.tier = Math.ceil(game.level / 5);
+        this.maxHealth = BOSS_BASE_HEALTH + (this.tier - 1) * BOSS_HEALTH_PER_TIER;
+        this.health = this.maxHealth;
+        
+        this.targetY = 100;
+        this.vx = 0;
+        this.vy = 0;
+        this.movePhase = Math.random() * Math.PI * 2;
+        this.entering = true;
+        
+        this.rotation = 0;
+        this.pulsePhase = 0;
+        this.coreRotation = 0;
+        this.damageFlash = 0;
+        
+        this.shootTimer = 120;
+        this.attackPattern = 0;
+        this.burstCount = 0;
+        
+        this.defeated = false;
+        this.deathAnimation = 0;
+        
+        // === PHASE SYSTEM ===
+        this.phase = 1;
+        this.phaseTransitioning = false;
+        this.phaseTransitionTimer = 0;
+        this.phaseAnnouncementTimer = 0;
+        
+        // Phase-specific properties
+        this.rageMultiplier = 1.0; // Attack speed multiplier
+        this.laserCharging = false;
+        this.laserChargeTime = 0;
+        this.laserActive = false;
+        this.laserAngle = 0;
+        this.laserDuration = 0;
+        
+        // Shield orbs for Phase 2+
+        this.shieldOrbs = [];
+        this.orbSpawnTimer = 0;
+        
+        soundManager.playBossAppear();
+    }
+    
+    // Calculate current phase based on health
+    calculatePhase() {
+        const healthPercent = this.health / this.maxHealth;
+        if (healthPercent > 0.66) return 1;
+        if (healthPercent > 0.33) return 2;
+        return 3;
+    }
+    
+    // Trigger phase transition effects
+    triggerPhaseTransition(newPhase) {
+        this.phaseTransitioning = true;
+        this.phaseTransitionTimer = 60; // 1 second pause
+        this.phaseAnnouncementTimer = 120; // Show announcement for 2 seconds
+        this.phase = newPhase;
+        
+        // Epic transition effects
+        this.game.screenShake.trigger(25 + newPhase * 10);
+        
+        // Phase-specific effects
+        if (newPhase === 2) {
+            this.game.triggerFlash('#ff6600', 0.4);
+            this.rageMultiplier = 1.3;
+            soundManager.playBossPhaseChange();
+        } else if (newPhase === 3) {
+            this.game.triggerFlash('#ff0000', 0.6);
+            this.rageMultiplier = 1.6;
+            soundManager.playBossEnrage();
+            // Spawn protective orbs
+            this.spawnShieldOrbs(4);
+        }
+        
+        // Reset attack pattern for new phase
+        this.attackPattern = 0;
+        this.burstCount = 0;
+        this.shootTimer = 60;
+    }
+    
+    spawnShieldOrbs(count) {
+        this.shieldOrbs = [];
+        for (let i = 0; i < count; i++) {
+            this.shieldOrbs.push({
+                angle: (i / count) * Math.PI * 2,
+                distance: BOSS_SIZE * 1.2,
+                health: 2,
+                pulsePhase: Math.random() * Math.PI * 2
+            });
+        }
+    }
+    
+    update() {
+        if (this.defeated) {
+            this.updateDeathAnimation();
+            return;
+        }
+        
+        // Phase transition pause
+        if (this.phaseTransitioning) {
+            this.phaseTransitionTimer--;
+            this.pulsePhase += 0.2; // Fast pulse during transition
+            if (this.phaseTransitionTimer <= 0) {
+                this.phaseTransitioning = false;
+            }
+            return;
+        }
+        
+        // Announcement timer countdown
+        if (this.phaseAnnouncementTimer > 0) {
+            this.phaseAnnouncementTimer--;
+        }
+        
+        if (this.entering) {
+            this.y += 2;
+            if (this.y >= this.targetY) {
+                this.y = this.targetY;
+                this.entering = false;
+            }
+            this.pulsePhase += 0.1;
+            this.coreRotation += 0.02;
+            return;
+        }
+        
+        // Phase-adjusted movement (more aggressive in later phases)
+        const moveSpeed = 0.015 * this.rageMultiplier;
+        this.movePhase += moveSpeed;
+        const moveAmplitudeX = 200 + (this.phase - 1) * 50;
+        const moveX = Math.sin(this.movePhase) * moveAmplitudeX;
+        const moveY = Math.sin(this.movePhase * 2) * (30 + this.phase * 10);
+        
+        this.x = CANVAS_WIDTH / 2 + moveX;
+        this.y = this.targetY + moveY;
+        
+        this.rotation += 0.01 * this.rageMultiplier;
+        this.pulsePhase += 0.05 * this.rageMultiplier;
+        this.coreRotation += 0.03 * this.rageMultiplier;
+        
+        if (this.damageFlash > 0) this.damageFlash -= 0.1;
+        
+        // Update shield orbs
+        this.updateShieldOrbs();
+        
+        // Update laser attack
+        this.updateLaser();
+        
+        this.updateAttacks();
+    }
+    
+    updateShieldOrbs() {
+        this.shieldOrbs.forEach(orb => {
+            orb.angle += 0.02;
+            orb.pulsePhase += 0.1;
+        });
+        this.shieldOrbs = this.shieldOrbs.filter(orb => orb.health > 0);
+    }
+    
+    updateLaser() {
+        if (this.laserCharging) {
+            this.laserChargeTime++;
+            if (this.laserChargeTime >= 60) {
+                this.laserCharging = false;
+                this.laserActive = true;
+                this.laserDuration = 90; // 1.5 seconds
+                soundManager.playBossLaser();
+            }
+        }
+        
+        if (this.laserActive) {
+            // Sweep laser toward player
+            if (this.game.ship) {
+                const targetAngle = Math.atan2(
+                    this.game.ship.y - this.y,
+                    this.game.ship.x - this.x
+                );
+                const angleDiff = targetAngle - this.laserAngle;
+                this.laserAngle += Math.sign(angleDiff) * 0.015;
+            }
+            
+            this.laserDuration--;
+            if (this.laserDuration <= 0) {
+                this.laserActive = false;
+            }
+        }
+    }
+    
+    updateAttacks() {
+        if (this.entering || !this.game.ship || this.laserActive) return;
+        
+        this.shootTimer--;
+        
+        if (this.shootTimer <= 0) {
+            // Phase determines available attack patterns
+            const maxPatterns = this.phase === 1 ? 4 : (this.phase === 2 ? 6 : 8);
+            
+            switch (this.attackPattern) {
+                case 0: this.attackSpiral(); break;
+                case 1: this.attackSpread(); break;
+                case 2: this.attackTargeted(); break;
+                case 3: this.attackRing(); break;
+                case 4: this.attackDoubleSpiral(); break; // Phase 2+
+                case 5: this.attackLaser(); break; // Phase 2+
+                case 6: this.attackBulletHell(); break; // Phase 3
+                case 7: this.attackShotgun(); break; // Phase 3
+            }
+        }
+        
+        // Spawn orbs periodically in phase 2+
+        if (this.phase >= 2) {
+            this.orbSpawnTimer++;
+            if (this.orbSpawnTimer >= 600 && this.shieldOrbs.length < 4) {
+                this.spawnShieldOrbs(2);
+                this.orbSpawnTimer = 0;
+            }
+        }
+    }
+    
+    attackSpiral() {
+        this.burstCount++;
+        const angle = this.burstCount * 0.3 + Math.PI / 2;
+        this.fireBullet(angle);
+        soundManager.playBossLaser();
+        
+        const burstMax = Math.floor(20 / this.rageMultiplier);
+        if (this.burstCount >= burstMax) {
+            this.burstCount = 0;
+            this.nextPattern();
+            this.shootTimer = Math.floor(90 / this.rageMultiplier);
+        } else {
+            this.shootTimer = Math.floor(4 / this.rageMultiplier);
+        }
+    }
+    
+    attackDoubleSpiral() {
+        this.burstCount++;
+        const angle1 = this.burstCount * 0.25 + Math.PI / 2;
+        const angle2 = -this.burstCount * 0.25 + Math.PI / 2;
+        this.fireBullet(angle1);
+        this.fireBullet(angle2);
+        soundManager.playBossLaser();
+        
+        if (this.burstCount >= 24) {
+            this.burstCount = 0;
+            this.nextPattern();
+            this.shootTimer = Math.floor(90 / this.rageMultiplier);
+        } else {
+            this.shootTimer = Math.floor(3 / this.rageMultiplier);
+        }
+    }
+    
+    attackSpread() {
+        const spreadCount = 5 + this.tier + (this.phase - 1) * 2;
+        const spreadAngle = Math.PI / 3 + (this.phase - 1) * 0.1;
+        const startAngle = Math.PI / 2 - spreadAngle / 2;
+        
+        for (let i = 0; i < spreadCount; i++) {
+            const angle = startAngle + (i / (spreadCount - 1)) * spreadAngle;
+            this.fireBullet(angle);
+        }
+        soundManager.playBossLaser();
+        
+        this.burstCount++;
+        const burstMax = 2 + this.phase;
+        if (this.burstCount >= burstMax) {
+            this.burstCount = 0;
+            this.nextPattern();
+            this.shootTimer = Math.floor(90 / this.rageMultiplier);
+        } else {
+            this.shootTimer = Math.floor(30 / this.rageMultiplier);
+        }
+    }
+    
+    attackTargeted() {
+        if (!this.game.ship) return;
+        
+        const dx = this.game.ship.x - this.x;
+        const dy = this.game.ship.y - this.y;
+        const angle = Math.atan2(dy, dx);
+        
+        const bulletCount = 3 + this.phase;
+        for (let i = -(bulletCount - 1) / 2; i <= (bulletCount - 1) / 2; i++) {
+            this.fireBullet(angle + i * 0.08, BOSS_BULLET_SPEED * 1.3);
+        }
+        soundManager.playBossLaser();
+        
+        this.burstCount++;
+        const burstMax = 3 + this.phase;
+        if (this.burstCount >= burstMax) {
+            this.burstCount = 0;
+            this.nextPattern();
+            this.shootTimer = Math.floor(90 / this.rageMultiplier);
+        } else {
+            this.shootTimer = Math.floor(20 / this.rageMultiplier);
+        }
+    }
+    
+    attackRing() {
+        const bulletCount = 12 + this.tier * 2 + this.phase * 2;
+        for (let i = 0; i < bulletCount; i++) {
+            const angle = (i / bulletCount) * Math.PI * 2;
+            this.fireBullet(angle);
+        }
+        soundManager.playBossLaser();
+        
+        this.burstCount++;
+        if (this.burstCount >= 2) {
+            this.burstCount = 0;
+            this.nextPattern();
+            this.shootTimer = Math.floor(120 / this.rageMultiplier);
+        } else {
+            this.shootTimer = Math.floor(40 / this.rageMultiplier);
+        }
+    }
+    
+    attackLaser() {
+        if (!this.laserCharging && !this.laserActive) {
+            this.laserCharging = true;
+            this.laserChargeTime = 0;
+            if (this.game.ship) {
+                this.laserAngle = Math.atan2(
+                    this.game.ship.y - this.y,
+                    this.game.ship.x - this.x
+                );
+            }
+        }
+        this.nextPattern();
+        this.shootTimer = Math.floor(180 / this.rageMultiplier);
+    }
+    
+    attackBulletHell() {
+        // Chaos mode - random bullet spray
+        for (let i = 0; i < 8; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = BOSS_BULLET_SPEED * (0.8 + Math.random() * 0.4);
+            this.fireBullet(angle, speed);
+        }
+        soundManager.playBossLaser();
+        
+        this.burstCount++;
+        if (this.burstCount >= 6) {
+            this.burstCount = 0;
+            this.nextPattern();
+            this.shootTimer = Math.floor(90 / this.rageMultiplier);
+        } else {
+            this.shootTimer = Math.floor(10 / this.rageMultiplier);
+        }
+    }
+    
+    attackShotgun() {
+        if (!this.game.ship) return;
+        
+        const dx = this.game.ship.x - this.x;
+        const dy = this.game.ship.y - this.y;
+        const baseAngle = Math.atan2(dy, dx);
+        
+        // Tight cone of fast bullets
+        for (let i = 0; i < 12; i++) {
+            const angle = baseAngle + (Math.random() - 0.5) * 0.5;
+            const speed = BOSS_BULLET_SPEED * (1.2 + Math.random() * 0.3);
+            this.fireBullet(angle, speed);
+        }
+        soundManager.playBossLaser();
+        
+        this.nextPattern();
+        this.shootTimer = Math.floor(60 / this.rageMultiplier);
+    }
+    
+    nextPattern() {
+        const maxPatterns = this.phase === 1 ? 4 : (this.phase === 2 ? 6 : 8);
+        this.attackPattern = (this.attackPattern + 1) % maxPatterns;
+    }
+    
+    fireBullet(angle, speed = BOSS_BULLET_SPEED) {
+        this.game.enemyBullets.push(new BossBullet(this.x, this.y, angle, speed, this.game));
+    }
+    
+    takeDamage() {
+        if (this.entering || this.defeated || this.phaseTransitioning) return false;
+        
+        // Check if shield orbs block the damage
+        if (this.shieldOrbs.length > 0) {
+            // Damage a random orb instead
+            const orbIndex = Math.floor(Math.random() * this.shieldOrbs.length);
+            this.shieldOrbs[orbIndex].health--;
+            this.game.screenShake.trigger(4);
+            soundManager.playShieldHit();
+            return false;
+        }
+        
+        this.health--;
+        this.damageFlash = 1;
+        this.game.screenShake.trigger(8);
+        soundManager.playBossHit();
+        
+        // Check for phase transition
+        const newPhase = this.calculatePhase();
+        if (newPhase > this.phase) {
+            this.triggerPhaseTransition(newPhase);
+        }
+        
+        if (this.health <= 0) {
+            this.defeat();
+            return true;
+        }
+        return false;
+    }
+    
+    defeat() {
+        this.defeated = true;
+        this.deathAnimation = 0;
+        this.game.addScore(BOSS_POINTS * this.tier);
+        this.game.screenShake.trigger(50);
+        soundManager.playBossDefeat();
+    }
+    
+    updateDeathAnimation() {
+        this.deathAnimation++;
+        
+        // More explosions for higher tier bosses
+        const explosionRate = Math.max(4, 8 - this.tier);
+        if (this.deathAnimation % explosionRate === 0 && this.deathAnimation < 80) {
+            const offsetX = (Math.random() - 0.5) * BOSS_SIZE * 2;
+            const offsetY = (Math.random() - 0.5) * BOSS_SIZE * 2;
+            this.game.createExplosion(this.x + offsetX, this.y + offsetY, 15 + this.tier * 3);
+        }
+        
+        if (this.deathAnimation === 80) {
+            this.game.createExplosion(this.x, this.y, 60 + this.tier * 10);
+            this.game.triggerFlash('#ff8800', 0.7);
+            
+            // More rewards for higher tier bosses
+            const powerUpCount = 2 + this.tier;
+            for (let i = 0; i < powerUpCount; i++) {
+                const types = Object.keys(POWERUP_TYPES);
+                const randomType = types[Math.floor(Math.random() * types.length)];
+                const ox = (Math.random() - 0.5) * 80;
+                const oy = (Math.random() - 0.5) * 80;
+                this.game.powerUps.push(new PowerUp(this.x + ox, this.y + oy, randomType, this.game));
+            }
+            
+            const itemCount = 1 + Math.floor(this.tier / 2);
+            const itemTypes = Object.keys(ITEM_TYPES);
+            for (let i = 0; i < itemCount; i++) {
+                const randomItem = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+                const ox = (Math.random() - 0.5) * 50;
+                const oy = (Math.random() - 0.5) * 50;
+                this.game.items.push(new Item(this.x + ox, this.y + oy, randomItem, this.game));
+            }
+        }
+    }
+    
+    isFinished() {
+        return this.defeated && this.deathAnimation > 100;
+    }
+    
+    draw(ctx) {
+        if (this.defeated && this.deathAnimation > 80) return;
+        
+        // Draw shield orbs
+        this.drawShieldOrbs(ctx);
+        
+        // Draw laser
+        this.drawLaser(ctx);
+        
+        const pulse = 1 + Math.sin(this.pulsePhase) * 0.05;
+        const flash = this.damageFlash;
+        
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        
+        if (!this.entering && !this.defeated) {
+            this.drawHealthBar(ctx);
+        }
+        
+        // Draw phase announcement
+        if (this.phaseAnnouncementTimer > 0) {
+            this.drawPhaseAnnouncement(ctx);
+        }
+        
+        ctx.scale(pulse, pulse);
+        
+        // Phase-dependent colors
+        let glowColor, coreColor;
+        if (this.phase === 3) {
+            glowColor = flash > 0 ? '#ffffff' : '#ff0000';
+            coreColor = '#ff2200';
+        } else if (this.phase === 2) {
+            glowColor = flash > 0 ? '#ffffff' : '#ff6600';
+            coreColor = '#ff4400';
+        } else {
+            glowColor = flash > 0 ? '#ffffff' : '#ff0066';
+            coreColor = '#ff0066';
+        }
+        
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 30 + Math.sin(this.pulsePhase * 2) * 10;
+        
+        ctx.save();
+        ctx.rotate(this.rotation);
+        
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, BOSS_SIZE);
+        if (flash > 0) {
+            gradient.addColorStop(0, '#ffffff');
+            gradient.addColorStop(0.5, '#ff6688');
+            gradient.addColorStop(1, '#cc0044');
+        } else if (this.phase === 3) {
+            gradient.addColorStop(0, '#880000');
+            gradient.addColorStop(0.5, '#cc0000');
+            gradient.addColorStop(1, '#440000');
+        } else if (this.phase === 2) {
+            gradient.addColorStop(0, '#884400');
+            gradient.addColorStop(0.5, '#aa4400');
+            gradient.addColorStop(1, '#442200');
+        } else {
+            gradient.addColorStop(0, '#660033');
+            gradient.addColorStop(0.5, '#990044');
+            gradient.addColorStop(1, '#330022');
+        }
+        
+        ctx.fillStyle = gradient;
+        ctx.strokeStyle = flash > 0 ? '#ffffff' : coreColor;
+        ctx.lineWidth = 3;
+        
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+            const x = Math.cos(angle) * BOSS_SIZE;
+            const y = Math.sin(angle) * BOSS_SIZE;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        ctx.strokeStyle = coreColor;
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 6; i++) {
+            const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(angle) * BOSS_SIZE * 0.8, Math.sin(angle) * BOSS_SIZE * 0.8);
+            ctx.stroke();
+        }
+        
+        ctx.restore();
+        
+        ctx.save();
+        ctx.rotate(-this.coreRotation * 2);
+        
+        const coreGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, BOSS_SIZE * 0.4);
+        if (this.phase === 3) {
+            coreGradient.addColorStop(0, '#ffaa88');
+            coreGradient.addColorStop(0.5, '#ff4400');
+            coreGradient.addColorStop(1, '#880000');
+        } else {
+            coreGradient.addColorStop(0, '#ff88aa');
+            coreGradient.addColorStop(0.5, coreColor);
+            coreGradient.addColorStop(1, '#880033');
+        }
+        
+        ctx.fillStyle = coreGradient;
+        ctx.beginPath();
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const r = BOSS_SIZE * (i % 2 === 0 ? 0.4 : 0.25);
+            const x = Math.cos(angle) * r;
+            const y = Math.sin(angle) * r;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowBlur = 20;
+        ctx.beginPath();
+        ctx.arc(0, 0, BOSS_SIZE * 0.12, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+        
+        // Orbiting particles (more in rage mode)
+        const orbCount = 4 + (this.phase - 1) * 2;
+        for (let i = 0; i < orbCount; i++) {
+            const orbitAngle = this.rotation * 3 + (i / orbCount) * Math.PI * 2;
+            const orbitRadius = BOSS_SIZE * 0.7;
+            const orbX = Math.cos(orbitAngle) * orbitRadius;
+            const orbY = Math.sin(orbitAngle) * orbitRadius;
+            
+            ctx.fillStyle = coreColor;
+            ctx.shadowColor = coreColor;
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(orbX, orbY, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        ctx.restore();
+    }
+    
+    drawShieldOrbs(ctx) {
+        this.shieldOrbs.forEach(orb => {
+            const orbX = this.x + Math.cos(orb.angle) * orb.distance;
+            const orbY = this.y + Math.sin(orb.angle) * orb.distance;
+            const orbPulse = 1 + Math.sin(orb.pulsePhase) * 0.2;
+            
+            ctx.save();
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = orb.health > 1 ? '#00ffff' : '#ff8800';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            ctx.arc(orbX, orbY, 12 * orbPulse, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+        });
+    }
+    
+    drawLaser(ctx) {
+        if (!this.laserCharging && !this.laserActive) return;
+        
+        ctx.save();
+        
+        if (this.laserCharging) {
+            // Charging effect - pulsing glow
+            const chargeProgress = this.laserChargeTime / 60;
+            ctx.shadowColor = '#ff0000';
+            ctx.shadowBlur = 20 + chargeProgress * 30;
+            ctx.fillStyle = `rgba(255, 0, 0, ${chargeProgress * 0.5})`;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, BOSS_SIZE * 0.5 * (1 + chargeProgress), 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Warning line
+            ctx.strokeStyle = `rgba(255, 100, 100, ${chargeProgress})`;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(
+                this.x + Math.cos(this.laserAngle) * 800,
+                this.y + Math.sin(this.laserAngle) * 800
+            );
+            ctx.stroke();
+        }
+        
+        if (this.laserActive) {
+            // Active laser beam
+            const laserWidth = 15 + Math.sin(this.laserDuration * 0.5) * 5;
+            
+            ctx.shadowColor = '#ff0000';
+            ctx.shadowBlur = 30;
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = laserWidth;
+            ctx.lineCap = 'round';
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(
+                this.x + Math.cos(this.laserAngle) * 1000,
+                this.y + Math.sin(this.laserAngle) * 1000
+            );
+            ctx.stroke();
+            
+            // Inner bright core
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = laserWidth * 0.4;
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(
+                this.x + Math.cos(this.laserAngle) * 1000,
+                this.y + Math.sin(this.laserAngle) * 1000
+            );
+            ctx.stroke();
+        }
+        
+        ctx.restore();
+    }
+    
+    drawPhaseAnnouncement(ctx) {
+        const alpha = Math.min(1, this.phaseAnnouncementTimer / 30);
+        const scale = 1 + (1 - alpha) * 0.5;
+        
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.scale(scale, scale);
+        
+        ctx.shadowColor = this.phase === 3 ? '#ff0000' : '#ff6600';
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = this.phase === 3 ? '#ff0000' : '#ff6600';
+        ctx.font = 'bold 28px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        
+        const text = this.phase === 3 ? '!! RAGE MODE !!' : `PHASE ${this.phase}`;
+        ctx.fillText(text, 0, -BOSS_SIZE - 60);
+        
+        ctx.restore();
+    }
+    
+    drawHealthBar(ctx) {
+        const barWidth = BOSS_SIZE * 2.5;
+        const barHeight = 10;
+        const barY = -BOSS_SIZE - 30;
+        
+        // Background
+        ctx.fillStyle = '#330022';
+        ctx.fillRect(-barWidth / 2, barY, barWidth, barHeight);
+        
+        // Health segments showing phases
+        const healthPercent = this.health / this.maxHealth;
+        
+        // Phase 1 segment (green when active)
+        const phase1Width = barWidth / 3;
+        ctx.fillStyle = this.phase === 1 ? '#00ff00' : '#004400';
+        ctx.fillRect(-barWidth / 2, barY, Math.min(healthPercent * barWidth, phase1Width), barHeight);
+        
+        // Phase 2 segment (orange when active)
+        if (healthPercent > 0.33) {
+            const phase2Fill = Math.min(healthPercent - 0.33, 0.33) * barWidth;
+            ctx.fillStyle = this.phase === 2 ? '#ff6600' : (this.phase < 2 ? '#004400' : '#442200');
+            ctx.fillRect(-barWidth / 2 + phase1Width, barY, phase2Fill, barHeight);
+        }
+        
+        // Phase 3 segment (red when active)
+        if (healthPercent > 0.66) {
+            const phase3Fill = (healthPercent - 0.66) * barWidth;
+            ctx.fillStyle = this.phase === 3 ? '#ff0000' : '#004400';
+            ctx.fillRect(-barWidth / 2 + phase1Width * 2, barY, phase3Fill, barHeight);
+        }
+        
+        // Actually draw current health on top
+        const healthColor = this.phase === 3 ? '#ff0000' : (this.phase === 2 ? '#ff6600' : '#ff0066');
+        ctx.fillStyle = healthColor;
+        ctx.shadowColor = healthColor;
+        ctx.shadowBlur = 10;
+        ctx.fillRect(-barWidth / 2, barY, barWidth * healthPercent, barHeight);
+        
+        // Phase dividers
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-barWidth / 2 + barWidth * 0.33, barY);
+        ctx.lineTo(-barWidth / 2 + barWidth * 0.33, barY + barHeight);
+        ctx.moveTo(-barWidth / 2 + barWidth * 0.66, barY);
+        ctx.lineTo(-barWidth / 2 + barWidth * 0.66, barY + barHeight);
+        ctx.stroke();
+        
+        // Border
+        ctx.strokeStyle = '#ff3366';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-barWidth / 2, barY, barWidth, barHeight);
+        
+        // Boss name with tier
+        ctx.fillStyle = this.phase === 3 ? '#ff0000' : '#ff3366';
+        ctx.font = 'bold 14px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.shadowBlur = 5;
+        const bossName = this.phase === 3 ? `MOTHERSHIP MK${this.tier} [ENRAGED]` : `MOTHERSHIP MK${this.tier}`;
+        ctx.fillText(bossName, 0, barY - 8);
+    }
+    
+    // Check if laser hits player (called from Game)
+    checkLaserCollision(ship) {
+        if (!this.laserActive || !ship) return false;
+        
+        // Line-circle intersection check
+        const laserEndX = this.x + Math.cos(this.laserAngle) * 1000;
+        const laserEndY = this.y + Math.sin(this.laserAngle) * 1000;
+        
+        // Distance from point to line segment
+        const dx = laserEndX - this.x;
+        const dy = laserEndY - this.y;
+        const len2 = dx * dx + dy * dy;
+        const t = Math.max(0, Math.min(1, ((ship.x - this.x) * dx + (ship.y - this.y) * dy) / len2));
+        const nearestX = this.x + t * dx;
+        const nearestY = this.y + t * dy;
+        
+        const dist = Math.sqrt((ship.x - nearestX) ** 2 + (ship.y - nearestY) ** 2);
+        return dist < SHIP_SIZE + 10; // Laser has some width
+    }
+}
+
+
+// ============== BOSS BULLET CLASS ==============
+class BossBullet {
+    constructor(x, y, angle, speed, game) {
+        this.x = x;
+        this.y = y;
+        this.game = game;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        this.lifetime = 180;
+        this.pulsePhase = Math.random() * Math.PI * 2;
+        this.trailCounter = 0;
+    }
+    
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.lifetime--;
+        this.pulsePhase += 0.2;
+        this.trailCounter++;
+        
+        if (this.trailCounter % 4 === 0) {
+            this.game.trailParticles.push(new TrailParticle(
+                this.x, this.y, '#ff0066', 2, 10, -this.vx * 0.05, -this.vy * 0.05
+            ));
+        }
+        
+        if (this.x < 0) this.x = CANVAS_WIDTH;
+        if (this.x > CANVAS_WIDTH) this.x = 0;
+        if (this.y < 0) this.y = CANVAS_HEIGHT;
+        if (this.y > CANVAS_HEIGHT) this.y = 0;
+    }
+    
+    draw(ctx) {
+        const pulse = 1 + Math.sin(this.pulsePhase) * 0.3;
+        
+        ctx.save();
+        
+        ctx.shadowColor = '#ff0066';
+        ctx.shadowBlur = 15;
+        ctx.fillStyle = '#ff0066';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 5 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.shadowBlur = 5;
+        ctx.fillStyle = '#ffaacc';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 2.5 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+    }
+}
+
+// ============== BOSS SOUND METHODS ==============
+SoundManager.prototype.playBossAppear = function() {
+    if (!this.initialized) return;
+    this.resume();
+    
+    const now = this.audioContext.currentTime;
+    
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(60, now);
+    osc.frequency.exponentialRampToValueAtTime(200, now + 1);
+    
+    const filter = this.audioContext.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(200, now);
+    filter.frequency.exponentialRampToValueAtTime(800, now + 1);
+    
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.3, now + 0.5);
+    gain.gain.linearRampToValueAtTime(0.1, now + 1);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 1.5);
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+    
+    osc.start(now);
+    osc.stop(now + 1.5);
+    
+    const klaxon = this.audioContext.createOscillator();
+    const klaxonGain = this.audioContext.createGain();
+    
+    klaxon.type = 'square';
+    klaxon.frequency.setValueAtTime(440, now);
+    klaxon.frequency.setValueAtTime(330, now + 0.3);
+    klaxon.frequency.setValueAtTime(440, now + 0.6);
+    klaxon.frequency.setValueAtTime(330, now + 0.9);
+    
+    klaxonGain.gain.setValueAtTime(0.15, now);
+    klaxonGain.gain.setValueAtTime(0.05, now + 0.25);
+    klaxonGain.gain.setValueAtTime(0.15, now + 0.3);
+    klaxonGain.gain.setValueAtTime(0.05, now + 0.55);
+    klaxonGain.gain.setValueAtTime(0.15, now + 0.6);
+    klaxonGain.gain.setValueAtTime(0.05, now + 0.85);
+    klaxonGain.gain.setValueAtTime(0.15, now + 0.9);
+    klaxonGain.gain.exponentialRampToValueAtTime(0.01, now + 1.2);
+    
+    klaxon.connect(klaxonGain);
+    klaxonGain.connect(this.masterGain);
+    
+    klaxon.start(now);
+    klaxon.stop(now + 1.2);
+};
+
+SoundManager.prototype.playBossLaser = function() {
+    if (!this.initialized) return;
+    this.resume();
+    
+    const now = this.audioContext.currentTime;
+    
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(400, now);
+    osc.frequency.exponentialRampToValueAtTime(150, now + 0.1);
+    
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+    
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    
+    osc.start(now);
+    osc.stop(now + 0.1);
+};
+
+SoundManager.prototype.playBossHit = function() {
+    if (!this.initialized) return;
+    this.resume();
+    
+    const now = this.audioContext.currentTime;
+    
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, now);
+    osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
+    
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+    
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    
+    osc.start(now);
+    osc.stop(now + 0.2);
+    
+    const clang = this.audioContext.createOscillator();
+    const clangGain = this.audioContext.createGain();
+    
+    clang.type = 'triangle';
+    clang.frequency.setValueAtTime(800, now);
+    clang.frequency.exponentialRampToValueAtTime(400, now + 0.1);
+    
+    clangGain.gain.setValueAtTime(0.15, now);
+    clangGain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+    
+    clang.connect(clangGain);
+    clangGain.connect(this.masterGain);
+    
+    clang.start(now);
+    clang.stop(now + 0.15);
+};
+
+SoundManager.prototype.playBossDefeat = function() {
+    if (!this.initialized) return;
+    this.resume();
+    
+    const now = this.audioContext.currentTime;
+    
+    for (let i = 0; i < 5; i++) {
+        setTimeout(() => this.playExplosion(3), i * 150);
+    }
+    
+    const notes = [523.25, 659.25, 783.99, 1046.50];
+    notes.forEach((freq, i) => {
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
+        
+        osc.type = 'square';
+        osc.frequency.value = freq;
+        
+        const startTime = now + 0.8 + i * 0.12;
+        
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.2, startTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.3);
+        
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        
+        osc.start(startTime);
+        osc.stop(startTime + 0.3);
+    });
+};
+
+
+
+// === COMBO MILESTONE SOUND ===
+// Celebratory ascending tone for combo milestones
+SoundManager.prototype.playComboMilestone = function(comboCount) {
+    if (!this.initialized) return;
+    this.resume();
+    
+    const now = this.audioContext.currentTime;
+    
+    // Higher pitch for bigger combos
+    const baseFreq = 400 + Math.min(comboCount * 20, 400);
+    
+    // Quick ascending notes
+    const notes = [baseFreq, baseFreq * 1.25, baseFreq * 1.5];
+    
+    notes.forEach((freq, i) => {
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
+        
+        osc.type = 'square';
+        osc.frequency.value = freq;
+        
+        const startTime = now + i * 0.05;
+        
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.15, startTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.12);
+        
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        
+        osc.start(startTime);
+        osc.stop(startTime + 0.12);
+    });
+    
+    // Add sparkle for big combos
+    if (comboCount >= 10) {
+        const sparkle = this.audioContext.createOscillator();
+        const sparkleGain = this.audioContext.createGain();
+        
+        sparkle.type = 'sine';
+        sparkle.frequency.setValueAtTime(2000, now);
+        sparkle.frequency.exponentialRampToValueAtTime(3000, now + 0.2);
+        
+        sparkleGain.gain.setValueAtTime(0.1, now);
+        sparkleGain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+        
+        sparkle.connect(sparkleGain);
+        sparkleGain.connect(this.masterGain);
+        
+        sparkle.start(now);
+        sparkle.stop(now + 0.2);
+    }
+};
+
+// === COMBO BREAK SOUND ===
+// Descending tone when combo ends
+SoundManager.prototype.playComboBreak = function() {
+    if (!this.initialized) return;
+    this.resume();
+    
+    const now = this.audioContext.currentTime;
+    
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(400, now);
+    osc.frequency.exponentialRampToValueAtTime(100, now + 0.2);
+    
+    const filter = this.audioContext.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(800, now);
+    filter.frequency.exponentialRampToValueAtTime(200, now + 0.2);
+    
+    gain.gain.setValueAtTime(0.1, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+    
+    osc.start(now);
+    osc.stop(now + 0.2);
+};
+
+// === SAVE GAME SOUND ===
+// Ascending confirmation beeps
+SoundManager.prototype.playSaveSound = function() {
+    if (!this.initialized) return;
+    this.resume();
+    
+    const now = this.audioContext.currentTime;
+    
+    const notes = [440, 554.37, 659.25]; // A4, C#5, E5 (A major chord)
+    notes.forEach((freq, i) => {
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        
+        const startTime = now + i * 0.08;
+        
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.15, startTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
+        
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        
+        osc.start(startTime);
+        osc.stop(startTime + 0.15);
+    });
+};
+
+// === LOAD GAME SOUND ===
+// Tech-y loading sound with sweep
+SoundManager.prototype.playLoadSound = function() {
+    if (!this.initialized) return;
+    this.resume();
+    
+    const now = this.audioContext.currentTime;
+    
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(200, now);
+    osc.frequency.exponentialRampToValueAtTime(800, now + 0.15);
+    osc.frequency.exponentialRampToValueAtTime(600, now + 0.3);
+    
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.15, now + 0.05);
+    gain.gain.setValueAtTime(0.15, now + 0.2);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+    
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    
+    osc.start(now);
+    osc.stop(now + 0.35);
+    
+    // Confirmation blip
+    const blip = this.audioContext.createOscillator();
+    const blipGain = this.audioContext.createGain();
+    
+    blip.type = 'square';
+    blip.frequency.value = 880;
+    
+    blipGain.gain.setValueAtTime(0, now + 0.3);
+    blipGain.gain.linearRampToValueAtTime(0.1, now + 0.32);
+    blipGain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+    
+    blip.connect(blipGain);
+    blipGain.connect(this.masterGain);
+    
+    blip.start(now + 0.3);
+    blip.stop(now + 0.4);
+};
 
 // Initialize game
 window.addEventListener('DOMContentLoaded', () => {
