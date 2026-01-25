@@ -2661,33 +2661,113 @@ class ShipDebrisParticle {
 }
 
 // ============== SCREEN SHAKE CLASS ==============
+// Enhanced screen shake with rotation, intensity scaling, and directional shake
 class ScreenShake {
     constructor() {
         this.intensity = 0;
         this.offsetX = 0;
         this.offsetY = 0;
-        this.angle = 0;
+        this.rotation = 0;
+        
+        // Directional shake properties
+        this.directionX = 0;
+        this.directionY = 0;
+        this.directionalBias = 0;
+        
+        // Shake characteristics
+        this.frequency = 0;
+        this.traumaDecay = 0.92; // Smoother decay
     }
 
+    // Standard trigger - random direction
     trigger(intensity) {
         this.intensity = Math.max(this.intensity, intensity);
+        this.directionalBias = 0;
+    }
+    
+    // Directional trigger - shake toward/away from impact source
+    // sourceX/Y: where the impact happened, pushes camera away from it
+    triggerDirectional(intensity, sourceX, sourceY) {
+        this.intensity = Math.max(this.intensity, intensity);
+        
+        // Calculate direction from screen center to source
+        const centerX = CANVAS_WIDTH / 2;
+        const centerY = CANVAS_HEIGHT / 2;
+        const dx = sourceX - centerX;
+        const dy = sourceY - centerY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist > 0) {
+            // Direction points from center toward impact
+            this.directionX = dx / dist;
+            this.directionY = dy / dist;
+            this.directionalBias = 0.7; // 70% directional, 30% random for organic feel
+        }
     }
 
     update() {
         if (this.intensity > 0.1) {
-            this.angle = Math.random() * Math.PI * 2;
-            this.offsetX = Math.cos(this.angle) * this.intensity;
-            this.offsetY = Math.sin(this.angle) * this.intensity;
-            this.intensity *= SCREEN_SHAKE_DECAY;
+            this.frequency += 0.6;
+            
+            // Base random shake component (Perlin-like smoothing via sin)
+            const randomAngle = Math.sin(this.frequency * 3.7) * Math.PI + 
+                               Math.cos(this.frequency * 2.3) * Math.PI;
+            let shakeX = Math.cos(randomAngle) * this.intensity;
+            let shakeY = Math.sin(randomAngle) * this.intensity;
+            
+            // Add high-frequency jitter for impact feel
+            const jitter = 0.3;
+            shakeX += (Math.random() - 0.5) * this.intensity * jitter;
+            shakeY += (Math.random() - 0.5) * this.intensity * jitter;
+            
+            // Blend in directional component for directional impacts
+            if (this.directionalBias > 0) {
+                // Oscillate along the impact direction
+                const directionalMag = Math.sin(this.frequency * 2.5) * this.intensity;
+                const directionalX = this.directionX * directionalMag;
+                const directionalY = this.directionY * directionalMag;
+                
+                // Blend random and directional
+                shakeX = shakeX * (1 - this.directionalBias) + directionalX * this.directionalBias;
+                shakeY = shakeY * (1 - this.directionalBias) + directionalY * this.directionalBias;
+                
+                // Decay directional bias so shake becomes more random over time
+                this.directionalBias *= 0.94;
+            }
+            
+            this.offsetX = shakeX;
+            this.offsetY = shakeY;
+            
+            // Rotation shake - subtle but adds impact
+            // Intensity-scaled: bigger hits = more rotation (capped for sanity)
+            const maxRotation = 0.04; // ~2.3 degrees max
+            const rotationScale = Math.min(this.intensity / 30, 1); // Scale based on intensity
+            this.rotation = (Math.sin(this.frequency * 4.1) * 0.6 + (Math.random() - 0.5) * 0.4) 
+                           * maxRotation * rotationScale;
+            
+            // Smooth intensity decay with slight variation for organic feel
+            const decayVariation = 1 + (Math.random() - 0.5) * 0.08;
+            this.intensity *= this.traumaDecay * decayVariation;
         } else {
+            // Reset when below threshold
             this.intensity = 0;
             this.offsetX = 0;
             this.offsetY = 0;
+            this.rotation = 0;
+            this.directionalBias = 0;
+            this.frequency = 0;
         }
     }
 
     apply(ctx) {
         ctx.translate(this.offsetX, this.offsetY);
+        
+        // Apply rotation around screen center for natural feel
+        if (Math.abs(this.rotation) > 0.0001) {
+            ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+            ctx.rotate(this.rotation);
+            ctx.translate(-CANVAS_WIDTH / 2, -CANVAS_HEIGHT / 2);
+        }
     }
 }
 
@@ -4098,8 +4178,8 @@ class Game {
     }
 
     createExplosion(x, y, intensity) {
-        // Screen shake based on explosion size
-        this.screenShake.trigger(intensity * 0.8);
+        // Directional screen shake based on explosion size and position
+        this.screenShake.triggerDirectional(intensity * 0.8, x, y);
         
         // Play explosion sound with size-based intensity
         soundManager.playExplosion(intensity / 15);
@@ -4122,7 +4202,7 @@ class Game {
     
     // Create green UFO explosion
     createUfoExplosion(x, y) {
-        this.screenShake.trigger(15);
+        this.screenShake.triggerDirectional(15, x, y);
         soundManager.playUfoDestroyed();
         
         // Green core particles
@@ -4141,8 +4221,8 @@ class Game {
 
     // Create dramatic ship destruction effect
     createShipExplosion(x, y, angle) {
-        // Massive screen shake
-        this.screenShake.trigger(35);
+        // Massive directional screen shake from ship position
+        this.screenShake.triggerDirectional(35, x, y);
         
         // Bright flash
         this.triggerFlash('#00ffff', 0.6);
