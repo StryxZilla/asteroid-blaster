@@ -3379,10 +3379,12 @@ class Game {
                 // Spawn collection particles
                 for (let i = 0; i < 8; i++) {
                     const angle = (i / 8) * Math.PI * 2;
-                    this.particles.push(new Particle(
+                    this.trailParticles.push(new TrailParticle(
                         item.x, item.y,
-                        Math.cos(angle) * 3, Math.sin(angle) * 3,
-                        itemInfo.color, 20
+                        itemInfo.color,
+                        3,  // size
+                        20, // lifetime
+                        Math.cos(angle) * 3, Math.sin(angle) * 3
                     ));
                 }
             }
