@@ -1,4 +1,4 @@
-// Game constants
+﻿// Game constants
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const FPS = 60;
@@ -142,6 +142,75 @@ const MAX_INVENTORY_SLOTS = 5;
 const ITEM_SPAWN_CHANCE = 0.25;
 const ITEM_SIZE = 10;
 const ITEM_LIFETIME = 480;
+
+// ============== SURVIVAL MODE CONSTANTS ==============
+const SURVIVAL_INITIAL_SPAWN_RATE = 300; // Frames between asteroid spawns (5 sec at 60fps)
+const SURVIVAL_MIN_SPAWN_RATE = 60; // Minimum spawn rate (1 second)
+const SURVIVAL_SPAWN_RATE_DECREASE = 5; // Decrease per minute of survival
+const SURVIVAL_MAX_ASTEROIDS = 25; // Cap to prevent lag
+const SURVIVAL_BOSS_INTERVAL = 5400; // Boss every 90 seconds (90 * 60fps)
+const SURVIVAL_UFO_MULTIPLIER = 0.7; // UFOs spawn more frequently in survival
+
+// ============== SURVIVAL HIGH SCORE MANAGER ==============
+class SurvivalHighScoreManager {
+    constructor() {
+        this.storageKey = 'asteroids_survival_highscores';
+        this.maxScores = 10;
+        this.scores = this.load();
+    }
+    
+    load() {
+        try {
+            const data = localStorage.getItem(this.storageKey);
+            return data ? JSON.parse(data) : [];
+        } catch (e) {
+            console.warn('Could not load survival high scores:', e);
+            return [];
+        }
+    }
+    
+    save() {
+        try {
+            localStorage.setItem(this.storageKey, JSON.stringify(this.scores));
+        } catch (e) {
+            console.warn('Could not save survival high scores:', e);
+        }
+    }
+    
+    isHighScore(timeSeconds, score) {
+        if (this.scores.length < this.maxScores) return true;
+        const worst = this.scores[this.scores.length - 1];
+        return timeSeconds > worst.time || (timeSeconds === worst.time && score > worst.score);
+    }
+    
+    addScore(initials, timeSeconds, score) {
+        this.scores.push({
+            initials: initials.toUpperCase().substring(0, 3),
+            time: timeSeconds,
+            score: score,
+            date: new Date().toISOString()
+        });
+        this.scores.sort((a, b) => {
+            if (b.time !== a.time) return b.time - a.time;
+            return b.score - a.score;
+        });
+        this.scores = this.scores.slice(0, this.maxScores);
+        this.save();
+    }
+    
+    getTopScores(count = 5) {
+        return this.scores.slice(0, count);
+    }
+    
+    formatTime(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+}
+
+const survivalHighScores = new SurvivalHighScoreManager();
+
 // ============== SHIP UPGRADE SYSTEM ==============
 // Between-level shop for permanent ship improvements
 const SCRAP_PER_SCORE = 0.1; // 10% of score becomes scrap
@@ -2379,6 +2448,17 @@ class Game {
         this.showingUpgradeShop = false;
         this.upgradeShopSelection = 0;
         this.pendingLevelUp = false;
+        
+        // ===== SURVIVAL MODE =====
+        this.gameMode = 'classic'; // 'classic' or 'survival'
+        this.modeSelectIndex = 0; // 0 = classic, 1 = survival
+        this.survivalTime = 0; // Frames survived
+        this.survivalSpawnRate = SURVIVAL_INITIAL_SPAWN_RATE;
+        this.survivalSpawnTimer = 0;
+        this.survivalBossTimer = SURVIVAL_BOSS_INTERVAL;
+        this.survivalBossCount = 0;
+        this.survivalEnteringInitials = false;
+        this.survivalInitials = '';
 
         // Animation timers
         this.time = 0;
@@ -2402,9 +2482,46 @@ class Game {
             // Initialize audio on first user interaction
             soundManager.init();
 
-            if (e.key === 'Enter') {
-                if (this.state === 'start' || this.state === 'gameover') {
+            // Handle survival high score initials entry
+            if (this.survivalEnteringInitials) {
+                e.preventDefault();
+                if (e.key === 'Backspace' && this.survivalInitials.length > 0) {
+                    this.survivalInitials = this.survivalInitials.slice(0, -1);
+                } else if (e.key === 'Enter' && this.survivalInitials.length === 3) {
+                    const timeSeconds = Math.floor(this.survivalTime / 60);
+                    survivalHighScores.addScore(this.survivalInitials, timeSeconds, this.score);
+                    this.survivalEnteringInitials = false;
+                    soundManager.playPowerUp();
+                } else if (e.key.length === 1 && /[A-Za-z]/.test(e.key) && this.survivalInitials.length < 3) {
+                    this.survivalInitials += e.key.toUpperCase();
+                    soundManager.playItemCollect();
+                }
+                return;
+            }
+
+            // Mode selection controls
+            if (this.state === 'modeSelect') {
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'w' || e.key === 's') {
+                    this.modeSelectIndex = this.modeSelectIndex === 0 ? 1 : 0;
+                    soundManager.playItemCollect();
+                }
+                if (e.key === 'Enter') {
+                    this.gameMode = this.modeSelectIndex === 0 ? 'classic' : 'survival';
                     this.startGame();
+                }
+                if (e.key === 'Escape') {
+                    this.state = 'start';
+                }
+                return;
+            }
+
+            if (e.key === 'Enter') {
+                if (this.state === 'start') {
+                    this.state = 'modeSelect';
+                    soundManager.playGameStart();
+                } else if (this.state === 'gameover') {
+                    this.state = 'modeSelect';
+                    this.modeSelectIndex = this.gameMode === 'survival' ? 1 : 0;
                 }
                 if (this.showingUpgradeShop) {
                     const keys = Object.keys(SHIP_UPGRADES);
@@ -2499,12 +2616,27 @@ class Game {
         this.freezeActive = false;
         this.freezeTimer = 0;
 
-        this.spawnAsteroids(4);
+        // Reset survival mode state
+        this.survivalTime = 0;
+        this.survivalSpawnRate = SURVIVAL_INITIAL_SPAWN_RATE;
+        this.survivalSpawnTimer = this.survivalSpawnRate;
+        this.survivalBossTimer = SURVIVAL_BOSS_INTERVAL;
+        this.survivalBossCount = 0;
+        this.survivalEnteringInitials = false;
+        this.survivalInitials = '';
+
+        // Mode-specific setup
+        if (this.gameMode === 'survival') {
+            this.spawnAsteroids(3); // Start with fewer in survival
+        } else {
+            this.spawnAsteroids(4);
+        }
+        
         this.updateUI();
         this.updateInventoryUI();
         
         // Flash effect on start
-        this.triggerFlash('#00ffff', 0.3);
+        this.triggerFlash(this.gameMode === 'survival' ? '#ff00ff' : '#00ffff', 0.3);
         
         // Play game start sound
         soundManager.playGameStart();
@@ -2559,6 +2691,65 @@ class Game {
         soundManager.playUfoAppear();
         this.triggerFlash(COLORS.ufoPrimary, 0.15);
     }
+    
+    // ===== SURVIVAL MODE METHODS =====
+    spawnSurvivalAsteroid() {
+        // Spawn from edges only
+        const side = Math.floor(Math.random() * 4);
+        let x, y;
+        const margin = 50;
+        
+        switch(side) {
+            case 0: x = Math.random() * CANVAS_WIDTH; y = -margin; break;
+            case 1: x = CANVAS_WIDTH + margin; y = Math.random() * CANVAS_HEIGHT; break;
+            case 2: x = Math.random() * CANVAS_WIDTH; y = CANVAS_HEIGHT + margin; break;
+            case 3: x = -margin; y = Math.random() * CANVAS_HEIGHT; break;
+        }
+        
+        // Mix of sizes, weighted toward larger
+        const sizeRoll = Math.random();
+        let size = sizeRoll < 0.5 ? 3 : (sizeRoll < 0.85 ? 2 : 1);
+        
+        this.asteroids.push(new Asteroid(x, y, size, this));
+    }
+    
+    spawnSurvivalBoss() {
+        // Mini-boss wave - spawn a cluster of large asteroids
+        const bossLevel = this.survivalBossCount;
+        const numAsteroids = Math.min(3 + bossLevel, 8);
+        const side = Math.floor(Math.random() * 4);
+        
+        for (let i = 0; i < numAsteroids; i++) {
+            let x, y;
+            const offset = (i - numAsteroids / 2) * 40;
+            
+            switch(side) {
+                case 0: x = CANVAS_WIDTH / 2 + offset; y = -50; break;
+                case 1: x = CANVAS_WIDTH + 50; y = CANVAS_HEIGHT / 2 + offset; break;
+                case 2: x = CANVAS_WIDTH / 2 + offset; y = CANVAS_HEIGHT + 50; break;
+                case 3: x = -50; y = CANVAS_HEIGHT / 2 + offset; break;
+            }
+            
+            this.asteroids.push(new Asteroid(x, y, 3, this));
+        }
+        
+        // Also spawn UFOs during boss wave
+        if (bossLevel >= 2 && this.ufos.length < 2) {
+            this.spawnUfo();
+        }
+        
+        // Visual feedback
+        this.triggerFlash('#ff00ff', 0.3);
+        this.screenShake.trigger(10);
+        soundManager.playLevelComplete();
+    }
+    
+    getSurvivalTimeFormatted() {
+        const totalSeconds = Math.floor(this.survivalTime / 60);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
 
     nextLevel() {
         // Show upgrade shop before advancing
@@ -2589,9 +2780,19 @@ class Game {
     }
 
     updateUI() {
-        document.getElementById('score').textContent = this.score + ' | Scrap: ' + shipUpgradeManager.scrap;
+        // In survival mode, show time instead of scrap
+        if (this.gameMode === 'survival') {
+            document.getElementById('score').textContent = this.score;
+        } else {
+            document.getElementById('score').textContent = this.score + ' | Scrap: ' + shipUpgradeManager.scrap;
+        }
         document.getElementById('lives').textContent = this.lives;
-        document.getElementById('level').textContent = this.level;
+        // In survival mode, show wave count instead of level
+        if (this.gameMode === 'survival') {
+            document.getElementById('level').textContent = `W${this.survivalBossCount}`;
+        } else {
+            document.getElementById('level').textContent = this.level;
+        }
     }
 
     gameOver() {
@@ -2606,6 +2807,15 @@ class Game {
         
         // Start game over transition
         this.transitionManager.startGameOverTransition();
+        
+        // Check for survival high score
+        if (this.gameMode === 'survival') {
+            const timeSeconds = Math.floor(this.survivalTime / 60);
+            if (survivalHighScores.isHighScore(timeSeconds, this.score)) {
+                this.survivalEnteringInitials = true;
+                this.survivalInitials = '';
+            }
+        }
     }
 
     loseLife() {
@@ -3037,11 +3247,41 @@ class Game {
         this.updateItemEffects();
         this.updateIceFrozenAsteroids();
         
-        // UFO spawning
+        // ===== SURVIVAL MODE LOGIC =====
+        if (this.gameMode === 'survival') {
+            this.survivalTime++;
+            
+            // Increase difficulty over time
+            const minutesSurvived = Math.floor(this.survivalTime / 3600);
+            this.survivalSpawnRate = Math.max(
+                SURVIVAL_MIN_SPAWN_RATE, 
+                SURVIVAL_INITIAL_SPAWN_RATE - (minutesSurvived * SURVIVAL_SPAWN_RATE_DECREASE * 60)
+            );
+            
+            // Continuous asteroid spawning
+            this.survivalSpawnTimer--;
+            if (this.survivalSpawnTimer <= 0 && this.asteroids.length < SURVIVAL_MAX_ASTEROIDS) {
+                this.spawnSurvivalAsteroid();
+                this.survivalSpawnTimer = this.survivalSpawnRate;
+            }
+            
+            // Boss spawning every 90 seconds
+            this.survivalBossTimer--;
+            if (this.survivalBossTimer <= 0) {
+                this.survivalBossCount++;
+                this.spawnSurvivalBoss();
+                this.survivalBossTimer = SURVIVAL_BOSS_INTERVAL;
+                this.updateUI(); // Update wave display
+            }
+        }
+        
+        // UFO spawning (more frequent in survival mode)
         this.ufoSpawnTimer--;
-        if (this.ufoSpawnTimer <= 0 && this.ufos.length < 2) {
+        const maxUfos = this.gameMode === 'survival' ? 3 : 2;
+        if (this.ufoSpawnTimer <= 0 && this.ufos.length < maxUfos) {
             this.spawnUfo();
-            this.ufoSpawnTimer = this.getRandomUfoSpawnTime();
+            const spawnMultiplier = this.gameMode === 'survival' ? SURVIVAL_UFO_MULTIPLIER : 1;
+            this.ufoSpawnTimer = this.getRandomUfoSpawnTime() * spawnMultiplier;
         }
 
         if (this.ship) {
@@ -3112,7 +3352,8 @@ class Game {
 
         this.checkCollisions();
 
-        if (this.asteroids.length === 0) {
+        // Level progression only in classic mode
+        if (this.asteroids.length === 0 && this.gameMode === 'classic') {
             this.nextLevel();
         }
     }
@@ -3335,10 +3576,21 @@ class Game {
             return;
         }
 
+        if (this.state === 'modeSelect') {
+            this.drawModeSelectScreen(ctx);
+            ctx.restore();
+            return;
+        }
+
         if (this.state === 'gameover') {
             this.drawGameOverScreen(ctx);
             ctx.restore();
             return;
+        }
+
+        // Draw survival mode HUD
+        if (this.gameMode === 'survival' && this.state === 'playing') {
+            this.drawSurvivalHUD(ctx);
         }
 
         // Draw game objects in order (back to front)
@@ -3560,32 +3812,213 @@ class Game {
     }
 
     drawGameOverScreen(ctx) {
-        // Game over with red glow
+        // Game over with mode-appropriate glow
+        const glowColor = this.gameMode === 'survival' ? '#ff00ff' : '#ff0000';
         ctx.save();
-        ctx.shadowColor = '#ff0000';
+        ctx.shadowColor = glowColor;
         ctx.shadowBlur = 30;
-        ctx.fillStyle = '#ff0000';
+        ctx.fillStyle = glowColor;
         ctx.font = 'bold 48px "Courier New", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50);
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80);
         ctx.restore();
         
-        // Score
+        // Mode-specific stats
         ctx.save();
         ctx.shadowColor = COLORS.shipPrimary;
         ctx.shadowBlur = 15;
         ctx.fillStyle = '#ffffff';
         ctx.font = '24px "Courier New", monospace';
-        ctx.fillText(`Final Score: ${this.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
+        ctx.textAlign = 'center';
+        
+        if (this.gameMode === 'survival') {
+            ctx.fillText(`Time Survived: ${this.getSurvivalTimeFormatted()}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
+            ctx.fillText(`Final Score: ${this.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 15);
+            ctx.fillText(`Boss Waves: ${this.survivalBossCount}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
+        } else {
+            ctx.fillText(`Final Score: ${this.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
+        }
         ctx.restore();
         
-        // Restart prompt
-        if (Math.floor(this.time / 30) % 2 === 0) {
-            ctx.fillStyle = '#aaaaaa';
-            ctx.font = '20px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('Press ENTER to Restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
+        // High score entry for survival mode
+        if (this.survivalEnteringInitials) {
+            this.drawSurvivalHighScoreEntry(ctx);
+        } else {
+            // Restart prompt
+            if (Math.floor(this.time / 30) % 2 === 0) {
+                ctx.fillStyle = '#aaaaaa';
+                ctx.font = '20px "Courier New", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('Press ENTER to Continue', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 110);
+            }
         }
+    }
+    
+    drawSurvivalHighScoreEntry(ctx) {
+        const y = CANVAS_HEIGHT / 2 + 100;
+        
+        ctx.save();
+        ctx.shadowColor = '#ffd700';
+        ctx.shadowBlur = 15;
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 20px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('NEW HIGH SCORE!', CANVAS_WIDTH / 2, y);
+        ctx.restore();
+        
+        // Draw initials boxes
+        const boxWidth = 40;
+        const boxHeight = 50;
+        const startX = CANVAS_WIDTH / 2 - (boxWidth * 1.5 + 10);
+        
+        for (let i = 0; i < 3; i++) {
+            const x = startX + i * (boxWidth + 10);
+            const isCurrent = i === this.survivalInitials.length && this.survivalInitials.length < 3;
+            
+            ctx.save();
+            ctx.strokeStyle = isCurrent ? '#ffffff' : '#666666';
+            ctx.lineWidth = 2;
+            ctx.shadowColor = isCurrent ? '#ffffff' : '#333333';
+            ctx.shadowBlur = isCurrent ? 10 : 5;
+            ctx.strokeRect(x, y + 20, boxWidth, boxHeight);
+            
+            if (i < this.survivalInitials.length) {
+                ctx.fillStyle = '#00ffff';
+                ctx.shadowColor = '#00ffff';
+                ctx.font = 'bold 32px "Courier New", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(this.survivalInitials[i], x + boxWidth / 2, y + 55);
+            } else if (isCurrent && Math.floor(this.time / 20) % 2 === 0) {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(x + boxWidth / 2 - 2, y + 30, 4, 30);
+            }
+            ctx.restore();
+        }
+        
+        ctx.fillStyle = '#888888';
+        ctx.font = '14px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('Enter your initials', CANVAS_WIDTH / 2, y + 95);
+    }
+    
+    drawModeSelectScreen(ctx) {
+        // Title
+        const pulse = Math.sin(this.titlePulse) * 0.1 + 1;
+        ctx.save();
+        ctx.shadowColor = COLORS.shipPrimary;
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = COLORS.shipPrimary;
+        ctx.font = `bold ${36 * pulse}px 'Courier New', monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText('SELECT MODE', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 120);
+        ctx.restore();
+        
+        // Mode options
+        const modes = [
+            { name: 'CLASSIC', desc: 'Level-based progression with upgrades', color: '#00ffff' },
+            { name: 'SURVIVAL', desc: 'Endless waves - How long can you last?', color: '#ff00ff' }
+        ];
+        
+        modes.forEach((mode, index) => {
+            const y = CANVAS_HEIGHT / 2 - 30 + index * 80;
+            const isSelected = index === this.modeSelectIndex;
+            const hoverPulse = isSelected ? Math.sin(this.time * 0.1) * 3 : 0;
+            
+            ctx.save();
+            
+            if (isSelected) {
+                ctx.strokeStyle = mode.color;
+                ctx.lineWidth = 2;
+                ctx.shadowColor = mode.color;
+                ctx.shadowBlur = 15;
+                ctx.strokeRect(CANVAS_WIDTH / 2 - 180 + hoverPulse, y - 25, 360 - hoverPulse * 2, 60);
+            }
+            
+            ctx.fillStyle = isSelected ? mode.color : '#666666';
+            ctx.shadowColor = isSelected ? mode.color : 'transparent';
+            ctx.shadowBlur = isSelected ? 10 : 0;
+            ctx.font = `bold 28px 'Courier New', monospace`;
+            ctx.textAlign = 'center';
+            ctx.fillText(mode.name, CANVAS_WIDTH / 2, y);
+            
+            ctx.fillStyle = isSelected ? '#ffffff' : '#444444';
+            ctx.shadowBlur = 0;
+            ctx.font = '14px "Courier New", monospace';
+            ctx.fillText(mode.desc, CANVAS_WIDTH / 2, y + 22);
+            
+            ctx.restore();
+        });
+        
+        ctx.fillStyle = '#666666';
+        ctx.font = '14px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('UP/DOWN to select | ENTER to start | ESC to go back', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 150);
+        
+        // Draw survival high scores if in survival selection
+        if (this.modeSelectIndex === 1) {
+            this.drawSurvivalHighScores(ctx);
+        }
+    }
+    
+    drawSurvivalHighScores(ctx) {
+        const scores = survivalHighScores.getTopScores(5);
+        if (scores.length === 0) return;
+        
+        const startY = CANVAS_HEIGHT / 2 + 180;
+        
+        ctx.save();
+        ctx.fillStyle = '#ff00ff';
+        ctx.shadowColor = '#ff00ff';
+        ctx.shadowBlur = 5;
+        ctx.font = 'bold 14px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('SURVIVAL RECORDS', CANVAS_WIDTH / 2, startY);
+        ctx.restore();
+        
+        scores.forEach((score, index) => {
+            const y = startY + 20 + index * 18;
+            const medal = index === 0 ? '#ffd700' : (index === 1 ? '#c0c0c0' : (index === 2 ? '#cd7f32' : '#666666'));
+            
+            ctx.fillStyle = medal;
+            ctx.font = '12px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(
+                `${index + 1}. ${score.initials} - ${survivalHighScores.formatTime(score.time)} (${score.score} pts)`,
+                CANVAS_WIDTH / 2,
+                y
+            );
+        });
+    }
+    
+    drawSurvivalHUD(ctx) {
+        // Survival timer in top center
+        ctx.save();
+        ctx.shadowColor = '#ff00ff';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#ff00ff';
+        ctx.font = 'bold 24px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.getSurvivalTimeFormatted(), CANVAS_WIDTH / 2, 30);
+        
+        // Wave indicator
+        if (this.survivalBossCount > 0) {
+            ctx.font = '14px "Courier New", monospace';
+            ctx.fillStyle = '#ff88ff';
+            ctx.fillText(`Wave ${this.survivalBossCount}`, CANVAS_WIDTH / 2, 50);
+        }
+        
+        // Next boss timer (show when < 30 seconds away)
+        const bossSecondsLeft = Math.ceil(this.survivalBossTimer / 60);
+        if (bossSecondsLeft <= 30) {
+            const urgency = bossSecondsLeft <= 10 ? '#ff0000' : '#ff8800';
+            const pulse = bossSecondsLeft <= 10 ? (Math.sin(this.time * 0.3) * 0.3 + 0.7) : 1;
+            ctx.globalAlpha = pulse;
+            ctx.fillStyle = urgency;
+            ctx.font = 'bold 14px "Courier New", monospace';
+            ctx.fillText(`BOSS WAVE IN ${bossSecondsLeft}s`, CANVAS_WIDTH / 2, 70);
+        }
+        
+        ctx.restore();
     }
 
     drawItemEffectIndicators(ctx) {
@@ -5601,3 +6034,4 @@ class Item {
 window.addEventListener('DOMContentLoaded', () => {
     new Game();
 });
+
