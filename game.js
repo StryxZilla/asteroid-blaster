@@ -85,11 +85,11 @@ const POWERUP_TYPES = {
 
 // Inventory item types
 const ITEM_TYPES = {
-    REPAIR_KIT: { name: 'Repair Kit', color: '#ff6b6b', symbol: 'Ã¢â„¢Â¥', description: 'Restore 1 life', rarity: 0.15 },
-    BOMB: { name: 'Bomb', color: '#ff8c00', symbol: 'Ã¢Å“Â¸', description: 'Destroy all asteroids', rarity: 0.10 },
-    FREEZE: { name: 'Freeze', color: '#87ceeb', symbol: 'Ã¢Ââ€ž', description: 'Freeze asteroids for 5s', rarity: 0.20 },
-    MAGNET: { name: 'Magnet', color: '#da70d6', symbol: 'Ã¢Å â€º', description: 'Attract items for 10s', rarity: 0.25 },
-    SCORE_BOOST: { name: 'Score x2', color: '#ffd700', symbol: 'Ã¢Ëœâ€¦', description: 'Double points for 15s', rarity: 0.30 }
+    REPAIR_KIT: { name: 'Repair Kit', color: '#ff6b6b', symbol: '+', description: 'Restore 1 life', rarity: 0.15 },
+    BOMB: { name: 'Bomb', color: '#ff8c00', symbol: '*', description: 'Destroy all asteroids', rarity: 0.10 },
+    FREEZE: { name: 'Freeze', color: '#87ceeb', symbol: '#', description: 'Freeze asteroids for 5s', rarity: 0.20 },
+    MAGNET: { name: 'Magnet', color: '#da70d6', symbol: '@', description: 'Attract items for 10s', rarity: 0.25 },
+    SCORE_BOOST: { name: 'Score x2', color: '#ffd700', symbol: '$', description: 'Double points for 15s', rarity: 0.30 }
 };
 
 const MAX_INVENTORY_SLOTS = 5;
@@ -101,9 +101,9 @@ const ITEM_LIFETIME = 480;
 // Persistent progression with unlockable abilities
 
 const SKILL_CATEGORIES = {
-    OFFENSE: { name: 'Offense', color: '#ff4444', icon: 'âš”', description: 'Increase damage and firepower' },
-    DEFENSE: { name: 'Defense', color: '#44ff44', icon: 'ðŸ›¡', description: 'Improve survivability' },
-    UTILITY: { name: 'Utility', color: '#4444ff', icon: 'âš¡', description: 'Enhance utility and bonuses' }
+    OFFENSE: { name: 'Offense', color: '#ff4444', icon: '!', description: 'Increase damage and firepower' },
+    DEFENSE: { name: 'Defense', color: '#44ff44', icon: 'O', description: 'Improve survivability' },
+    UTILITY: { name: 'Utility', color: '#4444ff', icon: '>', description: 'Enhance utility and bonuses' }
 };
 
 const SKILLS = {
@@ -1350,7 +1350,7 @@ class SoundManager {
         const lfoGain = this.audioContext.createGain();
         lfo.type = 'sine';
         lfo.frequency.value = 8; // 8 Hz wobble
-        lfoGain.gain.value = 10; // Ã‚Â±10 Hz variation
+        lfoGain.gain.value = 10; // +/-10 Hz variation
         
         lfo.connect(lfoGain);
         lfoGain.connect(this.engineOscillator.frequency);
