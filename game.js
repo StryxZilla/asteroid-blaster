@@ -1,4 +1,4 @@
-// Game constants
+﻿// Game constants
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const FPS = 60;
@@ -438,7 +438,7 @@ class SkillTreeUI {
         ctx.restore();
         
         ctx.fillStyle = '#666666'; ctx.font = '12px "Courier New", monospace';
-        ctx.textAlign = 'center'; ctx.fillText('Click skills to upgrade ├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├ÄΓÇ£├â┬╢├é┬╝├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ Press K to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
+        ctx.textAlign = 'center'; ctx.fillText('Click skills to upgrade Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•Î“Ã¶Â¼â”œâ”‚ Press K to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
     }
     drawCategoryTabs(ctx) {
         const tabY = 80;
@@ -1008,7 +1008,7 @@ class SaveLoadUI {
                 ctx.fillText(`SLOT ${slot.slot}`, textX, slotY + 30);
                 ctx.fillStyle = '#444444';
                 ctx.font = '14px "Courier New", monospace';
-                ctx.fillText('├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├â┬º├óΓÇ¥┬¼├âΓÇÿ Empty ├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├â┬º├óΓÇ¥┬¼├âΓÇÿ', textX, slotY + 55);
+                ctx.fillText('Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•â•¬Ã´â”œÃ§â”¬Ã‘ Empty Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•â•¬Ã´â”œÃ§â”¬Ã‘', textX, slotY + 55);
             } else {
                 ctx.fillStyle = '#ffffff';
                 ctx.font = 'bold 18px "Courier New", monospace';
@@ -1016,12 +1016,12 @@ class SaveLoadUI {
                 
                 ctx.fillStyle = '#00ffff';
                 ctx.font = '14px "Courier New", monospace';
-                ctx.fillText(`Level ${slot.level}  ├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├ÄΓÇ£├â┬╢├é┬╝├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ  Score: ${slot.score.toLocaleString()}`, textX, slotY + 48);
+                ctx.fillText(`Level ${slot.level}  Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•Î“Ã¶Â¼â”œâ”‚  Score: ${slot.score.toLocaleString()}`, textX, slotY + 48);
                 
                 ctx.fillStyle = '#888888';
                 ctx.font = '12px "Courier New", monospace';
                 const dateStr = slot.date.toLocaleDateString() + ' ' + slot.date.toLocaleTimeString();
-                ctx.fillText(`${dateStr}  ├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├ÄΓÇ£├â┬╢├é┬╝├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ  ${slot.skillPoints} skill pts`, textX, slotY + 68);
+                ctx.fillText(`${dateStr}  Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•Î“Ã¶Â¼â”œâ”‚  ${slot.skillPoints} skill pts`, textX, slotY + 68);
                 
                 const deleteX = centerX + slotWidth / 2 - 35;
                 const deleteY = slotY + slotHeight / 2;
@@ -1615,111 +1615,6 @@ class SoundManager {
         
         noise.start(now);
         noise.stop(now + 0.1);
-    }
-    
-    // === BOSS PHASE CHANGE ===
-    // Dramatic phase transition sound (rising ominous chord)
-    playBossPhaseChange() {
-        if (!this.initialized) return;
-        this.resume();
-        
-        const now = this.audioContext.currentTime;
-        
-        // Ominous rising chord
-        const frequencies = [220, 277, 330]; // A3, C#4, E4 (A major)
-        
-        frequencies.forEach((freq, i) => {
-            const osc = this.audioContext.createOscillator();
-            const gain = this.audioContext.createGain();
-            
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(freq * 0.5, now);
-            osc.frequency.linearRampToValueAtTime(freq, now + 0.3);
-            
-            const delay = i * 0.05;
-            gain.gain.setValueAtTime(0, now + delay);
-            gain.gain.linearRampToValueAtTime(0.15, now + delay + 0.1);
-            gain.gain.setValueAtTime(0.15, now + 0.3);
-            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-            
-            osc.connect(gain);
-            gain.connect(this.masterGain);
-            
-            osc.start(now + delay);
-            osc.stop(now + 0.5);
-        });
-        
-        // Sub bass impact
-        const subOsc = this.audioContext.createOscillator();
-        const subGain = this.audioContext.createGain();
-        
-        subOsc.type = 'sine';
-        subOsc.frequency.value = 55;
-        
-        subGain.gain.setValueAtTime(0.3, now);
-        subGain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-        
-        subOsc.connect(subGain);
-        subGain.connect(this.masterGain);
-        
-        subOsc.start(now);
-        subOsc.stop(now + 0.4);
-    }
-    
-    // === BOSS ENRAGE (Phase 3) ===
-    // Intense alarm-like sound for RAGE MODE
-    playBossEnrage() {
-        if (!this.initialized) return;
-        this.resume();
-        
-        const now = this.audioContext.currentTime;
-        
-        // Alarm siren sweep
-        const osc = this.audioContext.createOscillator();
-        const gain = this.audioContext.createGain();
-        
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(110, now);
-        osc.frequency.linearRampToValueAtTime(440, now + 0.15);
-        osc.frequency.linearRampToValueAtTime(110, now + 0.3);
-        osc.frequency.linearRampToValueAtTime(550, now + 0.45);
-        
-        gain.gain.setValueAtTime(0.25, now);
-        gain.gain.setValueAtTime(0.25, now + 0.4);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
-        
-        osc.connect(gain);
-        gain.connect(this.masterGain);
-        
-        osc.start(now);
-        osc.stop(now + 0.6);
-        
-        // Distorted bass hit
-        const bassOsc = this.audioContext.createOscillator();
-        const bassGain = this.audioContext.createGain();
-        const distortion = this.audioContext.createWaveShaper();
-        
-        // Simple distortion curve
-        const curve = new Float32Array(256);
-        for (let i = 0; i < 256; i++) {
-            const x = (i - 128) / 128;
-            curve[i] = Math.tanh(x * 3);
-        }
-        distortion.curve = curve;
-        
-        bassOsc.type = 'square';
-        bassOsc.frequency.setValueAtTime(55, now);
-        bassOsc.frequency.linearRampToValueAtTime(27.5, now + 0.3);
-        
-        bassGain.gain.setValueAtTime(0.4, now);
-        bassGain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-        
-        bassOsc.connect(distortion);
-        distortion.connect(bassGain);
-        bassGain.connect(this.masterGain);
-        
-        bassOsc.start(now);
-        bassOsc.stop(now + 0.4);
     }
     
     // === LEVEL COMPLETE FANFARE ===
@@ -2433,8 +2328,11 @@ const musicManager = new MusicManager();
 
 
 // ============== STARFIELD CLASS ==============
+// Dynamic nebula background with gameplay-responsive effects
+
 class StarField {
     constructor() {
+        // Star layers (parallax)
         this.layers = [];
         for (let i = 0; i < STAR_LAYERS; i++) {
             const stars = [];
@@ -2452,20 +2350,170 @@ class StarField {
             this.layers.push({ stars, speed: STAR_SPEEDS[i] });
         }
         
-        // Nebula clouds for atmosphere
+        // ============== ENHANCED DYNAMIC NEBULA SYSTEM ==============
+        // Multi-layer nebula clouds with color shifting and gameplay responsiveness
+        
+        // Nebula intensity system (0.0 - 1.0)
+        this.nebulaIntensity = 0.3;          // Current intensity
+        this.targetNebulaIntensity = 0.3;    // Target (smooth transitions)
+        this.pulseIntensity = 0;              // Temporary pulse from events
+        this.pulseDecay = 0.95;               // How fast pulse fades
+        
+        // Global time for animations
+        this.time = 0;
+        
+        // Color hue offset for dynamic shifting
+        this.hueOffset = 0;
+        this.targetHueOffset = 0;
+        
+        // Base nebula colors (HSL for easy manipulation)
+        this.nebulaBaseColors = [
+            { h: 270, s: 80, l: 25 },  // Deep purple
+            { h: 220, s: 70, l: 20 },  // Deep blue
+            { h: 320, s: 60, l: 25 },  // Magenta
+            { h: 180, s: 50, l: 20 },  // Cyan-teal
+            { h: 350, s: 70, l: 20 },  // Deep red/crimson
+        ];
+        
+        // Create multi-layered nebulae
         this.nebulae = [];
-        for (let i = 0; i < 5; i++) {
-            this.nebulae.push({
-                x: Math.random() * CANVAS_WIDTH,
-                y: Math.random() * CANVAS_HEIGHT,
-                radius: 100 + Math.random() * 200,
-                color: Math.random() > 0.5 ? COLORS.nebula1 : COLORS.nebula2,
-                phase: Math.random() * Math.PI * 2
-            });
+        
+        // Background layer - large, slow, subtle
+        for (let i = 0; i < 4; i++) {
+            this.nebulae.push(this.createNebula('background', i));
         }
+        
+        // Mid layer - medium size, color variety
+        for (let i = 0; i < 5; i++) {
+            this.nebulae.push(this.createNebula('mid', i));
+        }
+        
+        // Foreground layer - smaller, more vibrant, faster
+        for (let i = 0; i < 4; i++) {
+            this.nebulae.push(this.createNebula('foreground', i));
+        }
+        
+        // Event flash nebulae (spawned on explosions/kills)
+        this.eventNebulae = [];
     }
+    
+    // Create a nebula with layer-specific properties
+    createNebula(layer, index) {
+        const layerConfig = {
+            background: { 
+                radiusMin: 200, radiusMax: 400, 
+                alphaBase: 0.08, driftSpeed: 0.15,
+                pulseSpeed: 0.003, colorIndex: index % 2
+            },
+            mid: { 
+                radiusMin: 100, radiusMax: 250, 
+                alphaBase: 0.12, driftSpeed: 0.25,
+                pulseSpeed: 0.005, colorIndex: index % 5
+            },
+            foreground: { 
+                radiusMin: 60, radiusMax: 150, 
+                alphaBase: 0.15, driftSpeed: 0.4,
+                pulseSpeed: 0.008, colorIndex: (index + 2) % 5
+            }
+        };
+        
+        const config = layerConfig[layer];
+        const baseColor = this.nebulaBaseColors[config.colorIndex];
+        
+        return {
+            x: Math.random() * CANVAS_WIDTH,
+            y: Math.random() * CANVAS_HEIGHT,
+            radius: config.radiusMin + Math.random() * (config.radiusMax - config.radiusMin),
+            layer: layer,
+            baseHue: baseColor.h,
+            baseSat: baseColor.s,
+            baseLight: baseColor.l,
+            alphaBase: config.alphaBase,
+            phase: Math.random() * Math.PI * 2,
+            phaseSpeed: config.pulseSpeed + Math.random() * 0.002,
+            driftX: (Math.random() - 0.5) * config.driftSpeed,
+            driftY: (Math.random() - 0.5) * config.driftSpeed,
+            // Organic shape variation
+            wobblePhase: Math.random() * Math.PI * 2,
+            wobbleSpeed: 0.01 + Math.random() * 0.01,
+            // Individual color variation
+            hueVariation: (Math.random() - 0.5) * 30,
+            // Brightness variation over time
+            brightnessPhase: Math.random() * Math.PI * 2
+        };
+    }
+    
+    // Spawn a temporary event nebula (called on big explosions)
+    spawnEventNebula(x, y, color, size = 1) {
+        const hsl = this.hexToHsl(color) || { h: 30, s: 100, l: 50 };
+        this.eventNebulae.push({
+            x: x,
+            y: y,
+            radius: 80 * size,
+            maxRadius: 200 * size,
+            alpha: 0.4,
+            baseHue: hsl.h,
+            baseSat: hsl.s,
+            baseLight: hsl.l,
+            life: 1.0,
+            decay: 0.015
+        });
+        // Also trigger a pulse
+        this.pulseIntensity = Math.min(1, this.pulseIntensity + 0.3 * size);
+    }
+    
+    // Convert hex color to HSL
+    hexToHsl(hex) {
+        if (!hex || hex[0] !== '#') return null;
+        const r = parseInt(hex.slice(1, 3), 16) / 255;
+        const g = parseInt(hex.slice(3, 5), 16) / 255;
+        const b = parseInt(hex.slice(5, 7), 16) / 255;
+        
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h, s, l = (max + min) / 2;
+        
+        if (max === min) {
+            h = s = 0;
+        } else {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+                case g: h = ((b - r) / d + 2) / 6; break;
+                case b: h = ((r - g) / d + 4) / 6; break;
+            }
+        }
+        return { h: h * 360, s: s * 100, l: l * 100 };
+    }
+    
+    // Set intensity (0-1) for gameplay responsiveness
+    setNebulaIntensity(value) {
+        this.targetNebulaIntensity = Math.max(0, Math.min(1, value));
+    }
+    
+    // Shift overall hue (for boss fights, special events)
+    setHueShift(degrees) {
+        this.targetHueOffset = degrees;
+    }
+    
+    // Convenience methods for game states
+    setCalm() { this.setNebulaIntensity(0.25); this.setHueShift(0); }
+    setNormal() { this.setNebulaIntensity(0.4); this.setHueShift(0); }
+    setIntense() { this.setNebulaIntensity(0.7); this.setHueShift(15); }
+    setBossFight() { this.setNebulaIntensity(0.9); this.setHueShift(-30); } // Red shift for danger
 
     update(shipVx = 0, shipVy = 0) {
+        this.time += 1;
+        
+        // Smooth intensity transitions
+        this.nebulaIntensity += (this.targetNebulaIntensity - this.nebulaIntensity) * 0.02;
+        
+        // Decay pulse intensity
+        this.pulseIntensity *= this.pulseDecay;
+        
+        // Smooth hue shift
+        this.hueOffset += (this.targetHueOffset - this.hueOffset) * 0.01;
+        
         // Move stars based on parallax and ship movement
         this.layers.forEach((layer, layerIndex) => {
             layer.stars.forEach(star => {
@@ -2487,28 +2535,53 @@ class StarField {
             });
         });
         
-        // Animate nebulae
+        // Update nebulae
         this.nebulae.forEach(nebula => {
-            nebula.phase += 0.005;
+            // Animate phases
+            nebula.phase += nebula.phaseSpeed;
+            nebula.wobblePhase += nebula.wobbleSpeed;
+            nebula.brightnessPhase += 0.003;
+            
+            // Calculate layer-specific drift multiplier
+            const driftMult = nebula.layer === 'background' ? 0.3 : 
+                             nebula.layer === 'mid' ? 0.5 : 0.8;
+            
+            // Drift movement (affected by intensity)
+            const intensityBoost = 0.5 + this.nebulaIntensity * 0.5;
+            nebula.x += nebula.driftX * intensityBoost - shipVx * 0.1 * driftMult;
+            nebula.y += nebula.driftY * intensityBoost - shipVy * 0.1 * driftMult;
+            
+            // Wrap around with padding
+            const pad = nebula.radius;
+            if (nebula.x < -pad) nebula.x += CANVAS_WIDTH + pad * 2;
+            if (nebula.x > CANVAS_WIDTH + pad) nebula.x -= CANVAS_WIDTH + pad * 2;
+            if (nebula.y < -pad) nebula.y += CANVAS_HEIGHT + pad * 2;
+            if (nebula.y > CANVAS_HEIGHT + pad) nebula.y -= CANVAS_HEIGHT + pad * 2;
+        });
+        
+        // Update and cleanup event nebulae
+        this.eventNebulae = this.eventNebulae.filter(en => {
+            en.life -= en.decay;
+            en.radius += (en.maxRadius - en.radius) * 0.1;
+            en.alpha = en.life * 0.4;
+            return en.life > 0;
         });
     }
 
     draw(ctx) {
-        // Draw nebula clouds first
-        this.nebulae.forEach(nebula => {
-            const pulseFactor = 0.8 + Math.sin(nebula.phase) * 0.2;
-            const gradient = ctx.createRadialGradient(
-                nebula.x, nebula.y, 0,
-                nebula.x, nebula.y, nebula.radius * pulseFactor
-            );
-            gradient.addColorStop(0, nebula.color + '30');
-            gradient.addColorStop(0.5, nebula.color + '15');
-            gradient.addColorStop(1, 'transparent');
-            
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.arc(nebula.x, nebula.y, nebula.radius * pulseFactor, 0, Math.PI * 2);
-            ctx.fill();
+        // Calculate effective intensity (base + pulse)
+        const effectiveIntensity = Math.min(1, this.nebulaIntensity + this.pulseIntensity * 0.5);
+        
+        // Draw nebula layers (back to front)
+        ['background', 'mid', 'foreground'].forEach(layerName => {
+            this.nebulae.filter(n => n.layer === layerName).forEach(nebula => {
+                this.drawNebula(ctx, nebula, effectiveIntensity);
+            });
+        });
+        
+        // Draw event nebulae (on top of regular nebulae)
+        this.eventNebulae.forEach(en => {
+            this.drawEventNebula(ctx, en);
         });
         
         // Draw star layers (back to front)
@@ -2548,7 +2621,82 @@ class StarField {
             });
         });
     }
+    
+    // Draw a single nebula cloud with all its effects
+    drawNebula(ctx, nebula, intensity) {
+        // Calculate animated values
+        const pulseFactor = 0.85 + Math.sin(nebula.phase) * 0.15;
+        const wobbleFactor = 1 + Math.sin(nebula.wobblePhase) * 0.1;
+        const brightnessMod = 0.8 + Math.sin(nebula.brightnessPhase) * 0.2;
+        
+        // Calculate color with hue shift
+        const hue = (nebula.baseHue + this.hueOffset + nebula.hueVariation + 
+                    Math.sin(this.time * 0.002 + nebula.phase) * 10) % 360;
+        const sat = nebula.baseSat + intensity * 20;
+        const light = nebula.baseLight + intensity * 10;
+        
+        // Calculate alpha based on intensity
+        const baseAlpha = nebula.alphaBase * (0.5 + intensity * 0.5) * brightnessMod;
+        const radius = nebula.radius * pulseFactor * wobbleFactor;
+        
+        // Create gradient
+        const gradient = ctx.createRadialGradient(
+            nebula.x, nebula.y, 0,
+            nebula.x, nebula.y, radius
+        );
+        
+        // Inner glow (brighter)
+        gradient.addColorStop(0, `hsla(${hue}, ${sat}%, ${light + 15}%, ${baseAlpha * 1.5})`);
+        // Middle transition
+        gradient.addColorStop(0.3, `hsla(${hue}, ${sat}%, ${light}%, ${baseAlpha})`);
+        // Outer edge (fades out)
+        gradient.addColorStop(0.7, `hsla(${hue}, ${sat - 10}%, ${light - 5}%, ${baseAlpha * 0.4})`);
+        gradient.addColorStop(1, 'transparent');
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(nebula.x, nebula.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Add a subtle inner glow for more depth (foreground nebulae only)
+        if (nebula.layer === 'foreground' && intensity > 0.5) {
+            const innerGradient = ctx.createRadialGradient(
+                nebula.x, nebula.y, 0,
+                nebula.x, nebula.y, radius * 0.4
+            );
+            const brightHue = (hue + 30) % 360;
+            innerGradient.addColorStop(0, `hsla(${brightHue}, ${sat + 20}%, ${light + 30}%, ${baseAlpha * 0.5})`);
+            innerGradient.addColorStop(1, 'transparent');
+            
+            ctx.fillStyle = innerGradient;
+            ctx.beginPath();
+            ctx.arc(nebula.x, nebula.y, radius * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    
+    // Draw an event nebula (explosion flash)
+    drawEventNebula(ctx, en) {
+        const gradient = ctx.createRadialGradient(
+            en.x, en.y, 0,
+            en.x, en.y, en.radius
+        );
+        
+        const hue = en.baseHue;
+        const sat = en.baseSat;
+        const light = en.baseLight;
+        
+        gradient.addColorStop(0, `hsla(${hue}, ${sat}%, ${light + 30}%, ${en.alpha})`);
+        gradient.addColorStop(0.4, `hsla(${hue}, ${sat}%, ${light}%, ${en.alpha * 0.6})`);
+        gradient.addColorStop(1, 'transparent');
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(en.x, en.y, en.radius, 0, Math.PI * 2);
+        ctx.fill();
+    }
 }
+
 
 // ============== TRAIL PARTICLE CLASS ==============
 class TrailParticle {
@@ -2580,151 +2728,6 @@ class TrailParticle {
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();
-        ctx.restore();
-    }
-}
-
-// ============== MUZZLE FLASH CLASS ==============
-// Geometry Wars-style bright flash when firing
-class MuzzleFlash {
-    constructor(x, y, angle, game) {
-        this.x = x;
-        this.y = y;
-        this.angle = angle;
-        this.game = game;
-        this.lifetime = 8;
-        this.maxLifetime = 8;
-        this.size = 12;
-        // Color cycling through hot colors
-        this.colors = ['#ffffff', '#ff00ff', '#ff44ff', '#ff88ff'];
-    }
-    
-    update() {
-        this.lifetime--;
-        this.size *= 0.85;
-    }
-    
-    draw(ctx) {
-        const alpha = this.lifetime / this.maxLifetime;
-        const progress = 1 - alpha;
-        const colorIndex = Math.floor(progress * (this.colors.length - 1));
-        const color = this.colors[colorIndex];
-        
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.angle);
-        ctx.globalAlpha = alpha;
-        
-        // Outer glow burst
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 25 * alpha;
-        
-        // Central flash
-        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size);
-        gradient.addColorStop(0, '#ffffff');
-        gradient.addColorStop(0.3, color);
-        gradient.addColorStop(1, 'transparent');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(0, 0, this.size, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Directional flash lines
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2 * alpha;
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(this.size * 1.5, 0);
-        ctx.stroke();
-        
-        // Side sparks
-        for (let i = -1; i <= 1; i += 2) {
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(this.size * 0.8, i * this.size * 0.5);
-            ctx.stroke();
-        }
-        
-        ctx.restore();
-    }
-}
-
-// ============== IMPACT SPARK CLASS ==============
-// Sparks when bullets hit targets
-class ImpactSpark {
-    constructor(x, y, color, intensity = 1) {
-        this.x = x;
-        this.y = y;
-        this.color = color;
-        
-        // Random direction with some spread
-        const angle = Math.random() * Math.PI * 2;
-        const speed = (2 + Math.random() * 4) * intensity;
-        this.vx = Math.cos(angle) * speed;
-        this.vy = Math.sin(angle) * speed;
-        
-        this.lifetime = 15 + Math.random() * 10;
-        this.maxLifetime = this.lifetime;
-        this.size = 2 + Math.random() * 2;
-        this.trail = [];
-        this.maxTrail = 5;
-    }
-    
-    update() {
-        // Store trail position
-        this.trail.push({ x: this.x, y: this.y });
-        if (this.trail.length > this.maxTrail) {
-            this.trail.shift();
-        }
-        
-        this.x += this.vx;
-        this.y += this.vy;
-        
-        // Slow down
-        this.vx *= 0.95;
-        this.vy *= 0.95;
-        
-        // Gravity-like effect
-        this.vy += 0.1;
-        
-        this.lifetime--;
-        this.size *= 0.97;
-    }
-    
-    draw(ctx) {
-        const alpha = this.lifetime / this.maxLifetime;
-        
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        
-        // Draw trail
-        if (this.trail.length > 1) {
-            ctx.strokeStyle = this.color;
-            ctx.lineWidth = this.size * 0.5;
-            ctx.shadowColor = this.color;
-            ctx.shadowBlur = 5;
-            ctx.beginPath();
-            ctx.moveTo(this.trail[0].x, this.trail[0].y);
-            for (let i = 1; i < this.trail.length; i++) {
-                ctx.lineTo(this.trail[i].x, this.trail[i].y);
-            }
-            ctx.lineTo(this.x, this.y);
-            ctx.stroke();
-        }
-        
-        // Draw spark head
-        ctx.shadowColor = this.color;
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size * 0.6, 0, Math.PI * 2);
-        ctx.fill();
-        
         ctx.restore();
     }
 }
@@ -3128,8 +3131,6 @@ class Game {
         this.particles = [];
         this.trailParticles = [];
         this.explosionParticles = [];
-        this.muzzleFlashes = [];
-        this.impactSparks = [];
         this.powerUps = [];
         this.items = [];
         this.inventory = [];
@@ -3336,8 +3337,6 @@ class Game {
         this.particles = [];
         this.trailParticles = [];
         this.explosionParticles = [];
-        this.muzzleFlashes = [];
-        this.impactSparks = [];
         this.powerUps = [];
         this.items = [];
         this.inventory = [];
@@ -3371,6 +3370,13 @@ class Game {
         musicManager.init();
         musicManager.start();
         musicManager.setNormal();
+        
+        // === DYNAMIC NEBULA: GAME START ===
+        // Initialize nebula to calm/normal state
+        if (this.starField) {
+            this.starField.setNormal();
+            this.starField.setHueShift(0);
+        }
     }
 
     triggerFlash(color, alpha) {
@@ -3442,12 +3448,22 @@ class Game {
             this.bossLevel = true;
             this.boss = new Boss(this);
             this.triggerFlash('#ff0066', 0.4);
+            // === DYNAMIC NEBULA: BOSS MODE ===
+            // Activate dramatic red-shifted nebula for boss fight
+            if (this.starField) {
+                this.starField.setBossFight();
+            }
             // Don't play normal level complete - boss appear sound plays instead
         } else {
             this.bossLevel = false;
             this.spawnAsteroids(3 + this.level);
             this.triggerFlash('#00ff00', 0.2);
             soundManager.playLevelComplete();
+            // === DYNAMIC NEBULA: NORMAL MODE ===
+            // Return to normal nebula intensity
+            if (this.starField) {
+                this.starField.setNormal();
+            }
         }
     }
 
@@ -3773,6 +3789,14 @@ class Game {
         // Play explosion sound with size-based intensity
         soundManager.playExplosion(intensity / 15);
         
+        // === DYNAMIC NEBULA EVENT ===
+        // Spawn background nebula flash for larger explosions
+        if (intensity >= 10 && this.starField) {
+            const nebulaSize = intensity / 30; // Scale 0.33 - 1.0+
+            const explosionColor = COLORS.explosion[Math.floor(Math.random() * COLORS.explosion.length)];
+            this.starField.spawnEventNebula(x, y, explosionColor, nebulaSize);
+        }
+        
         // Core explosion particles (bright)
         for (let i = 0; i < intensity * 0.5; i++) {
             const color = COLORS.explosion[Math.floor(Math.random() * COLORS.explosion.length)];
@@ -3794,6 +3818,12 @@ class Game {
         this.screenShake.trigger(15);
         soundManager.playUfoDestroyed();
         
+        // === DYNAMIC NEBULA EVENT ===
+        // Green nebula burst for UFO destruction
+        if (this.starField) {
+            this.starField.spawnEventNebula(x, y, COLORS.ufoPrimary, 0.8);
+        }
+        
         // Green core particles
         for (let i = 0; i < 15; i++) {
             this.explosionParticles.push(new ExplosionParticle(x, y, COLORS.ufoPrimary, true));
@@ -3806,49 +3836,6 @@ class Game {
         }
         
         this.particles.push(new ShockwaveParticle(x, y, 60));
-    }
-
-    // Create muzzle flash when ship fires
-    createMuzzleFlash(x, y, angle) {
-        this.muzzleFlashes.push(new MuzzleFlash(x, y, angle, this));
-        
-        // Also spawn some quick trail particles for extra juice
-        for (let i = 0; i < 5; i++) {
-            const spread = (Math.random() - 0.5) * 0.5;
-            const speed = 2 + Math.random() * 3;
-            this.trailParticles.push(new TrailParticle(
-                x,
-                y,
-                Math.random() > 0.5 ? '#ff00ff' : '#ffffff',
-                2 + Math.random() * 2,
-                8 + Math.random() * 5,
-                Math.cos(angle + spread) * speed,
-                Math.sin(angle + spread) * speed
-            ));
-        }
-    }
-    
-    // Create impact sparks when bullets hit targets
-    createImpactSparks(x, y, color, count = 8) {
-        // Spawn sparks
-        for (let i = 0; i < count; i++) {
-            this.impactSparks.push(new ImpactSpark(x, y, color, 1));
-        }
-        
-        // Add some extra flash particles
-        for (let i = 0; i < 4; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = 1 + Math.random() * 2;
-            this.trailParticles.push(new TrailParticle(
-                x,
-                y,
-                '#ffffff',
-                3 + Math.random() * 2,
-                6 + Math.random() * 4,
-                Math.cos(angle) * speed,
-                Math.sin(angle) * speed
-            ));
-        }
     }
 
     update() {
@@ -3945,16 +3932,6 @@ class Game {
             return particle.lifetime > 0;
         });
 
-        this.muzzleFlashes = this.muzzleFlashes.filter(flash => {
-            flash.update();
-            return flash.lifetime > 0;
-        });
-
-        this.impactSparks = this.impactSparks.filter(spark => {
-            spark.update();
-            return spark.lifetime > 0;
-        });
-
         this.particles = this.particles.filter(particle => {
             particle.update();
             return particle.lifetime > 0;
@@ -3979,9 +3956,26 @@ class Game {
             if (this.boss.isFinished()) {
                 this.boss = null;
                 this.bossLevel = false;
+                // === DYNAMIC NEBULA: BOSS DEFEATED ===
+                // Dramatic victory pulse before level transition
+                if (this.starField) {
+                    this.starField.spawnEventNebula(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '#ff00ff', 2.5);
+                    this.starField.setNormal();
+                }
                 // After boss defeat, continue to next level
                 this.nextLevel();
                 return;
+            }
+        }
+        
+        // === DYNAMIC NEBULA: COMBO INTENSITY ===
+        // Increase nebula intensity during kill streaks
+        if (this.starField && !this.bossLevel) {
+            const comboIntensity = Math.min(1, this.comboCount / 20); // Max at 20 kills
+            if (comboIntensity > 0.3) {
+                this.starField.setNebulaIntensity(0.4 + comboIntensity * 0.4);
+            } else if (this.comboTimer <= 0) {
+                this.starField.setNormal();
             }
         }
 
@@ -4001,14 +3995,9 @@ class Game {
                     this.bullets[i].x, this.bullets[i].y, 4,
                     this.asteroids[j].x, this.asteroids[j].y, this.asteroids[j].radius
                 )) {
-                    const bullet = this.bullets[i];
                     this.bullets.splice(i, 1);
 
                     const asteroid = this.asteroids[j];
-                    
-                    // Create impact sparks at bullet position (orange for asteroids)
-                    this.createImpactSparks(bullet.x, bullet.y, COLORS.asteroidGlow, 10);
-                    
                     this.createExplosion(asteroid.x, asteroid.y, asteroid.size * 6);
 
                     if (asteroid.size > 1) {
@@ -4036,11 +4025,7 @@ class Game {
                     this.bullets[i].x, this.bullets[i].y, 4,
                     this.ufos[j].x, this.ufos[j].y, UFO_SIZE
                 )) {
-                    const bullet = this.bullets[i];
                     this.bullets.splice(i, 1);
-                    
-                    // Create impact sparks (green for UFOs)
-                    this.createImpactSparks(bullet.x, bullet.y, COLORS.ufoPrimary, 12);
                     
                     const ufo = this.ufos[j];
                     this.createUfoExplosion(ufo.x, ufo.y);
@@ -4061,12 +4046,7 @@ class Game {
                     this.bullets[i].x, this.bullets[i].y, 4,
                     this.boss.x, this.boss.y, BOSS_SIZE
                 )) {
-                    const bullet = this.bullets[i];
                     this.bullets.splice(i, 1);
-                    
-                    // Create impact sparks (pink/magenta for boss)
-                    this.createImpactSparks(bullet.x, bullet.y, '#ff44aa', 15);
-                    
                     this.boss.takeDamage();
                     break;
                 }
@@ -4152,20 +4132,6 @@ class Game {
             }
         }
 
-        // Ship vs Boss Laser (phase 2+ attack)
-        if (this.ship && !this.ship.invulnerable && this.boss && this.boss.checkLaserCollision) {
-            if (this.boss.checkLaserCollision(this.ship)) {
-                if (!this.ship.hasShield) {
-                    this.createExplosion(this.ship.x, this.ship.y, 25);
-                    this.ship = null;
-                    this.loseLife();
-                } else {
-                    soundManager.playShieldHit();
-                    this.triggerFlash('#ff0000', 0.3);
-                }
-            }
-        }
-
         if (this.ship) {
             // Ship vs PowerUp
             for (let i = this.powerUps.length - 1; i >= 0; i--) {
@@ -4239,8 +4205,6 @@ class Game {
             // Draw game objects dimmed in background
             this.trailParticles.forEach(particle => particle.draw(ctx));
             this.explosionParticles.forEach(particle => particle.draw(ctx));
-            this.muzzleFlashes.forEach(flash => flash.draw(ctx));
-            this.impactSparks.forEach(spark => spark.draw(ctx));
             this.particles.forEach(particle => particle.draw(ctx));
             this.items.forEach(item => item.draw(ctx));
             this.powerUps.forEach(powerUp => powerUp.draw(ctx));
@@ -4259,8 +4223,6 @@ class Game {
         // Draw game objects in order (back to front)
         this.trailParticles.forEach(particle => particle.draw(ctx));
         this.explosionParticles.forEach(particle => particle.draw(ctx));
-        this.muzzleFlashes.forEach(flash => flash.draw(ctx));
-        this.impactSparks.forEach(spark => spark.draw(ctx));
         this.particles.forEach(particle => particle.draw(ctx));
         this.items.forEach(item => item.draw(ctx));
         this.powerUps.forEach(powerUp => powerUp.draw(ctx));
@@ -5084,19 +5046,13 @@ class Ship {
         const angles = this.hasTripleShot ? [-0.2, 0, 0.2] : [0];
         
         angles.forEach(angleOffset => {
-            const muzzleX = this.x + Math.cos(this.angle + angleOffset) * SHIP_SIZE;
-            const muzzleY = this.y + Math.sin(this.angle + angleOffset) * SHIP_SIZE;
-            
             const bullet = new Bullet(
-                muzzleX,
-                muzzleY,
+                this.x + Math.cos(this.angle + angleOffset) * SHIP_SIZE,
+                this.y + Math.sin(this.angle + angleOffset) * SHIP_SIZE,
                 this.angle + angleOffset,
                 this.game
             );
             this.game.bullets.push(bullet);
-            
-            // Create muzzle flash at each gun position
-            this.game.createMuzzleFlash(muzzleX, muzzleY, this.angle + angleOffset);
         });
 
         this.shootCooldown = this.hasRapidFire ? 3 : 10;
@@ -5500,22 +5456,15 @@ class Asteroid {
 }
 
 // ============== BULLET CLASS ==============
-// Enhanced with Geometry Wars-style color cycling trails
 class Bullet {
     constructor(x, y, angle, game) {
         this.x = x;
         this.y = y;
         this.game = game;
-        this.angle = angle;
         this.vx = Math.cos(angle) * BULLET_SPEED;
         this.vy = Math.sin(angle) * BULLET_SPEED;
         this.lifetime = BULLET_LIFETIME;
         this.trailCounter = 0;
-        this.pulsePhase = Math.random() * Math.PI * 2;
-        
-        // Color cycling for Geometry Wars-style trails
-        this.trailColors = ['#ff00ff', '#ff44ff', '#ff88ff', '#ffffff', '#ff88ff', '#ff44ff'];
-        this.colorIndex = 0;
     }
 
     update() {
@@ -5523,39 +5472,18 @@ class Bullet {
         this.y += this.vy;
         this.lifetime--;
         this.trailCounter++;
-        this.pulsePhase += 0.3;
-        
-        // Cycle through colors
-        this.colorIndex = (this.colorIndex + 0.15) % this.trailColors.length;
 
-        // Spawn enhanced trail particles with color cycling
+        // Spawn trail particles
         if (this.trailCounter % 2 === 0) {
-            const colorIdx = Math.floor(this.colorIndex);
-            const trailColor = this.trailColors[colorIdx];
-            
-            // Main trail particle
             this.game.trailParticles.push(new TrailParticle(
                 this.x,
                 this.y,
-                trailColor,
-                2.5,
-                12,
-                -this.vx * 0.1 + (Math.random() - 0.5) * 0.3,
-                -this.vy * 0.1 + (Math.random() - 0.5) * 0.3
+                COLORS.bullet,
+                2,
+                10,
+                -this.vx * 0.1,
+                -this.vy * 0.1
             ));
-            
-            // Secondary sparkle trail for extra juice
-            if (this.trailCounter % 4 === 0) {
-                this.game.trailParticles.push(new TrailParticle(
-                    this.x + (Math.random() - 0.5) * 4,
-                    this.y + (Math.random() - 0.5) * 4,
-                    '#ffffff',
-                    1.5,
-                    8,
-                    (Math.random() - 0.5) * 1,
-                    (Math.random() - 0.5) * 1
-                ));
-            }
         }
 
         // Wrap
@@ -5566,22 +5494,18 @@ class Bullet {
     }
 
     draw(ctx) {
-        const pulse = 1 + Math.sin(this.pulsePhase) * 0.2;
-        const colorIdx = Math.floor(this.colorIndex);
-        const currentColor = this.trailColors[colorIdx];
-        
         ctx.save();
         
-        // Outer glow with pulsing
-        ctx.shadowColor = currentColor;
-        ctx.shadowBlur = 18 * pulse;
-        ctx.fillStyle = currentColor;
+        // Outer glow
+        ctx.shadowColor = COLORS.bullet;
+        ctx.shadowBlur = 15;
+        ctx.fillStyle = COLORS.bullet;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, 4 * pulse, 0, Math.PI * 2);
+        ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
         ctx.fill();
         
         // Bright core
-        ctx.shadowBlur = 8;
+        ctx.shadowBlur = 5;
         ctx.fillStyle = COLORS.bulletCore;
         ctx.beginPath();
         ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
@@ -5768,12 +5692,6 @@ class Item {
 }
 
 // ============== BOSS CLASS ==============
-// ============== ENHANCED BOSS CLASS ==============
-// Multi-phase boss battles with escalating intensity
-// Phase 1 (100-66% health): Standard attacks
-// Phase 2 (66-33% health): Faster attacks, new patterns
-// Phase 3 (0-33% health): RAGE MODE - intense bullet hell
-
 class Boss {
     constructor(game) {
         this.game = game;
@@ -5802,95 +5720,13 @@ class Boss {
         this.defeated = false;
         this.deathAnimation = 0;
         
-        // === PHASE SYSTEM ===
-        this.phase = 1;
-        this.phaseTransitioning = false;
-        this.phaseTransitionTimer = 0;
-        this.phaseAnnouncementTimer = 0;
-        
-        // Phase-specific properties
-        this.rageMultiplier = 1.0; // Attack speed multiplier
-        this.laserCharging = false;
-        this.laserChargeTime = 0;
-        this.laserActive = false;
-        this.laserAngle = 0;
-        this.laserDuration = 0;
-        
-        // Shield orbs for Phase 2+
-        this.shieldOrbs = [];
-        this.orbSpawnTimer = 0;
-        
         soundManager.playBossAppear();
-    }
-    
-    // Calculate current phase based on health
-    calculatePhase() {
-        const healthPercent = this.health / this.maxHealth;
-        if (healthPercent > 0.66) return 1;
-        if (healthPercent > 0.33) return 2;
-        return 3;
-    }
-    
-    // Trigger phase transition effects
-    triggerPhaseTransition(newPhase) {
-        this.phaseTransitioning = true;
-        this.phaseTransitionTimer = 60; // 1 second pause
-        this.phaseAnnouncementTimer = 120; // Show announcement for 2 seconds
-        this.phase = newPhase;
-        
-        // Epic transition effects
-        this.game.screenShake.trigger(25 + newPhase * 10);
-        
-        // Phase-specific effects
-        if (newPhase === 2) {
-            this.game.triggerFlash('#ff6600', 0.4);
-            this.rageMultiplier = 1.3;
-            soundManager.playBossPhaseChange();
-        } else if (newPhase === 3) {
-            this.game.triggerFlash('#ff0000', 0.6);
-            this.rageMultiplier = 1.6;
-            soundManager.playBossEnrage();
-            // Spawn protective orbs
-            this.spawnShieldOrbs(4);
-        }
-        
-        // Reset attack pattern for new phase
-        this.attackPattern = 0;
-        this.burstCount = 0;
-        this.shootTimer = 60;
-    }
-    
-    spawnShieldOrbs(count) {
-        this.shieldOrbs = [];
-        for (let i = 0; i < count; i++) {
-            this.shieldOrbs.push({
-                angle: (i / count) * Math.PI * 2,
-                distance: BOSS_SIZE * 1.2,
-                health: 2,
-                pulsePhase: Math.random() * Math.PI * 2
-            });
-        }
     }
     
     update() {
         if (this.defeated) {
             this.updateDeathAnimation();
             return;
-        }
-        
-        // Phase transition pause
-        if (this.phaseTransitioning) {
-            this.phaseTransitionTimer--;
-            this.pulsePhase += 0.2; // Fast pulse during transition
-            if (this.phaseTransitionTimer <= 0) {
-                this.phaseTransitioning = false;
-            }
-            return;
-        }
-        
-        // Announcement timer countdown
-        if (this.phaseAnnouncementTimer > 0) {
-            this.phaseAnnouncementTimer--;
         }
         
         if (this.entering) {
@@ -5904,95 +5740,33 @@ class Boss {
             return;
         }
         
-        // Phase-adjusted movement (more aggressive in later phases)
-        const moveSpeed = 0.015 * this.rageMultiplier;
-        this.movePhase += moveSpeed;
-        const moveAmplitudeX = 200 + (this.phase - 1) * 50;
-        const moveX = Math.sin(this.movePhase) * moveAmplitudeX;
-        const moveY = Math.sin(this.movePhase * 2) * (30 + this.phase * 10);
+        this.movePhase += 0.015;
+        const moveX = Math.sin(this.movePhase) * 200;
+        const moveY = Math.sin(this.movePhase * 2) * 30;
         
         this.x = CANVAS_WIDTH / 2 + moveX;
         this.y = this.targetY + moveY;
         
-        this.rotation += 0.01 * this.rageMultiplier;
-        this.pulsePhase += 0.05 * this.rageMultiplier;
-        this.coreRotation += 0.03 * this.rageMultiplier;
+        this.rotation += 0.01;
+        this.pulsePhase += 0.05;
+        this.coreRotation += 0.03;
         
         if (this.damageFlash > 0) this.damageFlash -= 0.1;
-        
-        // Update shield orbs
-        this.updateShieldOrbs();
-        
-        // Update laser attack
-        this.updateLaser();
         
         this.updateAttacks();
     }
     
-    updateShieldOrbs() {
-        this.shieldOrbs.forEach(orb => {
-            orb.angle += 0.02;
-            orb.pulsePhase += 0.1;
-        });
-        this.shieldOrbs = this.shieldOrbs.filter(orb => orb.health > 0);
-    }
-    
-    updateLaser() {
-        if (this.laserCharging) {
-            this.laserChargeTime++;
-            if (this.laserChargeTime >= 60) {
-                this.laserCharging = false;
-                this.laserActive = true;
-                this.laserDuration = 90; // 1.5 seconds
-                soundManager.playBossLaser();
-            }
-        }
-        
-        if (this.laserActive) {
-            // Sweep laser toward player
-            if (this.game.ship) {
-                const targetAngle = Math.atan2(
-                    this.game.ship.y - this.y,
-                    this.game.ship.x - this.x
-                );
-                const angleDiff = targetAngle - this.laserAngle;
-                this.laserAngle += Math.sign(angleDiff) * 0.015;
-            }
-            
-            this.laserDuration--;
-            if (this.laserDuration <= 0) {
-                this.laserActive = false;
-            }
-        }
-    }
-    
     updateAttacks() {
-        if (this.entering || !this.game.ship || this.laserActive) return;
+        if (this.entering || !this.game.ship) return;
         
         this.shootTimer--;
         
         if (this.shootTimer <= 0) {
-            // Phase determines available attack patterns
-            const maxPatterns = this.phase === 1 ? 4 : (this.phase === 2 ? 6 : 8);
-            
             switch (this.attackPattern) {
                 case 0: this.attackSpiral(); break;
                 case 1: this.attackSpread(); break;
                 case 2: this.attackTargeted(); break;
                 case 3: this.attackRing(); break;
-                case 4: this.attackDoubleSpiral(); break; // Phase 2+
-                case 5: this.attackLaser(); break; // Phase 2+
-                case 6: this.attackBulletHell(); break; // Phase 3
-                case 7: this.attackShotgun(); break; // Phase 3
-            }
-        }
-        
-        // Spawn orbs periodically in phase 2+
-        if (this.phase >= 2) {
-            this.orbSpawnTimer++;
-            if (this.orbSpawnTimer >= 600 && this.shieldOrbs.length < 4) {
-                this.spawnShieldOrbs(2);
-                this.orbSpawnTimer = 0;
             }
         }
     }
@@ -6003,36 +5777,18 @@ class Boss {
         this.fireBullet(angle);
         soundManager.playBossLaser();
         
-        const burstMax = Math.floor(20 / this.rageMultiplier);
-        if (this.burstCount >= burstMax) {
+        if (this.burstCount >= 20) {
             this.burstCount = 0;
-            this.nextPattern();
-            this.shootTimer = Math.floor(90 / this.rageMultiplier);
+            this.attackPattern = (this.attackPattern + 1) % 4;
+            this.shootTimer = 90;
         } else {
-            this.shootTimer = Math.floor(4 / this.rageMultiplier);
-        }
-    }
-    
-    attackDoubleSpiral() {
-        this.burstCount++;
-        const angle1 = this.burstCount * 0.25 + Math.PI / 2;
-        const angle2 = -this.burstCount * 0.25 + Math.PI / 2;
-        this.fireBullet(angle1);
-        this.fireBullet(angle2);
-        soundManager.playBossLaser();
-        
-        if (this.burstCount >= 24) {
-            this.burstCount = 0;
-            this.nextPattern();
-            this.shootTimer = Math.floor(90 / this.rageMultiplier);
-        } else {
-            this.shootTimer = Math.floor(3 / this.rageMultiplier);
+            this.shootTimer = 4;
         }
     }
     
     attackSpread() {
-        const spreadCount = 5 + this.tier + (this.phase - 1) * 2;
-        const spreadAngle = Math.PI / 3 + (this.phase - 1) * 0.1;
+        const spreadCount = 5 + this.tier;
+        const spreadAngle = Math.PI / 3;
         const startAngle = Math.PI / 2 - spreadAngle / 2;
         
         for (let i = 0; i < spreadCount; i++) {
@@ -6042,13 +5798,12 @@ class Boss {
         soundManager.playBossLaser();
         
         this.burstCount++;
-        const burstMax = 2 + this.phase;
-        if (this.burstCount >= burstMax) {
+        if (this.burstCount >= 3) {
             this.burstCount = 0;
-            this.nextPattern();
-            this.shootTimer = Math.floor(90 / this.rageMultiplier);
+            this.attackPattern = (this.attackPattern + 1) % 4;
+            this.shootTimer = 90;
         } else {
-            this.shootTimer = Math.floor(30 / this.rageMultiplier);
+            this.shootTimer = 30;
         }
     }
     
@@ -6059,25 +5814,23 @@ class Boss {
         const dy = this.game.ship.y - this.y;
         const angle = Math.atan2(dy, dx);
         
-        const bulletCount = 3 + this.phase;
-        for (let i = -(bulletCount - 1) / 2; i <= (bulletCount - 1) / 2; i++) {
-            this.fireBullet(angle + i * 0.08, BOSS_BULLET_SPEED * 1.3);
+        for (let i = -1; i <= 1; i++) {
+            this.fireBullet(angle + i * 0.1, BOSS_BULLET_SPEED * 1.3);
         }
         soundManager.playBossLaser();
         
         this.burstCount++;
-        const burstMax = 3 + this.phase;
-        if (this.burstCount >= burstMax) {
+        if (this.burstCount >= 4) {
             this.burstCount = 0;
-            this.nextPattern();
-            this.shootTimer = Math.floor(90 / this.rageMultiplier);
+            this.attackPattern = (this.attackPattern + 1) % 4;
+            this.shootTimer = 90;
         } else {
-            this.shootTimer = Math.floor(20 / this.rageMultiplier);
+            this.shootTimer = 20;
         }
     }
     
     attackRing() {
-        const bulletCount = 12 + this.tier * 2 + this.phase * 2;
+        const bulletCount = 12 + this.tier * 2;
         for (let i = 0; i < bulletCount; i++) {
             const angle = (i / bulletCount) * Math.PI * 2;
             this.fireBullet(angle);
@@ -6087,69 +5840,11 @@ class Boss {
         this.burstCount++;
         if (this.burstCount >= 2) {
             this.burstCount = 0;
-            this.nextPattern();
-            this.shootTimer = Math.floor(120 / this.rageMultiplier);
+            this.attackPattern = (this.attackPattern + 1) % 4;
+            this.shootTimer = 120;
         } else {
-            this.shootTimer = Math.floor(40 / this.rageMultiplier);
+            this.shootTimer = 40;
         }
-    }
-    
-    attackLaser() {
-        if (!this.laserCharging && !this.laserActive) {
-            this.laserCharging = true;
-            this.laserChargeTime = 0;
-            if (this.game.ship) {
-                this.laserAngle = Math.atan2(
-                    this.game.ship.y - this.y,
-                    this.game.ship.x - this.x
-                );
-            }
-        }
-        this.nextPattern();
-        this.shootTimer = Math.floor(180 / this.rageMultiplier);
-    }
-    
-    attackBulletHell() {
-        // Chaos mode - random bullet spray
-        for (let i = 0; i < 8; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = BOSS_BULLET_SPEED * (0.8 + Math.random() * 0.4);
-            this.fireBullet(angle, speed);
-        }
-        soundManager.playBossLaser();
-        
-        this.burstCount++;
-        if (this.burstCount >= 6) {
-            this.burstCount = 0;
-            this.nextPattern();
-            this.shootTimer = Math.floor(90 / this.rageMultiplier);
-        } else {
-            this.shootTimer = Math.floor(10 / this.rageMultiplier);
-        }
-    }
-    
-    attackShotgun() {
-        if (!this.game.ship) return;
-        
-        const dx = this.game.ship.x - this.x;
-        const dy = this.game.ship.y - this.y;
-        const baseAngle = Math.atan2(dy, dx);
-        
-        // Tight cone of fast bullets
-        for (let i = 0; i < 12; i++) {
-            const angle = baseAngle + (Math.random() - 0.5) * 0.5;
-            const speed = BOSS_BULLET_SPEED * (1.2 + Math.random() * 0.3);
-            this.fireBullet(angle, speed);
-        }
-        soundManager.playBossLaser();
-        
-        this.nextPattern();
-        this.shootTimer = Math.floor(60 / this.rageMultiplier);
-    }
-    
-    nextPattern() {
-        const maxPatterns = this.phase === 1 ? 4 : (this.phase === 2 ? 6 : 8);
-        this.attackPattern = (this.attackPattern + 1) % maxPatterns;
     }
     
     fireBullet(angle, speed = BOSS_BULLET_SPEED) {
@@ -6157,28 +5852,12 @@ class Boss {
     }
     
     takeDamage() {
-        if (this.entering || this.defeated || this.phaseTransitioning) return false;
-        
-        // Check if shield orbs block the damage
-        if (this.shieldOrbs.length > 0) {
-            // Damage a random orb instead
-            const orbIndex = Math.floor(Math.random() * this.shieldOrbs.length);
-            this.shieldOrbs[orbIndex].health--;
-            this.game.screenShake.trigger(4);
-            soundManager.playShieldHit();
-            return false;
-        }
+        if (this.entering || this.defeated) return false;
         
         this.health--;
         this.damageFlash = 1;
         this.game.screenShake.trigger(8);
         soundManager.playBossHit();
-        
-        // Check for phase transition
-        const newPhase = this.calculatePhase();
-        if (newPhase > this.phase) {
-            this.triggerPhaseTransition(newPhase);
-        }
         
         if (this.health <= 0) {
             this.defeat();
@@ -6190,42 +5869,37 @@ class Boss {
     defeat() {
         this.defeated = true;
         this.deathAnimation = 0;
-        this.game.addScore(BOSS_POINTS * this.tier);
-        this.game.screenShake.trigger(50);
+        this.game.addScore(BOSS_POINTS);
+        this.game.screenShake.trigger(40);
         soundManager.playBossDefeat();
     }
     
     updateDeathAnimation() {
         this.deathAnimation++;
         
-        // More explosions for higher tier bosses
-        const explosionRate = Math.max(4, 8 - this.tier);
-        if (this.deathAnimation % explosionRate === 0 && this.deathAnimation < 80) {
-            const offsetX = (Math.random() - 0.5) * BOSS_SIZE * 2;
-            const offsetY = (Math.random() - 0.5) * BOSS_SIZE * 2;
-            this.game.createExplosion(this.x + offsetX, this.y + offsetY, 15 + this.tier * 3);
+        if (this.deathAnimation % 8 === 0 && this.deathAnimation < 80) {
+            const offsetX = (Math.random() - 0.5) * BOSS_SIZE * 1.5;
+            const offsetY = (Math.random() - 0.5) * BOSS_SIZE * 1.5;
+            this.game.createExplosion(this.x + offsetX, this.y + offsetY, 15);
         }
         
         if (this.deathAnimation === 80) {
-            this.game.createExplosion(this.x, this.y, 60 + this.tier * 10);
-            this.game.triggerFlash('#ff8800', 0.7);
+            this.game.createExplosion(this.x, this.y, 50);
+            this.game.triggerFlash('#ff8800', 0.6);
             
-            // More rewards for higher tier bosses
-            const powerUpCount = 2 + this.tier;
-            for (let i = 0; i < powerUpCount; i++) {
+            for (let i = 0; i < 3; i++) {
                 const types = Object.keys(POWERUP_TYPES);
                 const randomType = types[Math.floor(Math.random() * types.length)];
-                const ox = (Math.random() - 0.5) * 80;
-                const oy = (Math.random() - 0.5) * 80;
+                const ox = (Math.random() - 0.5) * 60;
+                const oy = (Math.random() - 0.5) * 60;
                 this.game.powerUps.push(new PowerUp(this.x + ox, this.y + oy, randomType, this.game));
             }
             
-            const itemCount = 1 + Math.floor(this.tier / 2);
             const itemTypes = Object.keys(ITEM_TYPES);
-            for (let i = 0; i < itemCount; i++) {
+            for (let i = 0; i < 2; i++) {
                 const randomItem = itemTypes[Math.floor(Math.random() * itemTypes.length)];
-                const ox = (Math.random() - 0.5) * 50;
-                const oy = (Math.random() - 0.5) * 50;
+                const ox = (Math.random() - 0.5) * 40;
+                const oy = (Math.random() - 0.5) * 40;
                 this.game.items.push(new Item(this.x + ox, this.y + oy, randomItem, this.game));
             }
         }
@@ -6238,12 +5912,6 @@ class Boss {
     draw(ctx) {
         if (this.defeated && this.deathAnimation > 80) return;
         
-        // Draw shield orbs
-        this.drawShieldOrbs(ctx);
-        
-        // Draw laser
-        this.drawLaser(ctx);
-        
         const pulse = 1 + Math.sin(this.pulsePhase) * 0.05;
         const flash = this.damageFlash;
         
@@ -6254,26 +5922,9 @@ class Boss {
             this.drawHealthBar(ctx);
         }
         
-        // Draw phase announcement
-        if (this.phaseAnnouncementTimer > 0) {
-            this.drawPhaseAnnouncement(ctx);
-        }
-        
         ctx.scale(pulse, pulse);
         
-        // Phase-dependent colors
-        let glowColor, coreColor;
-        if (this.phase === 3) {
-            glowColor = flash > 0 ? '#ffffff' : '#ff0000';
-            coreColor = '#ff2200';
-        } else if (this.phase === 2) {
-            glowColor = flash > 0 ? '#ffffff' : '#ff6600';
-            coreColor = '#ff4400';
-        } else {
-            glowColor = flash > 0 ? '#ffffff' : '#ff0066';
-            coreColor = '#ff0066';
-        }
-        
+        const glowColor = flash > 0 ? '#ffffff' : '#ff0066';
         ctx.shadowColor = glowColor;
         ctx.shadowBlur = 30 + Math.sin(this.pulsePhase * 2) * 10;
         
@@ -6285,14 +5936,6 @@ class Boss {
             gradient.addColorStop(0, '#ffffff');
             gradient.addColorStop(0.5, '#ff6688');
             gradient.addColorStop(1, '#cc0044');
-        } else if (this.phase === 3) {
-            gradient.addColorStop(0, '#880000');
-            gradient.addColorStop(0.5, '#cc0000');
-            gradient.addColorStop(1, '#440000');
-        } else if (this.phase === 2) {
-            gradient.addColorStop(0, '#884400');
-            gradient.addColorStop(0.5, '#aa4400');
-            gradient.addColorStop(1, '#442200');
         } else {
             gradient.addColorStop(0, '#660033');
             gradient.addColorStop(0.5, '#990044');
@@ -6300,7 +5943,7 @@ class Boss {
         }
         
         ctx.fillStyle = gradient;
-        ctx.strokeStyle = flash > 0 ? '#ffffff' : coreColor;
+        ctx.strokeStyle = flash > 0 ? '#ffffff' : '#ff0066';
         ctx.lineWidth = 3;
         
         ctx.beginPath();
@@ -6315,7 +5958,7 @@ class Boss {
         ctx.fill();
         ctx.stroke();
         
-        ctx.strokeStyle = coreColor;
+        ctx.strokeStyle = '#ff3366';
         ctx.lineWidth = 2;
         for (let i = 0; i < 6; i++) {
             const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
@@ -6331,15 +5974,9 @@ class Boss {
         ctx.rotate(-this.coreRotation * 2);
         
         const coreGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, BOSS_SIZE * 0.4);
-        if (this.phase === 3) {
-            coreGradient.addColorStop(0, '#ffaa88');
-            coreGradient.addColorStop(0.5, '#ff4400');
-            coreGradient.addColorStop(1, '#880000');
-        } else {
-            coreGradient.addColorStop(0, '#ff88aa');
-            coreGradient.addColorStop(0.5, coreColor);
-            coreGradient.addColorStop(1, '#880033');
-        }
+        coreGradient.addColorStop(0, '#ff88aa');
+        coreGradient.addColorStop(0.5, '#ff0066');
+        coreGradient.addColorStop(1, '#880033');
         
         ctx.fillStyle = coreGradient;
         ctx.beginPath();
@@ -6362,16 +5999,14 @@ class Boss {
         
         ctx.restore();
         
-        // Orbiting particles (more in rage mode)
-        const orbCount = 4 + (this.phase - 1) * 2;
-        for (let i = 0; i < orbCount; i++) {
-            const orbitAngle = this.rotation * 3 + (i / orbCount) * Math.PI * 2;
+        for (let i = 0; i < 4; i++) {
+            const orbitAngle = this.rotation * 3 + (i / 4) * Math.PI * 2;
             const orbitRadius = BOSS_SIZE * 0.7;
             const orbX = Math.cos(orbitAngle) * orbitRadius;
             const orbY = Math.sin(orbitAngle) * orbitRadius;
             
-            ctx.fillStyle = coreColor;
-            ctx.shadowColor = coreColor;
+            ctx.fillStyle = '#ff3366';
+            ctx.shadowColor = '#ff0066';
             ctx.shadowBlur = 10;
             ctx.beginPath();
             ctx.arc(orbX, orbY, 5, 0, Math.PI * 2);
@@ -6381,191 +6016,32 @@ class Boss {
         ctx.restore();
     }
     
-    drawShieldOrbs(ctx) {
-        this.shieldOrbs.forEach(orb => {
-            const orbX = this.x + Math.cos(orb.angle) * orb.distance;
-            const orbY = this.y + Math.sin(orb.angle) * orb.distance;
-            const orbPulse = 1 + Math.sin(orb.pulsePhase) * 0.2;
-            
-            ctx.save();
-            ctx.shadowColor = '#00ffff';
-            ctx.shadowBlur = 15;
-            ctx.fillStyle = orb.health > 1 ? '#00ffff' : '#ff8800';
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2;
-            
-            ctx.beginPath();
-            ctx.arc(orbX, orbY, 12 * orbPulse, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-            ctx.restore();
-        });
-    }
-    
-    drawLaser(ctx) {
-        if (!this.laserCharging && !this.laserActive) return;
-        
-        ctx.save();
-        
-        if (this.laserCharging) {
-            // Charging effect - pulsing glow
-            const chargeProgress = this.laserChargeTime / 60;
-            ctx.shadowColor = '#ff0000';
-            ctx.shadowBlur = 20 + chargeProgress * 30;
-            ctx.fillStyle = `rgba(255, 0, 0, ${chargeProgress * 0.5})`;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, BOSS_SIZE * 0.5 * (1 + chargeProgress), 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Warning line
-            ctx.strokeStyle = `rgba(255, 100, 100, ${chargeProgress})`;
-            ctx.lineWidth = 2;
-            ctx.setLineDash([10, 10]);
-            ctx.beginPath();
-            ctx.moveTo(this.x, this.y);
-            ctx.lineTo(
-                this.x + Math.cos(this.laserAngle) * 800,
-                this.y + Math.sin(this.laserAngle) * 800
-            );
-            ctx.stroke();
-        }
-        
-        if (this.laserActive) {
-            // Active laser beam
-            const laserWidth = 15 + Math.sin(this.laserDuration * 0.5) * 5;
-            
-            ctx.shadowColor = '#ff0000';
-            ctx.shadowBlur = 30;
-            ctx.strokeStyle = '#ff0000';
-            ctx.lineWidth = laserWidth;
-            ctx.lineCap = 'round';
-            ctx.setLineDash([]);
-            ctx.beginPath();
-            ctx.moveTo(this.x, this.y);
-            ctx.lineTo(
-                this.x + Math.cos(this.laserAngle) * 1000,
-                this.y + Math.sin(this.laserAngle) * 1000
-            );
-            ctx.stroke();
-            
-            // Inner bright core
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = laserWidth * 0.4;
-            ctx.beginPath();
-            ctx.moveTo(this.x, this.y);
-            ctx.lineTo(
-                this.x + Math.cos(this.laserAngle) * 1000,
-                this.y + Math.sin(this.laserAngle) * 1000
-            );
-            ctx.stroke();
-        }
-        
-        ctx.restore();
-    }
-    
-    drawPhaseAnnouncement(ctx) {
-        const alpha = Math.min(1, this.phaseAnnouncementTimer / 30);
-        const scale = 1 + (1 - alpha) * 0.5;
-        
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.scale(scale, scale);
-        
-        ctx.shadowColor = this.phase === 3 ? '#ff0000' : '#ff6600';
-        ctx.shadowBlur = 20;
-        ctx.fillStyle = this.phase === 3 ? '#ff0000' : '#ff6600';
-        ctx.font = 'bold 28px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        
-        const text = this.phase === 3 ? '!! RAGE MODE !!' : `PHASE ${this.phase}`;
-        ctx.fillText(text, 0, -BOSS_SIZE - 60);
-        
-        ctx.restore();
-    }
-    
     drawHealthBar(ctx) {
-        const barWidth = BOSS_SIZE * 2.5;
-        const barHeight = 10;
-        const barY = -BOSS_SIZE - 30;
+        const barWidth = BOSS_SIZE * 2;
+        const barHeight = 8;
+        const barY = -BOSS_SIZE - 25;
         
-        // Background
         ctx.fillStyle = '#330022';
         ctx.fillRect(-barWidth / 2, barY, barWidth, barHeight);
         
-        // Health segments showing phases
         const healthPercent = this.health / this.maxHealth;
-        
-        // Phase 1 segment (green when active)
-        const phase1Width = barWidth / 3;
-        ctx.fillStyle = this.phase === 1 ? '#00ff00' : '#004400';
-        ctx.fillRect(-barWidth / 2, barY, Math.min(healthPercent * barWidth, phase1Width), barHeight);
-        
-        // Phase 2 segment (orange when active)
-        if (healthPercent > 0.33) {
-            const phase2Fill = Math.min(healthPercent - 0.33, 0.33) * barWidth;
-            ctx.fillStyle = this.phase === 2 ? '#ff6600' : (this.phase < 2 ? '#004400' : '#442200');
-            ctx.fillRect(-barWidth / 2 + phase1Width, barY, phase2Fill, barHeight);
-        }
-        
-        // Phase 3 segment (red when active)
-        if (healthPercent > 0.66) {
-            const phase3Fill = (healthPercent - 0.66) * barWidth;
-            ctx.fillStyle = this.phase === 3 ? '#ff0000' : '#004400';
-            ctx.fillRect(-barWidth / 2 + phase1Width * 2, barY, phase3Fill, barHeight);
-        }
-        
-        // Actually draw current health on top
-        const healthColor = this.phase === 3 ? '#ff0000' : (this.phase === 2 ? '#ff6600' : '#ff0066');
+        const healthColor = healthPercent > 0.5 ? '#ff0066' : (healthPercent > 0.25 ? '#ff6600' : '#ff0000');
         ctx.fillStyle = healthColor;
         ctx.shadowColor = healthColor;
         ctx.shadowBlur = 10;
         ctx.fillRect(-barWidth / 2, barY, barWidth * healthPercent, barHeight);
         
-        // Phase dividers
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(-barWidth / 2 + barWidth * 0.33, barY);
-        ctx.lineTo(-barWidth / 2 + barWidth * 0.33, barY + barHeight);
-        ctx.moveTo(-barWidth / 2 + barWidth * 0.66, barY);
-        ctx.lineTo(-barWidth / 2 + barWidth * 0.66, barY + barHeight);
-        ctx.stroke();
-        
-        // Border
         ctx.strokeStyle = '#ff3366';
         ctx.lineWidth = 2;
         ctx.strokeRect(-barWidth / 2, barY, barWidth, barHeight);
         
-        // Boss name with tier
-        ctx.fillStyle = this.phase === 3 ? '#ff0000' : '#ff3366';
+        ctx.fillStyle = '#ff3366';
         ctx.font = 'bold 14px "Courier New", monospace';
         ctx.textAlign = 'center';
         ctx.shadowBlur = 5;
-        const bossName = this.phase === 3 ? `MOTHERSHIP MK${this.tier} [ENRAGED]` : `MOTHERSHIP MK${this.tier}`;
-        ctx.fillText(bossName, 0, barY - 8);
-    }
-    
-    // Check if laser hits player (called from Game)
-    checkLaserCollision(ship) {
-        if (!this.laserActive || !ship) return false;
-        
-        // Line-circle intersection check
-        const laserEndX = this.x + Math.cos(this.laserAngle) * 1000;
-        const laserEndY = this.y + Math.sin(this.laserAngle) * 1000;
-        
-        // Distance from point to line segment
-        const dx = laserEndX - this.x;
-        const dy = laserEndY - this.y;
-        const len2 = dx * dx + dy * dy;
-        const t = Math.max(0, Math.min(1, ((ship.x - this.x) * dx + (ship.y - this.y) * dy) / len2));
-        const nearestX = this.x + t * dx;
-        const nearestY = this.y + t * dy;
-        
-        const dist = Math.sqrt((ship.x - nearestX) ** 2 + (ship.y - nearestY) ** 2);
-        return dist < SHIP_SIZE + 10; // Laser has some width
+        ctx.fillText(`MOTHERSHIP MK${this.tier}`, 0, barY - 8);
     }
 }
-
 
 // ============== BOSS BULLET CLASS ==============
 class BossBullet {
