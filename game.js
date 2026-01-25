@@ -438,7 +438,7 @@ class SkillTreeUI {
         ctx.restore();
         
         ctx.fillStyle = '#666666'; ctx.font = '12px "Courier New", monospace';
-        ctx.textAlign = 'center'; ctx.fillText('Click skills to upgrade ├óΓé¼┬ó Press K to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
+        ctx.textAlign = 'center'; ctx.fillText('Click skills to upgrade Γö£├│╬ô├⌐┬╝Γö¼├│ Press K to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
     }
     drawCategoryTabs(ctx) {
         const tabY = 80;
@@ -1008,7 +1008,7 @@ class SaveLoadUI {
                 ctx.fillText(`SLOT ${slot.slot}`, textX, slotY + 30);
                 ctx.fillStyle = '#444444';
                 ctx.font = '14px "Courier New", monospace';
-                ctx.fillText('├óΓé¼ΓÇ¥ Empty ├óΓé¼ΓÇ¥', textX, slotY + 55);
+                ctx.fillText('Γö£├│╬ô├⌐┬╝╬ô├ç┬Ñ Empty Γö£├│╬ô├⌐┬╝╬ô├ç┬Ñ', textX, slotY + 55);
             } else {
                 ctx.fillStyle = '#ffffff';
                 ctx.font = 'bold 18px "Courier New", monospace';
@@ -1016,12 +1016,12 @@ class SaveLoadUI {
                 
                 ctx.fillStyle = '#00ffff';
                 ctx.font = '14px "Courier New", monospace';
-                ctx.fillText(`Level ${slot.level}  ├óΓé¼┬ó  Score: ${slot.score.toLocaleString()}`, textX, slotY + 48);
+                ctx.fillText(`Level ${slot.level}  Γö£├│╬ô├⌐┬╝Γö¼├│  Score: ${slot.score.toLocaleString()}`, textX, slotY + 48);
                 
                 ctx.fillStyle = '#888888';
                 ctx.font = '12px "Courier New", monospace';
                 const dateStr = slot.date.toLocaleDateString() + ' ' + slot.date.toLocaleTimeString();
-                ctx.fillText(`${dateStr}  ├óΓé¼┬ó  ${slot.skillPoints} skill pts`, textX, slotY + 68);
+                ctx.fillText(`${dateStr}  Γö£├│╬ô├⌐┬╝Γö¼├│  ${slot.skillPoints} skill pts`, textX, slotY + 68);
                 
                 const deleteX = centerX + slotWidth / 2 - 35;
                 const deleteY = slotY + slotHeight / 2;
@@ -2710,13 +2710,27 @@ class Game {
                 }
             }
             
-            // Save/Load controls
+            // Save/Load controls and Pause
             if (e.key === 'Escape') {
                 if (this.saveLoadUI.visible) {
                     this.saveLoadUI.close();
                 } else if (this.skillTreeUI.visible) {
                     this.skillTreeUI.toggle();
+                } else if (this.state === 'playing' || this.state === 'paused') {
+                    this.togglePause();
                 }
+            }
+
+            // P key to pause
+            if ((e.key === 'p' || e.key === 'P') && (this.state === 'playing' || this.state === 'paused')) {
+                if (!this.saveLoadUI.visible && !this.skillTreeUI.visible) {
+                    this.togglePause();
+                }
+            }
+
+            // R key to restart from pause menu
+            if ((e.key === 'r' || e.key === 'R') && this.state === 'paused') {
+                this.startGame();
             }
             
             // F5 = Quick Save (during gameplay)
@@ -2897,6 +2911,20 @@ class Game {
         document.getElementById('level').textContent = this.level;
     }
 
+    togglePause() {
+        if (this.state === 'playing') {
+            this.state = 'paused';
+            this.pauseTime = Date.now();
+            soundManager.stopEngine();
+            musicManager.stop();
+        } else if (this.state === 'paused') {
+            this.state = 'playing';
+            if (musicManager.initialized && !musicManager.muted) {
+                musicManager.start();
+            }
+        }
+    }
+    
     gameOver() {
         this.state = 'gameover';
         this.triggerFlash('#ff0000', 0.5);
@@ -3252,7 +3280,8 @@ class Game {
             if (this.flashAlpha < 0.01) this.flashAlpha = 0;
         }
 
-        if (this.state !== 'playing') return;
+        if (this.state !== 'playing' && this.state !== 'paused') return;
+        if (this.state === 'paused') return; // Pause freezes gameplay
 
         this.updateItemEffects();
         this.updateCombo();
@@ -3573,6 +3602,25 @@ class Game {
             return;
         }
 
+        if (this.state === 'paused') {
+            // Draw game objects dimmed in background
+            this.trailParticles.forEach(particle => particle.draw(ctx));
+            this.explosionParticles.forEach(particle => particle.draw(ctx));
+            this.particles.forEach(particle => particle.draw(ctx));
+            this.items.forEach(item => item.draw(ctx));
+            this.powerUps.forEach(powerUp => powerUp.draw(ctx));
+            this.asteroids.forEach(asteroid => asteroid.draw(ctx));
+            this.ufos.forEach(ufo => ufo.draw(ctx));
+            if (this.boss) this.boss.draw(ctx);
+            this.enemyBullets.forEach(bullet => bullet.draw(ctx));
+            this.bullets.forEach(bullet => bullet.draw(ctx));
+            if (this.ship) this.ship.draw(ctx);
+
+            this.drawPauseMenu(ctx);
+            ctx.restore();
+            return;
+        }
+
         // Draw game objects in order (back to front)
         this.trailParticles.forEach(particle => particle.draw(ctx));
         this.explosionParticles.forEach(particle => particle.draw(ctx));
@@ -3718,6 +3766,102 @@ class Game {
         }
     }
 
+    drawPauseMenu(ctx) {
+        // Dim overlay
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 0, 20, 0.85)';
+        ctx.fillRect(-20, -20, CANVAS_WIDTH + 40, CANVAS_HEIGHT + 40);
+        ctx.restore();
+        
+        // Animated PAUSED title
+        const pulse = Math.sin(this.time * 0.08) * 0.15 + 1;
+        const glowIntensity = 25 + Math.sin(this.time * 0.1) * 10;
+        
+        ctx.save();
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = glowIntensity;
+        ctx.fillStyle = '#00ffff';
+        ctx.font = `bold ${48 * pulse}px "Courier New", monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText('PAUSED', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 100);
+        ctx.restore();
+        
+        // Current stats box
+        const boxY = CANVAS_HEIGHT / 2 - 50;
+        const boxWidth = 280;
+        const boxHeight = 120;
+        const boxX = CANVAS_WIDTH / 2 - boxWidth / 2;
+        
+        // Stats box background
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 20, 40, 0.9)';
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 8);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        
+        // Stats labels
+        ctx.save();
+        ctx.textAlign = 'left';
+        ctx.font = '18px "Courier New", monospace';
+        ctx.fillStyle = '#888888';
+        ctx.fillText('Score:', boxX + 20, boxY + 35);
+        ctx.fillText('Level:', boxX + 20, boxY + 65);
+        ctx.fillText('Lives:', boxX + 20, boxY + 95);
+        
+        // Stats values with glow
+        ctx.textAlign = 'right';
+        ctx.shadowBlur = 10;
+        
+        ctx.shadowColor = '#00ffff';
+        ctx.fillStyle = '#00ffff';
+        ctx.fillText(this.score.toLocaleString(), boxX + boxWidth - 20, boxY + 35);
+        
+        ctx.shadowColor = '#ffff00';
+        ctx.fillStyle = '#ffff00';
+        ctx.fillText(this.level, boxX + boxWidth - 20, boxY + 65);
+        
+        ctx.shadowColor = '#ff4466';
+        ctx.fillStyle = '#ff4466';
+        ctx.fillText(this.lives, boxX + boxWidth - 20, boxY + 95);
+        ctx.restore();
+        
+        // Menu options
+        const menuY = CANVAS_HEIGHT / 2 + 100;
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.font = '20px "Courier New", monospace';
+        
+        // Resume - blinking
+        if (Math.floor(this.time / 25) % 2 === 0) {
+            ctx.shadowColor = '#00ff88';
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = '#00ff88';
+            ctx.fillText('Press ESC or P to Resume', CANVAS_WIDTH / 2, menuY);
+        }
+        
+        // Restart option
+        ctx.shadowColor = '#ff8800';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#ff8800';
+        ctx.fillText('Press R to Restart', CANVAS_WIDTH / 2, menuY + 35);
+        ctx.restore();
+        
+        // Controls reminder at bottom
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.font = '14px "Courier New", monospace';
+        ctx.fillStyle = '#555555';
+        ctx.fillText('WASD/Arrows = Move  |  Space = Shoot  |  1-5 = Use Items', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 60);
+        ctx.fillText('M = SFX  |  N = Music  |  K = Skills  |  F5 = Save  |  F9 = Load', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 40);
+        ctx.restore();
+    }
+    
     drawGameOverScreen(ctx) {
         // Game over with red glow
         ctx.save();
