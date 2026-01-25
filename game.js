@@ -5022,186 +5022,231 @@ class Ship {
 
         const S = SHIP_SIZE;
         
-        // Draw engine flames when thrusting (two engines on wings)
+        // Color palette matching reference image
+        const bodyDark = '#8B4513';      // Dark brown
+        const bodyMid = '#CD853F';       // Peru/copper
+        const bodyLight = '#DEB887';     // Burlywood
+        const wingTip = '#FF8C00';       // Dark orange
+        const wingTipGlow = '#FFD700';   // Gold
+        const crystalDark = '#006666';   // Dark teal
+        const crystalMid = '#00CED1';    // Dark turquoise  
+        const crystalLight = '#7FFFD4';  // Aquamarine
+        const flameOrange = '#FF6600';
+        const flameYellow = '#FFCC00';
+        
+        // === MAIN ENGINE FLAME (center, behind ship) ===
         if (this.thrustAmount > 0) {
-            const flameLength = (12 + this.engineFlicker * 8) * this.thrustAmount;
-            const flameWidth = 3 * this.thrustAmount;
+            const flameLen = (25 + this.engineFlicker * 15) * this.thrustAmount;
+            const flameWid = 8 * this.thrustAmount;
             
-            // Engine positions (on the wing nacelles)
-            const enginePositions = [
-                { x: -S * 0.7, y: -S * 0.55 },
-                { x: -S * 0.7, y: S * 0.55 }
-            ];
+            // Main center flame
+            const flameGrad = ctx.createLinearGradient(-S * 0.6 - flameLen, 0, -S * 0.6, 0);
+            flameGrad.addColorStop(0, 'transparent');
+            flameGrad.addColorStop(0.3, flameOrange + '60');
+            flameGrad.addColorStop(0.6, flameOrange);
+            flameGrad.addColorStop(0.85, flameYellow);
+            flameGrad.addColorStop(1, '#FFFFFF');
             
-            enginePositions.forEach(pos => {
-                const gradient = ctx.createLinearGradient(pos.x - flameLength, pos.y, pos.x, pos.y);
-                gradient.addColorStop(0, 'transparent');
-                gradient.addColorStop(0.3, COLORS.shipEngine + '60');
-                gradient.addColorStop(0.7, COLORS.shipEngine);
-                gradient.addColorStop(1, COLORS.shipEngineCore);
+            ctx.save();
+            ctx.shadowColor = flameOrange;
+            ctx.shadowBlur = 25;
+            ctx.fillStyle = flameGrad;
+            ctx.beginPath();
+            ctx.moveTo(-S * 0.6, -flameWid);
+            ctx.quadraticCurveTo(-S * 0.6 - flameLen * 0.7, 0, -S * 0.6 - flameLen, 0);
+            ctx.quadraticCurveTo(-S * 0.6 - flameLen * 0.7, 0, -S * 0.6, flameWid);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+            
+            // Wing tip flames (smaller)
+            const tipFlameLen = (12 + this.engineFlicker * 8) * this.thrustAmount;
+            const tipFlameWid = 4 * this.thrustAmount;
+            
+            [[-S * 0.75, -S * 0.65], [-S * 0.75, S * 0.65]].forEach(pos => {
+                const tipGrad = ctx.createLinearGradient(pos[0] - tipFlameLen, pos[1], pos[0], pos[1]);
+                tipGrad.addColorStop(0, 'transparent');
+                tipGrad.addColorStop(0.4, flameOrange + '80');
+                tipGrad.addColorStop(1, flameYellow);
                 
                 ctx.save();
-                ctx.shadowColor = COLORS.shipEngine;
+                ctx.shadowColor = flameOrange;
                 ctx.shadowBlur = 12;
-                ctx.fillStyle = gradient;
+                ctx.fillStyle = tipGrad;
                 ctx.beginPath();
-                ctx.moveTo(pos.x, pos.y - flameWidth);
-                ctx.lineTo(pos.x - flameLength, pos.y);
-                ctx.lineTo(pos.x, pos.y + flameWidth);
+                ctx.moveTo(pos[0], pos[1] - tipFlameWid);
+                ctx.lineTo(pos[0] - tipFlameLen, pos[1]);
+                ctx.lineTo(pos[0], pos[1] + tipFlameWid);
                 ctx.closePath();
                 ctx.fill();
                 ctx.restore();
             });
-            
-            // Center engine (main thruster)
-            const mainFlameLength = (18 + this.engineFlicker * 12) * this.thrustAmount;
-            const mainGradient = ctx.createLinearGradient(-S * 0.5 - mainFlameLength, 0, -S * 0.5, 0);
-            mainGradient.addColorStop(0, 'transparent');
-            mainGradient.addColorStop(0.4, COLORS.shipEngine + '80');
-            mainGradient.addColorStop(1, COLORS.shipEngineCore);
-            
-            ctx.save();
-            ctx.shadowColor = COLORS.shipEngine;
-            ctx.shadowBlur = 20;
-            ctx.fillStyle = mainGradient;
-            ctx.beginPath();
-            ctx.moveTo(-S * 0.5, -4 * this.thrustAmount);
-            ctx.lineTo(-S * 0.5 - mainFlameLength, 0);
-            ctx.lineTo(-S * 0.5, 4 * this.thrustAmount);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
         }
 
-        // === SPACESHIP BODY ===
-        ctx.shadowColor = COLORS.shipPrimary;
-        ctx.shadowBlur = GLOW_INTENSITY;
+        // === SWEPT WINGS (angular, copper colored) ===
+        ctx.shadowColor = wingTip;
+        ctx.shadowBlur = 8;
         
-        // Main fuselage (elongated body)
-        ctx.fillStyle = COLORS.shipPrimary + '25';
-        ctx.strokeStyle = COLORS.shipPrimary;
-        ctx.lineWidth = 2;
+        // Top wing - main body
+        const wingGrad1 = ctx.createLinearGradient(-S * 0.8, -S * 0.8, S * 0.2, 0);
+        wingGrad1.addColorStop(0, bodyDark);
+        wingGrad1.addColorStop(0.5, bodyMid);
+        wingGrad1.addColorStop(1, bodyLight);
         
+        ctx.fillStyle = wingGrad1;
+        ctx.strokeStyle = bodyDark;
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        // Nose cone
-        ctx.moveTo(S * 1.2, 0);
-        // Top of fuselage
-        ctx.lineTo(S * 0.4, -S * 0.15);
-        ctx.lineTo(-S * 0.2, -S * 0.18);
-        ctx.lineTo(-S * 0.5, -S * 0.12);
-        // Back
-        ctx.lineTo(-S * 0.5, S * 0.12);
-        // Bottom of fuselage
-        ctx.lineTo(-S * 0.2, S * 0.18);
-        ctx.lineTo(S * 0.4, S * 0.15);
+        ctx.moveTo(S * 0.1, -S * 0.1);
+        ctx.lineTo(-S * 0.2, -S * 0.25);
+        ctx.lineTo(-S * 0.85, -S * 0.75);  // Wing tip back
+        ctx.lineTo(-S * 0.65, -S * 0.55);
+        ctx.lineTo(-S * 0.5, -S * 0.15);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         
-        // === WINGS ===
-        ctx.fillStyle = COLORS.shipPrimary + '30';
-        
-        // Top wing
+        // Top wing orange tip
+        ctx.fillStyle = wingTip;
+        ctx.shadowColor = wingTipGlow;
+        ctx.shadowBlur = 10;
         ctx.beginPath();
-        ctx.moveTo(S * 0.2, -S * 0.15);
-        ctx.lineTo(-S * 0.3, -S * 0.2);
-        ctx.lineTo(-S * 0.8, -S * 0.7);  // Wing tip
-        ctx.lineTo(-S * 0.7, -S * 0.45);
-        ctx.lineTo(-S * 0.5, -S * 0.12);
+        ctx.moveTo(-S * 0.7, -S * 0.6);
+        ctx.lineTo(-S * 0.85, -S * 0.75);
+        ctx.lineTo(-S * 0.75, -S * 0.65);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Bottom wing - main body
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = wingGrad1;
+        ctx.strokeStyle = bodyDark;
+        ctx.beginPath();
+        ctx.moveTo(S * 0.1, S * 0.1);
+        ctx.lineTo(-S * 0.2, S * 0.25);
+        ctx.lineTo(-S * 0.85, S * 0.75);  // Wing tip back
+        ctx.lineTo(-S * 0.65, S * 0.55);
+        ctx.lineTo(-S * 0.5, S * 0.15);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         
-        // Bottom wing
+        // Bottom wing orange tip
+        ctx.fillStyle = wingTip;
+        ctx.shadowColor = wingTipGlow;
+        ctx.shadowBlur = 10;
         ctx.beginPath();
-        ctx.moveTo(S * 0.2, S * 0.15);
-        ctx.lineTo(-S * 0.3, S * 0.2);
-        ctx.lineTo(-S * 0.8, S * 0.7);  // Wing tip
-        ctx.lineTo(-S * 0.7, S * 0.45);
-        ctx.lineTo(-S * 0.5, S * 0.12);
+        ctx.moveTo(-S * 0.7, S * 0.6);
+        ctx.lineTo(-S * 0.85, S * 0.75);
+        ctx.lineTo(-S * 0.75, S * 0.65);
         ctx.closePath();
         ctx.fill();
-        ctx.stroke();
+
+        // === MAIN FUSELAGE (copper/bronze angular body) ===
+        ctx.shadowColor = bodyMid;
+        ctx.shadowBlur = 10;
         
-        // === ENGINE NACELLES (on wings) ===
-        ctx.fillStyle = COLORS.shipSecondary + '40';
-        ctx.strokeStyle = COLORS.shipSecondary;
+        const bodyGrad = ctx.createLinearGradient(-S * 0.5, -S * 0.3, S * 0.5, S * 0.3);
+        bodyGrad.addColorStop(0, bodyDark);
+        bodyGrad.addColorStop(0.3, bodyMid);
+        bodyGrad.addColorStop(0.7, bodyLight);
+        bodyGrad.addColorStop(1, bodyMid);
+        
+        ctx.fillStyle = bodyGrad;
+        ctx.strokeStyle = bodyDark;
         ctx.lineWidth = 1.5;
         
-        // Top nacelle
         ctx.beginPath();
-        ctx.moveTo(-S * 0.4, -S * 0.45);
-        ctx.lineTo(-S * 0.7, -S * 0.5);
-        ctx.lineTo(-S * 0.75, -S * 0.55);
-        ctx.lineTo(-S * 0.7, -S * 0.6);
-        ctx.lineTo(-S * 0.4, -S * 0.55);
+        // Pointed nose
+        ctx.moveTo(S * 1.1, 0);
+        // Top edge
+        ctx.lineTo(S * 0.4, -S * 0.2);
+        ctx.lineTo(-S * 0.1, -S * 0.25);
+        ctx.lineTo(-S * 0.5, -S * 0.2);
+        // Back (engine area)
+        ctx.lineTo(-S * 0.6, -S * 0.1);
+        ctx.lineTo(-S * 0.6, S * 0.1);
+        // Bottom edge
+        ctx.lineTo(-S * 0.5, S * 0.2);
+        ctx.lineTo(-S * 0.1, S * 0.25);
+        ctx.lineTo(S * 0.4, S * 0.2);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         
-        // Bottom nacelle
+        // Body detail lines (angular panels)
+        ctx.strokeStyle = bodyDark + '80';
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(-S * 0.4, S * 0.45);
-        ctx.lineTo(-S * 0.7, S * 0.5);
-        ctx.lineTo(-S * 0.75, S * 0.55);
-        ctx.lineTo(-S * 0.7, S * 0.6);
-        ctx.lineTo(-S * 0.4, S * 0.55);
+        ctx.moveTo(S * 0.3, -S * 0.18);
+        ctx.lineTo(S * 0.3, S * 0.18);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-S * 0.2, -S * 0.22);
+        ctx.lineTo(-S * 0.2, S * 0.22);
+        ctx.stroke();
+
+        // === CRYSTAL COCKPIT (large, faceted, cyan) ===
+        ctx.shadowColor = crystalLight;
+        ctx.shadowBlur = 15;
+        
+        // Main crystal shape
+        const crystalGrad = ctx.createLinearGradient(S * 0.8, -S * 0.15, S * 0.2, S * 0.15);
+        crystalGrad.addColorStop(0, crystalLight);
+        crystalGrad.addColorStop(0.3, crystalMid);
+        crystalGrad.addColorStop(0.7, crystalDark);
+        crystalGrad.addColorStop(1, '#004444');
+        
+        ctx.fillStyle = crystalGrad;
+        ctx.strokeStyle = crystalMid;
+        ctx.lineWidth = 1.5;
+        
+        // Diamond/crystal shape cockpit
+        ctx.beginPath();
+        ctx.moveTo(S * 0.9, 0);           // Front point
+        ctx.lineTo(S * 0.55, -S * 0.18);  // Top left
+        ctx.lineTo(S * 0.2, -S * 0.12);   // Back top
+        ctx.lineTo(S * 0.2, S * 0.12);    // Back bottom
+        ctx.lineTo(S * 0.55, S * 0.18);   // Bottom left
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         
-        // === COCKPIT ===
-        const cockpitGradient = ctx.createLinearGradient(S * 0.7, -S * 0.1, S * 0.3, S * 0.1);
-        cockpitGradient.addColorStop(0, '#4AF5FF');
-        cockpitGradient.addColorStop(0.5, '#0088AA');
-        cockpitGradient.addColorStop(1, '#003344');
-        
-        ctx.fillStyle = cockpitGradient;
-        ctx.strokeStyle = COLORS.shipPrimary;
+        // Crystal facet lines (inner detail)
+        ctx.strokeStyle = crystalLight + '60';
         ctx.lineWidth = 1;
-        
         ctx.beginPath();
-        ctx.moveTo(S * 0.8, 0);
-        ctx.quadraticCurveTo(S * 0.6, -S * 0.1, S * 0.3, -S * 0.08);
-        ctx.lineTo(S * 0.3, S * 0.08);
-        ctx.quadraticCurveTo(S * 0.6, S * 0.1, S * 0.8, 0);
+        ctx.moveTo(S * 0.9, 0);
+        ctx.lineTo(S * 0.4, 0);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(S * 0.55, -S * 0.18);
+        ctx.lineTo(S * 0.45, 0);
+        ctx.lineTo(S * 0.55, S * 0.18);
+        ctx.stroke();
+        
+        // Crystal shine highlight
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.beginPath();
+        ctx.moveTo(S * 0.85, -S * 0.02);
+        ctx.lineTo(S * 0.6, -S * 0.12);
+        ctx.lineTo(S * 0.5, -S * 0.08);
+        ctx.lineTo(S * 0.7, 0);
         ctx.closePath();
         ctx.fill();
-        ctx.stroke();
-        
-        // Cockpit shine
-        ctx.strokeStyle = '#FFFFFF50';
+
+        // === ENGINE HOUSING (back center) ===
+        ctx.shadowBlur = 5;
+        ctx.fillStyle = bodyDark;
+        ctx.strokeStyle = '#5C3317';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(S * 0.75, -S * 0.02);
-        ctx.quadraticCurveTo(S * 0.55, -S * 0.06, S * 0.4, -S * 0.05);
-        ctx.stroke();
-        
-        // === PANEL LINES (details) ===
-        ctx.strokeStyle = COLORS.shipSecondary;
-        ctx.lineWidth = 1;
-        
-        // Fuselage panel lines
-        ctx.beginPath();
-        ctx.moveTo(S * 0.2, -S * 0.12);
-        ctx.lineTo(S * 0.2, S * 0.12);
-        ctx.stroke();
-        
-        ctx.beginPath();
-        ctx.moveTo(-S * 0.1, -S * 0.15);
-        ctx.lineTo(-S * 0.1, S * 0.15);
-        ctx.stroke();
-        
-        // Wing detail lines
-        ctx.strokeStyle = COLORS.shipPrimary + '60';
-        ctx.beginPath();
-        ctx.moveTo(-S * 0.1, -S * 0.2);
-        ctx.lineTo(-S * 0.5, -S * 0.45);
-        ctx.stroke();
-        
-        ctx.beginPath();
-        ctx.moveTo(-S * 0.1, S * 0.2);
-        ctx.lineTo(-S * 0.5, S * 0.45);
+        ctx.moveTo(-S * 0.5, -S * 0.12);
+        ctx.lineTo(-S * 0.65, -S * 0.08);
+        ctx.lineTo(-S * 0.65, S * 0.08);
+        ctx.lineTo(-S * 0.5, S * 0.12);
+        ctx.closePath();
+        ctx.fill();
         ctx.stroke();
 
         ctx.restore();
