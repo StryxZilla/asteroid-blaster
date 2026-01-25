@@ -85,11 +85,11 @@ const POWERUP_TYPES = {
 
 // Inventory item types
 const ITEM_TYPES = {
-    REPAIR_KIT: { name: 'Repair Kit', color: '#ff6b6b', symbol: 'â™¥', description: 'Restore 1 life', rarity: 0.15 },
-    BOMB: { name: 'Bomb', color: '#ff8c00', symbol: 'âœ¸', description: 'Destroy all asteroids', rarity: 0.10 },
-    FREEZE: { name: 'Freeze', color: '#87ceeb', symbol: 'â„', description: 'Freeze asteroids for 5s', rarity: 0.20 },
-    MAGNET: { name: 'Magnet', color: '#da70d6', symbol: 'âŠ›', description: 'Attract items for 10s', rarity: 0.25 },
-    SCORE_BOOST: { name: 'Score x2', color: '#ffd700', symbol: 'â˜…', description: 'Double points for 15s', rarity: 0.30 }
+    REPAIR_KIT: { name: 'Repair Kit', color: '#ff6b6b', symbol: 'Ã¢â„¢Â¥', description: 'Restore 1 life', rarity: 0.15 },
+    BOMB: { name: 'Bomb', color: '#ff8c00', symbol: 'Ã¢Å“Â¸', description: 'Destroy all asteroids', rarity: 0.10 },
+    FREEZE: { name: 'Freeze', color: '#87ceeb', symbol: 'Ã¢Ââ€ž', description: 'Freeze asteroids for 5s', rarity: 0.20 },
+    MAGNET: { name: 'Magnet', color: '#da70d6', symbol: 'Ã¢Å â€º', description: 'Attract items for 10s', rarity: 0.25 },
+    SCORE_BOOST: { name: 'Score x2', color: '#ffd700', symbol: 'Ã¢Ëœâ€¦', description: 'Double points for 15s', rarity: 0.30 }
 };
 
 const MAX_INVENTORY_SLOTS = 5;
@@ -101,9 +101,9 @@ const ITEM_LIFETIME = 480;
 // Persistent progression with unlockable abilities
 
 const SKILL_CATEGORIES = {
-    OFFENSE: { name: 'Offense', color: '#ff4444', icon: '⚔', description: 'Increase damage and firepower' },
-    DEFENSE: { name: 'Defense', color: '#44ff44', icon: '🛡', description: 'Improve survivability' },
-    UTILITY: { name: 'Utility', color: '#4444ff', icon: '⚡', description: 'Enhance utility and bonuses' }
+    OFFENSE: { name: 'Offense', color: '#ff4444', icon: 'âš”', description: 'Increase damage and firepower' },
+    DEFENSE: { name: 'Defense', color: '#44ff44', icon: 'ðŸ›¡', description: 'Improve survivability' },
+    UTILITY: { name: 'Utility', color: '#4444ff', icon: 'âš¡', description: 'Enhance utility and bonuses' }
 };
 
 const SKILLS = {
@@ -371,7 +371,7 @@ class SkillTreeUI {
         ctx.restore();
         
         ctx.fillStyle = '#666666'; ctx.font = '12px "Courier New", monospace';
-        ctx.textAlign = 'center'; ctx.fillText('Click skills to upgrade • Press K to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
+        ctx.textAlign = 'center'; ctx.fillText('Click skills to upgrade â€¢ Press K to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
     }
     drawCategoryTabs(ctx) {
         const tabY = 80;
@@ -941,7 +941,7 @@ class SaveLoadUI {
                 ctx.fillText(`SLOT ${slot.slot}`, textX, slotY + 30);
                 ctx.fillStyle = '#444444';
                 ctx.font = '14px "Courier New", monospace';
-                ctx.fillText('— Empty —', textX, slotY + 55);
+                ctx.fillText('â€” Empty â€”', textX, slotY + 55);
             } else {
                 ctx.fillStyle = '#ffffff';
                 ctx.font = 'bold 18px "Courier New", monospace';
@@ -949,12 +949,12 @@ class SaveLoadUI {
                 
                 ctx.fillStyle = '#00ffff';
                 ctx.font = '14px "Courier New", monospace';
-                ctx.fillText(`Level ${slot.level}  •  Score: ${slot.score.toLocaleString()}`, textX, slotY + 48);
+                ctx.fillText(`Level ${slot.level}  â€¢  Score: ${slot.score.toLocaleString()}`, textX, slotY + 48);
                 
                 ctx.fillStyle = '#888888';
                 ctx.font = '12px "Courier New", monospace';
                 const dateStr = slot.date.toLocaleDateString() + ' ' + slot.date.toLocaleTimeString();
-                ctx.fillText(`${dateStr}  •  ${slot.skillPoints} skill pts`, textX, slotY + 68);
+                ctx.fillText(`${dateStr}  â€¢  ${slot.skillPoints} skill pts`, textX, slotY + 68);
                 
                 const deleteX = centerX + slotWidth / 2 - 35;
                 const deleteY = slotY + slotHeight / 2;
@@ -1350,7 +1350,7 @@ class SoundManager {
         const lfoGain = this.audioContext.createGain();
         lfo.type = 'sine';
         lfo.frequency.value = 8; // 8 Hz wobble
-        lfoGain.gain.value = 10; // Â±10 Hz variation
+        lfoGain.gain.value = 10; // Ã‚Â±10 Hz variation
         
         lfo.connect(lfoGain);
         lfoGain.connect(this.engineOscillator.frequency);
@@ -1836,6 +1836,430 @@ class SoundManager {
 // Global sound manager instance
 const soundManager = new SoundManager();
 
+// ============== MUSIC MANAGER CLASS ==============
+// Procedural synthwave/chiptune background music
+// Generates dynamic music that responds to gameplay intensity
+
+class MusicManager {
+    constructor() {
+        this.audioContext = null;
+        this.masterGain = null;
+        this.initialized = false;
+        this.playing = false;
+        this.muted = false;
+        
+        // Music parameters
+        this.bpm = 120;
+        this.currentBeat = 0;
+        this.beatInterval = null;
+        
+        // Intensity system (0-1) - affects tempo, filter, layers
+        this.intensity = 0.3;
+        this.targetIntensity = 0.3;
+        
+        // Track state
+        this.bassOsc = null;
+        this.bassGain = null;
+        this.arpeggioOsc = null;
+        this.arpeggioGain = null;
+        this.padOsc = null;
+        this.padGain = null;
+        
+        // Filters for intensity modulation
+        this.bassFilter = null;
+        this.arpeggioFilter = null;
+        
+        // Musical data
+        this.key = 'A'; // A minor for that synthwave feel
+        this.scale = [0, 2, 3, 5, 7, 8, 10]; // Natural minor scale intervals
+        this.baseNote = 55; // A1 = 55Hz
+        
+        // Chord progressions (in scale degrees)
+        this.progressions = [
+            [0, 5, 3, 4], // Am, Fm, Dm, Em
+            [0, 3, 5, 4], // Am, Dm, Fm, Em
+            [0, 4, 5, 3], // Am, Em, Fm, Dm
+        ];
+        this.currentProgression = 0;
+        this.currentChordIndex = 0;
+        
+        // Arpeggio patterns
+        this.arpeggioPatterns = [
+            [0, 4, 7, 12, 7, 4], // Up and down
+            [0, 7, 4, 12, 4, 7], // Jumping
+            [0, 4, 7, 4, 12, 7, 4, 0], // Extended
+        ];
+        this.currentArpPattern = 0;
+        this.arpIndex = 0;
+        
+        // Drum pattern
+        this.kickPattern = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1];
+        this.snarePattern = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0];
+        this.hihatPattern = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0];
+    }
+    
+    init() {
+        if (this.initialized) return;
+        
+        try {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            this.masterGain = this.audioContext.createGain();
+            this.masterGain.gain.value = 0.15; // Music quieter than SFX
+            this.masterGain.connect(this.audioContext.destination);
+            this.initialized = true;
+        } catch (e) {
+            console.warn('Music: Web Audio API not supported:', e);
+        }
+    }
+    
+    resume() {
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+            this.audioContext.resume();
+        }
+    }
+    
+    toggleMute() {
+        this.muted = !this.muted;
+        if (this.masterGain) {
+            this.masterGain.gain.value = this.muted ? 0 : 0.15;
+        }
+        return this.muted;
+    }
+    
+    // Convert scale degree to frequency
+    scaleToFreq(degree, octave = 0) {
+        const octaveOffset = Math.floor(degree / 7);
+        const noteInScale = ((degree % 7) + 7) % 7;
+        const semitone = this.scale[noteInScale];
+        return this.baseNote * Math.pow(2, (semitone + (octave + octaveOffset) * 12) / 12);
+    }
+    
+    // Get current chord notes
+    getCurrentChordNotes() {
+        const progression = this.progressions[this.currentProgression];
+        const root = progression[this.currentChordIndex];
+        return [root, root + 2, root + 4]; // Triad in scale degrees
+    }
+    
+    start() {
+        if (!this.initialized || this.playing) return;
+        this.resume();
+        
+        this.playing = true;
+        this.currentBeat = 0;
+        
+        // Create persistent oscillators for smooth sound
+        this.setupBass();
+        this.setupArpeggio();
+        this.setupPad();
+        
+        // Start beat loop
+        const beatTime = 60000 / (this.bpm * 4); // 16th notes
+        this.beatInterval = setInterval(() => this.tick(), beatTime);
+    }
+    
+    stop() {
+        if (!this.playing) return;
+        
+        this.playing = false;
+        
+        if (this.beatInterval) {
+            clearInterval(this.beatInterval);
+            this.beatInterval = null;
+        }
+        
+        // Fade out and clean up oscillators
+        const now = this.audioContext.currentTime;
+        
+        if (this.bassGain) {
+            this.bassGain.gain.linearRampToValueAtTime(0, now + 0.5);
+            setTimeout(() => {
+                if (this.bassOsc) { this.bassOsc.stop(); this.bassOsc = null; }
+            }, 600);
+        }
+        
+        if (this.arpeggioGain) {
+            this.arpeggioGain.gain.linearRampToValueAtTime(0, now + 0.5);
+            setTimeout(() => {
+                if (this.arpeggioOsc) { this.arpeggioOsc.stop(); this.arpeggioOsc = null; }
+            }, 600);
+        }
+        
+        if (this.padGain) {
+            this.padGain.gain.linearRampToValueAtTime(0, now + 1);
+            setTimeout(() => {
+                if (this.padOsc) { this.padOsc.stop(); this.padOsc = null; }
+            }, 1100);
+        }
+    }
+    
+    setupBass() {
+        const now = this.audioContext.currentTime;
+        
+        this.bassOsc = this.audioContext.createOscillator();
+        this.bassGain = this.audioContext.createGain();
+        this.bassFilter = this.audioContext.createBiquadFilter();
+        
+        this.bassOsc.type = 'sawtooth';
+        this.bassOsc.frequency.value = this.scaleToFreq(0, 1);
+        
+        this.bassFilter.type = 'lowpass';
+        this.bassFilter.frequency.value = 400;
+        this.bassFilter.Q.value = 2;
+        
+        this.bassGain.gain.value = 0;
+        
+        this.bassOsc.connect(this.bassFilter);
+        this.bassFilter.connect(this.bassGain);
+        this.bassGain.connect(this.masterGain);
+        
+        this.bassOsc.start(now);
+    }
+    
+    setupArpeggio() {
+        const now = this.audioContext.currentTime;
+        
+        this.arpeggioOsc = this.audioContext.createOscillator();
+        this.arpeggioGain = this.audioContext.createGain();
+        this.arpeggioFilter = this.audioContext.createBiquadFilter();
+        
+        this.arpeggioOsc.type = 'square';
+        this.arpeggioOsc.frequency.value = this.scaleToFreq(0, 3);
+        
+        this.arpeggioFilter.type = 'lowpass';
+        this.arpeggioFilter.frequency.value = 2000;
+        this.arpeggioFilter.Q.value = 1;
+        
+        this.arpeggioGain.gain.value = 0;
+        
+        this.arpeggioOsc.connect(this.arpeggioFilter);
+        this.arpeggioFilter.connect(this.arpeggioGain);
+        this.arpeggioGain.connect(this.masterGain);
+        
+        this.arpeggioOsc.start(now);
+    }
+    
+    setupPad() {
+        const now = this.audioContext.currentTime;
+        
+        // Pad is a chord made of multiple detuned oscillators
+        this.padOsc = this.audioContext.createOscillator();
+        this.padGain = this.audioContext.createGain();
+        
+        const padFilter = this.audioContext.createBiquadFilter();
+        padFilter.type = 'lowpass';
+        padFilter.frequency.value = 800;
+        
+        this.padOsc.type = 'sine';
+        this.padOsc.frequency.value = this.scaleToFreq(0, 2);
+        
+        this.padGain.gain.value = 0;
+        
+        this.padOsc.connect(padFilter);
+        padFilter.connect(this.padGain);
+        this.padGain.connect(this.masterGain);
+        
+        this.padOsc.start(now);
+    }
+    
+    tick() {
+        if (!this.playing || this.muted) return;
+        
+        const now = this.audioContext.currentTime;
+        const beat16 = this.currentBeat % 16;
+        const beat4 = Math.floor(this.currentBeat / 4) % 4;
+        const bar = Math.floor(this.currentBeat / 16);
+        
+        // Smooth intensity transitions
+        this.intensity += (this.targetIntensity - this.intensity) * 0.02;
+        
+        // === BASS ===
+        if (beat16 % 4 === 0) { // Quarter notes
+            const chordNotes = this.getCurrentChordNotes();
+            const bassNote = this.scaleToFreq(chordNotes[0], 1);
+            
+            this.bassOsc.frequency.setValueAtTime(bassNote, now);
+            this.bassGain.gain.setValueAtTime(0.6 + this.intensity * 0.3, now);
+            this.bassGain.gain.exponentialRampToValueAtTime(0.3, now + 0.2);
+        }
+        
+        // === ARPEGGIO ===
+        const pattern = this.arpeggioPatterns[this.currentArpPattern];
+        const arpNote = pattern[this.arpIndex % pattern.length];
+        const chordNotes = this.getCurrentChordNotes();
+        const arpDegree = chordNotes[arpNote % 3] + Math.floor(arpNote / 3) * 7;
+        const arpFreq = this.scaleToFreq(arpDegree, 3);
+        
+        this.arpeggioOsc.frequency.setValueAtTime(arpFreq, now);
+        
+        // Arpeggio envelope - more prominent at higher intensity
+        const arpVol = 0.1 + this.intensity * 0.25;
+        this.arpeggioGain.gain.setValueAtTime(arpVol, now);
+        this.arpeggioGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        
+        this.arpIndex++;
+        
+        // === PAD - Changes with chord ===
+        if (beat16 === 0) {
+            const padNote = this.scaleToFreq(chordNotes[0], 2);
+            this.padOsc.frequency.exponentialRampToValueAtTime(padNote, now + 0.5);
+            this.padGain.gain.linearRampToValueAtTime(0.15 + this.intensity * 0.1, now + 0.5);
+        }
+        
+        // === DRUMS ===
+        this.playDrums(beat16, now);
+        
+        // === FILTER MODULATION based on intensity ===
+        const bassFilterFreq = 300 + this.intensity * 800;
+        const arpFilterFreq = 1500 + this.intensity * 2500;
+        this.bassFilter.frequency.linearRampToValueAtTime(bassFilterFreq, now + 0.1);
+        this.arpeggioFilter.frequency.linearRampToValueAtTime(arpFilterFreq, now + 0.1);
+        
+        // === CHORD PROGRESSION ===
+        if (beat16 === 0) {
+            this.currentChordIndex = (this.currentChordIndex + 1) % 4;
+            
+            // Occasionally change progression
+            if (bar > 0 && bar % 8 === 0) {
+                this.currentProgression = (this.currentProgression + 1) % this.progressions.length;
+            }
+            
+            // Occasionally change arpeggio pattern
+            if (bar > 0 && bar % 4 === 0) {
+                this.currentArpPattern = (this.currentArpPattern + 1) % this.arpeggioPatterns.length;
+            }
+        }
+        
+        this.currentBeat++;
+    }
+    
+    playDrums(beat16, now) {
+        // Drums are more prominent at higher intensity
+        const drumVolume = 0.1 + this.intensity * 0.15;
+        
+        // Kick drum
+        if (this.kickPattern[beat16]) {
+            this.playKick(now, drumVolume);
+        }
+        
+        // Snare (only at medium+ intensity)
+        if (this.intensity > 0.4 && this.snarePattern[beat16]) {
+            this.playSnare(now, drumVolume * 0.8);
+        }
+        
+        // Hi-hat (only at higher intensity)
+        if (this.intensity > 0.6 && this.hihatPattern[beat16]) {
+            this.playHihat(now, drumVolume * 0.3);
+        }
+    }
+    
+    playKick(time, volume) {
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(150, time);
+        osc.frequency.exponentialRampToValueAtTime(30, time + 0.15);
+        
+        gain.gain.setValueAtTime(volume, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+        
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        
+        osc.start(time);
+        osc.stop(time + 0.2);
+    }
+    
+    playSnare(time, volume) {
+        // Noise for snare body
+        const bufferSize = this.audioContext.sampleRate * 0.15;
+        const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+        
+        const noise = this.audioContext.createBufferSource();
+        noise.buffer = buffer;
+        
+        const noiseFilter = this.audioContext.createBiquadFilter();
+        noiseFilter.type = 'highpass';
+        noiseFilter.frequency.value = 1000;
+        
+        const noiseGain = this.audioContext.createGain();
+        noiseGain.gain.setValueAtTime(volume, time);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.12);
+        
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(this.masterGain);
+        
+        noise.start(time);
+        noise.stop(time + 0.15);
+        
+        // Body tone
+        const osc = this.audioContext.createOscillator();
+        const oscGain = this.audioContext.createGain();
+        
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(180, time);
+        osc.frequency.exponentialRampToValueAtTime(80, time + 0.05);
+        
+        oscGain.gain.setValueAtTime(volume * 0.5, time);
+        oscGain.gain.exponentialRampToValueAtTime(0.01, time + 0.08);
+        
+        osc.connect(oscGain);
+        oscGain.connect(this.masterGain);
+        
+        osc.start(time);
+        osc.stop(time + 0.1);
+    }
+    
+    playHihat(time, volume) {
+        const bufferSize = this.audioContext.sampleRate * 0.05;
+        const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+        
+        const noise = this.audioContext.createBufferSource();
+        noise.buffer = buffer;
+        
+        const filter = this.audioContext.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.value = 7000;
+        
+        const gain = this.audioContext.createGain();
+        gain.gain.setValueAtTime(volume, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.04);
+        
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+        
+        noise.start(time);
+        noise.stop(time + 0.05);
+    }
+    
+    // Set intensity based on game state (0-1)
+    // Called from game to react to gameplay
+    setIntensity(value) {
+        this.targetIntensity = Math.max(0, Math.min(1, value));
+    }
+    
+    // Convenience methods for common game states
+    setCalm() { this.setIntensity(0.3); }
+    setNormal() { this.setIntensity(0.5); }
+    setIntense() { this.setIntensity(0.75); }
+    setBoss() { this.setIntensity(1.0); }
+}
+
+// Create global music manager instance
+const musicManager = new MusicManager();
+
+
 // ============== STARFIELD CLASS ==============
 class StarField {
     constructor() {
@@ -2163,6 +2587,7 @@ class Game {
             
             // Initialize audio on first user interaction
             soundManager.init();
+            musicManager.init();
 
             if (e.key === 'Enter') {
                 if (this.state === 'start' || this.state === 'gameover') {
@@ -2180,9 +2605,14 @@ class Game {
                 this.useInventoryItem(slotIndex);
             }
             
-            // Mute toggle with M key
+            // Mute toggle with M key (SFX)
             if (e.key === 'm' || e.key === 'M') {
                 soundManager.toggleMute();
+            }
+            
+            // Music toggle with N key
+            if (e.key === 'n' || e.key === 'N') {
+                musicManager.toggleMute();
             }
             
             // Skill tree toggle with K key
@@ -2288,6 +2718,11 @@ class Game {
         
         // Play game start sound
         soundManager.playGameStart();
+        
+        // Start background music
+        musicManager.init();
+        musicManager.start();
+        musicManager.setNormal();
     }
 
     triggerFlash(color, alpha) {
@@ -2383,6 +2818,9 @@ class Game {
         
         // Play game over sound
         soundManager.playGameOver();
+        
+        // Stop background music
+        musicManager.stop();
     }
 
     loseLife() {
@@ -2719,6 +3157,16 @@ class Game {
 
         this.updateItemEffects();
         this.updateCombo();
+        
+        // Update music intensity based on game state
+        if (musicManager.playing) {
+            let intensity = 0.4; // Base playing intensity
+            intensity += this.asteroids.length * 0.02; // More asteroids = more intense
+            intensity += this.ufos.length * 0.1; // UFOs add intensity
+            if (this.boss) intensity = 1.0; // Boss = max intensity
+            if (this.comboCount >= 10) intensity = Math.min(1, intensity + 0.15); // Big combo boost
+            musicManager.setIntensity(intensity);
+        }
         
         // UFO spawning
         this.ufoSpawnTimer--;
@@ -3109,7 +3557,7 @@ class Game {
         ctx.fillStyle = '#666666';
         ctx.font = '14px "Courier New", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('Press M to toggle sound', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
+        ctx.fillText('M = Toggle SFX  |  N = Toggle Music', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
         
         // Skill tree hint
         ctx.save();
