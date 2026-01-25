@@ -32,6 +32,71 @@ const UFO_SHOOT_INTERVAL = 90; // 1.5 seconds
 const UFO_BULLET_SPEED = 4;
 const UFO_POINTS = 500;
 
+// Special asteroid type configuration
+const ASTEROID_TYPES = {
+    NORMAL: { 
+        name: 'Normal',
+        spawnWeight: 70,
+        strokeColor: '#ff6600',
+        fillHue: 20,
+        glowColor: '#ff4400',
+        hitsRequired: 1,
+        pointMultiplier: 1
+    },
+    ICE: { 
+        name: 'Ice',
+        spawnWeight: 10,
+        strokeColor: '#00ffff',
+        fillHue: 190,
+        glowColor: '#00ddff',
+        hitsRequired: 1,
+        pointMultiplier: 1.5,
+        freezeRadius: 150
+    },
+    EXPLOSIVE: { 
+        name: 'Explosive',
+        spawnWeight: 8,
+        strokeColor: '#ff3300',
+        fillHue: 5,
+        glowColor: '#ff0000',
+        hitsRequired: 1,
+        pointMultiplier: 1.2,
+        explosionRadius: 120
+    },
+    GOLDEN: { 
+        name: 'Golden',
+        spawnWeight: 5,
+        strokeColor: '#ffd700',
+        fillHue: 45,
+        glowColor: '#ffcc00',
+        hitsRequired: 1,
+        pointMultiplier: 5
+    },
+    ARMORED: { 
+        name: 'Armored',
+        spawnWeight: 7,
+        strokeColor: '#888899',
+        fillHue: 220,
+        glowColor: '#aaaacc',
+        hitsRequired: 2,
+        pointMultiplier: 2
+    }
+};
+
+// Helper to pick random asteroid type based on weights
+function getRandomAsteroidType() {
+    const types = Object.keys(ASTEROID_TYPES);
+    const totalWeight = types.reduce((sum, t) => sum + ASTEROID_TYPES[t].spawnWeight, 0);
+    let roll = Math.random() * totalWeight;
+    
+    for (const type of types) {
+        roll -= ASTEROID_TYPES[type].spawnWeight;
+        if (roll <= 0) return type;
+    }
+    return 'NORMAL';
+}
+
+
 // Color palette - Neon cyberpunk theme
 const COLORS = {
     shipPrimary: '#00ffff',
@@ -2616,6 +2681,120 @@ class Game {
         
         this.particles.push(new ShockwaveParticle(x, y, 60));
     }
+    
+    // Ice asteroid effect - freeze nearby asteroids temporarily
+    triggerIceExplosion(x, y, radius) {
+        const freezeDuration = 180;
+        this.asteroids.forEach(asteroid => {
+            const dx = asteroid.x - x;
+            const dy = asteroid.y - y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist < radius && dist > 0) {
+                asteroid.frozenVx = asteroid.vx;
+                asteroid.frozenVy = asteroid.vy;
+                asteroid.frozenRotSpeed = asteroid.rotationSpeed;
+                asteroid.vx = 0;
+                asteroid.vy = 0;
+                asteroid.rotationSpeed = 0;
+                asteroid.iceFreezeDuration = freezeDuration;
+                
+                for (let i = 0; i < 5; i++) {
+                    this.explosionParticles.push(new ExplosionParticle(asteroid.x, asteroid.y, '#00ffff', true));
+                }
+            }
+        });
+        
+        this.ufos.forEach(ufo => {
+            const dx = ufo.x - x;
+            const dy = ufo.y - y;
+            if (Math.sqrt(dx * dx + dy * dy) < radius) {
+                ufo.frozen = true;
+                ufo.frozenVx = ufo.vx;
+                ufo.frozenVy = ufo.vy;
+                ufo.iceFreezeDuration = freezeDuration;
+            }
+        });
+        
+        soundManager.playFreeze();
+        this.triggerFlash('#00ffff', 0.3);
+    }
+    
+    // Explosive asteroid effect - damage nearby asteroids
+    triggerChainExplosion(x, y, radius, sourceAsteroid) {
+        const toDestroy = [];
+        
+        this.asteroids.forEach(asteroid => {
+            if (asteroid === sourceAsteroid) return;
+            
+            const dx = asteroid.x - x;
+            const dy = asteroid.y - y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist < radius) {
+                const damage = dist < radius * 0.5 ? 2 : 1;
+                asteroid.hitsRemaining -= damage;
+                
+                if (asteroid.hitsRemaining <= 0) {
+                    toDestroy.push(asteroid);
+                } else {
+                    asteroid.hitFlashTimer = 15;
+                }
+            }
+        });
+        
+        toDestroy.forEach(asteroid => {
+            this.createExplosion(asteroid.x, asteroid.y, asteroid.size * 6);
+            this.addScore((4 - asteroid.size) * 20 * asteroid.typeInfo.pointMultiplier);
+            
+            if (asteroid.size > 1 && asteroid.asteroidType !== 'EXPLOSIVE') {
+                for (let k = 0; k < 2; k++) {
+                    this.asteroids.push(
+                        new Asteroid(asteroid.x, asteroid.y, asteroid.size - 1, this, 'NORMAL')
+                    );
+                }
+            }
+            
+            const idx = this.asteroids.indexOf(asteroid);
+            if (idx > -1) this.asteroids.splice(idx, 1);
+            achievementManager.trackAsteroidDestroyed();
+        });
+        
+        this.screenShake.trigger(25);
+        this.triggerFlash('#ff4400', 0.4);
+        soundManager.playBomb();
+    }
+    
+    // Update ice-frozen asteroids
+    updateIceFrozenAsteroids() {
+        this.asteroids.forEach(asteroid => {
+            if (asteroid.iceFreezeDuration && asteroid.iceFreezeDuration > 0) {
+                asteroid.iceFreezeDuration--;
+                if (asteroid.iceFreezeDuration <= 0) {
+                    if (asteroid.frozenVx !== undefined) {
+                        asteroid.vx = asteroid.frozenVx;
+                        asteroid.vy = asteroid.frozenVy;
+                        asteroid.rotationSpeed = asteroid.frozenRotSpeed;
+                        delete asteroid.frozenVx;
+                        delete asteroid.frozenVy;
+                        delete asteroid.frozenRotSpeed;
+                    }
+                }
+            }
+        });
+        
+        this.ufos.forEach(ufo => {
+            if (ufo.iceFreezeDuration && ufo.iceFreezeDuration > 0) {
+                ufo.iceFreezeDuration--;
+                if (ufo.iceFreezeDuration <= 0 && ufo.frozen) {
+                    ufo.frozen = false;
+                    ufo.vx = ufo.frozenVx;
+                    ufo.vy = ufo.frozenVy;
+                }
+            }
+        });
+    }
+
 
     update() {
         this.time++;
@@ -2650,6 +2829,7 @@ class Game {
         if (this.transitionManager.shouldPauseGameplay()) return;
 
         this.updateItemEffects();
+        this.updateIceFrozenAsteroids();
         
         // UFO spawning
         this.ufoSpawnTimer--;
@@ -2741,21 +2921,46 @@ class Game {
                     this.bullets.splice(i, 1);
 
                     const asteroid = this.asteroids[j];
-                    this.createExplosion(asteroid.x, asteroid.y, asteroid.size * 6);
-
-                    if (asteroid.size > 1) {
-                        for (let k = 0; k < 2; k++) {
-                            this.asteroids.push(
-                                new Asteroid(asteroid.x, asteroid.y, asteroid.size - 1, this)
-                            );
+                    
+                    // Check if asteroid is destroyed (handles armored asteroids)
+                    const destroyed = asteroid.takeDamage();
+                    
+                    if (destroyed) {
+                        this.createExplosion(asteroid.x, asteroid.y, asteroid.size * 6);
+                        
+                        // Type-specific death effects
+                        if (asteroid.asteroidType === 'ICE' && asteroid.typeInfo.freezeRadius) {
+                            this.triggerIceExplosion(asteroid.x, asteroid.y, asteroid.typeInfo.freezeRadius);
                         }
-                    }
+                        if (asteroid.asteroidType === 'EXPLOSIVE' && asteroid.typeInfo.explosionRadius) {
+                            this.triggerChainExplosion(asteroid.x, asteroid.y, asteroid.typeInfo.explosionRadius, asteroid);
+                        }
+                        if (asteroid.asteroidType === 'GOLDEN') {
+                            this.triggerFlash('#ffd700', 0.3);
+                            // Extra sparkle particles for gold
+                            for (let p = 0; p < 15; p++) {
+                                this.explosionParticles.push(new ExplosionParticle(asteroid.x, asteroid.y, '#ffd700', true));
+                            }
+                        }
 
-                    this.addScore((4 - asteroid.size) * 20);
-                    this.spawnPowerUp(asteroid.x, asteroid.y);
-                    this.spawnItem(asteroid.x, asteroid.y, asteroid.size);
-                    this.asteroids.splice(j, 1);
-                    achievementManager.trackAsteroidDestroyed();
+                        if (asteroid.size > 1) {
+                            // Child asteroids inherit type or become normal (50/50 for special types)
+                            const childType = asteroid.asteroidType === 'NORMAL' ? null : 
+                                (Math.random() > 0.5 ? asteroid.asteroidType : 'NORMAL');
+                            for (let k = 0; k < 2; k++) {
+                                this.asteroids.push(
+                                    new Asteroid(asteroid.x, asteroid.y, asteroid.size - 1, this, childType)
+                                );
+                            }
+                        }
+
+                        // Apply point multiplier for special types
+                        this.addScore((4 - asteroid.size) * 20 * asteroid.typeInfo.pointMultiplier);
+                        this.spawnPowerUp(asteroid.x, asteroid.y);
+                        this.spawnItem(asteroid.x, asteroid.y, asteroid.size);
+                        this.asteroids.splice(j, 1);
+                        achievementManager.trackAsteroidDestroyed();
+                    }
                     break;
                 }
             }
@@ -3781,12 +3986,20 @@ class Ship {
 
 // ============== ASTEROID CLASS ==============
 class Asteroid {
-    constructor(x, y, size, game) {
+    constructor(x, y, size, game, asteroidType = null) {
         this.x = x;
         this.y = y;
         this.size = size;
         this.game = game;
         this.radius = size * 15;
+        
+        // Set asteroid type - inherit from parent or pick random for new spawns
+        this.asteroidType = asteroidType || getRandomAsteroidType();
+        this.typeInfo = ASTEROID_TYPES[this.asteroidType];
+        
+        // Hits tracking for armored asteroids
+        this.hitsRemaining = this.typeInfo.hitsRequired;
+        this.hitFlashTimer = 0;
 
         const angle = Math.random() * Math.PI * 2;
         const speed = ASTEROID_SPEED / size + Math.random() * 0.5;
@@ -3809,8 +4022,28 @@ class Asteroid {
             });
         }
         
-        // Color variation
-        this.hue = 20 + Math.random() * 20; // Orange-ish
+        // Visual properties based on type
+        this.hue = this.typeInfo.fillHue + Math.random() * 15;
+        
+        // Special visual elements for types
+        this.sparklePhase = Math.random() * Math.PI * 2;
+        this.innerGlowPhase = 0;
+    }
+    
+    // Take damage - returns true if destroyed
+    takeDamage() {
+        this.hitsRemaining--;
+        this.hitFlashTimer = 15;
+        
+        if (this.hitsRemaining <= 0) {
+            return true;
+        }
+        
+        if (this.asteroidType === 'ARMORED') {
+            soundManager.playShieldHit();
+        }
+        
+        return false;
     }
 
     update() {
@@ -3818,8 +4051,11 @@ class Asteroid {
         this.y += this.vy;
         this.rotation += this.rotationSpeed;
         this.pulsePhase += 0.05;
+        this.sparklePhase += 0.1;
+        this.innerGlowPhase += 0.08;
+        
+        if (this.hitFlashTimer > 0) this.hitFlashTimer--;
 
-        // Wrap
         if (this.x < -this.radius) this.x = CANVAS_WIDTH + this.radius;
         if (this.x > CANVAS_WIDTH + this.radius) this.x = -this.radius;
         if (this.y < -this.radius) this.y = CANVAS_HEIGHT + this.radius;
@@ -3828,35 +4064,41 @@ class Asteroid {
 
     updateFrozenVisuals() {
         this.pulsePhase += 0.02;
+        this.sparklePhase += 0.05;
+        this.innerGlowPhase += 0.04;
     }
 
     draw(ctx) {
         const pulse = 1 + Math.sin(this.pulsePhase) * 0.05;
-        const frozen = this.game.freezeActive;
+        const frozen = this.game.freezeActive || (this.iceFreezeDuration && this.iceFreezeDuration > 0);
+        const typeInfo = this.typeInfo;
         
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.rotation);
         ctx.scale(pulse, pulse);
 
-        // Outer glow
-        const glowColor = frozen ? '#87ceeb' : COLORS.asteroidGlow;
-        ctx.shadowColor = glowColor;
-        ctx.shadowBlur = 15;
+        const flashIntensity = this.hitFlashTimer / 15;
 
-        // Fill with gradient
+        const glowColor = frozen ? '#87ceeb' : typeInfo.glowColor;
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 15 + (this.asteroidType === 'GOLDEN' ? Math.sin(this.sparklePhase) * 8 : 0);
+
         const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.radius);
         if (frozen) {
             gradient.addColorStop(0, '#1a3344');
             gradient.addColorStop(1, '#0a1a22');
+        } else if (flashIntensity > 0) {
+            gradient.addColorStop(0, 'rgba(255, 255, 255, ' + flashIntensity + ')');
+            gradient.addColorStop(1, 'hsl(' + this.hue + ', 80%, ' + (15 + flashIntensity * 40) + '%)');
         } else {
-            gradient.addColorStop(0, `hsl(${this.hue}, 70%, 15%)`);
-            gradient.addColorStop(1, `hsl(${this.hue}, 80%, 5%)`);
+            gradient.addColorStop(0, 'hsl(' + this.hue + ', 70%, 15%)');
+            gradient.addColorStop(1, 'hsl(' + this.hue + ', 80%, 5%)');
         }
         
         ctx.fillStyle = gradient;
-        ctx.strokeStyle = frozen ? '#87ceeb' : COLORS.asteroidStroke;
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = frozen ? '#87ceeb' : (flashIntensity > 0 ? '#ffffff' : typeInfo.strokeColor);
+        ctx.lineWidth = this.asteroidType === 'ARMORED' ? 3 : 2;
 
         ctx.beginPath();
         for (let i = 0; i < this.vertices.length; i++) {
@@ -3868,18 +4110,374 @@ class Asteroid {
         ctx.fill();
         ctx.stroke();
 
-        // Inner crack details
-        ctx.strokeStyle = frozen ? '#aaddee40' : `hsl(${this.hue}, 60%, 30%)`;
+        if (!frozen) {
+            this.drawTypeEffects(ctx);
+        }
+
+        ctx.strokeStyle = frozen ? '#aaddee40' : 'hsl(' + this.hue + ', 60%, 30%)';
         ctx.lineWidth = 1;
         for (let i = 0; i < 3; i++) {
-            const startIdx = Math.floor(Math.random() * this.vertices.length);
+            const startIdx = Math.floor(i * this.vertices.length / 3);
             ctx.beginPath();
             ctx.moveTo(0, 0);
             ctx.lineTo(this.vertices[startIdx].x * 0.7, this.vertices[startIdx].y * 0.7);
             ctx.stroke();
         }
+        
+        if (this.asteroidType === 'ARMORED' && this.hitsRemaining > 0) {
+            this.drawArmorIndicator(ctx);
+        }
 
         ctx.restore();
+    }
+    
+    drawTypeEffects(ctx) {
+        switch(this.asteroidType) {
+            case 'ICE':
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowColor = '#00ffff';
+                ctx.shadowBlur = 8;
+                for (let i = 0; i < 4; i++) {
+                    const sparkleAngle = this.sparklePhase + (i * Math.PI / 2);
+                    const sparkleR = this.radius * 0.5 + Math.sin(sparkleAngle * 2) * 5;
+                    const sx = Math.cos(sparkleAngle) * sparkleR;
+                    const sy = Math.sin(sparkleAngle) * sparkleR;
+                    const sparkleSize = 2 + Math.sin(sparkleAngle * 3) * 1;
+                    
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, sparkleSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                break;
+                
+            case 'EXPLOSIVE':
+                const glowAlpha = 0.3 + Math.sin(this.innerGlowPhase * 2) * 0.2;
+                const innerGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.radius * 0.8);
+                innerGradient.addColorStop(0, 'rgba(255, 100, 0, ' + glowAlpha + ')');
+                innerGradient.addColorStop(0.5, 'rgba(255, 50, 0, ' + (glowAlpha * 0.5) + ')');
+                innerGradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = innerGradient;
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius * 0.8, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = '#ff4400';
+                ctx.font = 'bold ' + (this.radius * 0.4) + 'px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('!', 0, 0);
+                break;
+                
+            case 'GOLDEN':
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowColor = '#ffd700';
+                ctx.shadowBlur = 12;
+                for (let i = 0; i < 6; i++) {
+                    const sparkleAngle = this.sparklePhase * 0.5 + (i * Math.PI / 3);
+                    const sparkleR = this.radius * (0.3 + Math.sin(sparkleAngle * 3 + i) * 0.3);
+                    const sx = Math.cos(sparkleAngle) * sparkleR;
+                    const sy = Math.sin(sparkleAngle) * sparkleR;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(sx, sy - 3);
+                    ctx.lineTo(sx + 1, sy - 1);
+                    ctx.lineTo(sx + 3, sy);
+                    ctx.lineTo(sx + 1, sy + 1);
+                    ctx.lineTo(sx, sy + 3);
+                    ctx.lineTo(sx - 1, sy + 1);
+                    ctx.lineTo(sx - 3, sy);
+                    ctx.lineTo(sx - 1, sy - 1);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                
+                ctx.fillStyle = '#ffee00';
+                ctx.font = 'bold ' + (this.radius * 0.5) + 'px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('
+
+// ============== BULLET CLASS ==============
+class Bullet {
+    constructor(x, y, angle, game) {
+        this.x = x;
+        this.y = y;
+        this.game = game;
+        this.vx = Math.cos(angle) * BULLET_SPEED;
+        this.vy = Math.sin(angle) * BULLET_SPEED;
+        this.lifetime = BULLET_LIFETIME;
+        this.trailCounter = 0;
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.lifetime--;
+        this.trailCounter++;
+
+        // Spawn trail particles
+        if (this.trailCounter % 2 === 0) {
+            this.game.trailParticles.push(new TrailParticle(
+                this.x,
+                this.y,
+                COLORS.bullet,
+                2,
+                10,
+                -this.vx * 0.1,
+                -this.vy * 0.1
+            ));
+        }
+
+        // Wrap
+        if (this.x < 0) this.x = CANVAS_WIDTH;
+        if (this.x > CANVAS_WIDTH) this.x = 0;
+        if (this.y < 0) this.y = CANVAS_HEIGHT;
+        if (this.y > CANVAS_HEIGHT) this.y = 0;
+    }
+
+    draw(ctx) {
+        ctx.save();
+        
+        // Outer glow
+        ctx.shadowColor = COLORS.bullet;
+        ctx.shadowBlur = 15;
+        ctx.fillStyle = COLORS.bullet;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Bright core
+        ctx.shadowBlur = 5;
+        ctx.fillStyle = COLORS.bulletCore;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+    }
+}
+
+// ============== POWERUP CLASS ==============
+class PowerUp {
+    constructor(x, y, type, game) {
+        this.x = x;
+        this.y = y;
+        this.type = type;
+        this.game = game;
+        this.lifetime = POWERUP_LIFETIME;
+        this.pulsePhase = 0;
+        this.rotationPhase = 0;
+
+        const angle = Math.random() * Math.PI * 2;
+        this.vx = Math.cos(angle) * 0.3;
+        this.vy = Math.sin(angle) * 0.3;
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.lifetime--;
+        this.pulsePhase += 0.1;
+        this.rotationPhase += 0.02;
+
+        if (this.x < 0) this.x = CANVAS_WIDTH;
+        if (this.x > CANVAS_WIDTH) this.x = 0;
+        if (this.y < 0) this.y = CANVAS_HEIGHT;
+        if (this.y > CANVAS_HEIGHT) this.y = 0;
+    }
+
+    draw(ctx) {
+        const powerUpInfo = POWERUP_TYPES[this.type];
+        const pulse = Math.sin(this.pulsePhase) * 3 + POWERUP_SIZE;
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotationPhase);
+
+        // Outer ring glow
+        ctx.shadowColor = powerUpInfo.color;
+        ctx.shadowBlur = 20;
+        ctx.strokeStyle = powerUpInfo.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, pulse + 3, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Inner filled circle
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, pulse);
+        gradient.addColorStop(0, powerUpInfo.color);
+        gradient.addColorStop(1, powerUpInfo.color + '40');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, pulse - 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Symbol
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 14px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(powerUpInfo.symbol, 0, 1);
+
+        ctx.restore();
+
+        // Warning flicker when expiring
+        if (this.lifetime < 120) {
+            const flicker = Math.sin(this.lifetime * 0.3) > 0;
+            if (flicker) {
+                ctx.save();
+                ctx.strokeStyle = powerUpInfo.color + '60';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, POWERUP_SIZE + 10, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+    }
+}
+
+// ============== ITEM CLASS ==============
+class Item {
+    constructor(x, y, type, game) {
+        this.x = x;
+        this.y = y;
+        this.type = type;
+        this.game = game;
+        this.lifetime = ITEM_LIFETIME;
+        this.pulsePhase = Math.random() * Math.PI * 2;
+        this.bobPhase = Math.random() * Math.PI * 2;
+        this.rotationPhase = 0;
+
+        const angle = Math.random() * Math.PI * 2;
+        this.vx = Math.cos(angle) * 0.4;
+        this.vy = Math.sin(angle) * 0.4;
+    }
+
+    update() {
+        if (this.game.ship && this.game.magnetActive) {
+            const dx = this.game.ship.x - this.x;
+            const dy = this.game.ship.y - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 10) {
+                this.vx = (dx / dist) * 3;
+                this.vy = (dy / dist) * 3;
+            }
+        }
+
+        this.x += this.vx;
+        this.y += this.vy;
+        this.lifetime--;
+        this.pulsePhase += 0.08;
+        this.bobPhase += 0.1;
+        this.rotationPhase += 0.03;
+
+        if (this.x < 0) this.x = CANVAS_WIDTH;
+        if (this.x > CANVAS_WIDTH) this.x = 0;
+        if (this.y < 0) this.y = CANVAS_HEIGHT;
+        if (this.y > CANVAS_HEIGHT) this.y = 0;
+    }
+
+    draw(ctx) {
+        const itemInfo = ITEM_TYPES[this.type];
+        const pulse = Math.sin(this.pulsePhase) * 2 + ITEM_SIZE;
+        const bob = Math.sin(this.bobPhase) * 2;
+
+        ctx.save();
+        ctx.translate(this.x, this.y + bob);
+        ctx.rotate(this.rotationPhase);
+
+        // Outer glow
+        ctx.shadowColor = itemInfo.color;
+        ctx.shadowBlur = 15;
+
+        // Hexagon shape
+        ctx.strokeStyle = itemInfo.color;
+        ctx.fillStyle = itemInfo.color + '30';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+            const x = Math.cos(angle) * pulse;
+            const y = Math.sin(angle) * pulse;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Symbol
+        ctx.shadowBlur = 5;
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(itemInfo.symbol, 0, 0);
+
+        ctx.restore();
+
+        // Expiry warning
+        if (this.lifetime < 120) {
+            const alpha = (this.lifetime % 20) / 20;
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = itemInfo.color;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, ITEM_SIZE + 12, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+}
+
+// Initialize game
+window.addEventListener('DOMContentLoaded', () => {
+    new Game();
+});
+
+, 0, 0);
+                break;
+                
+            case 'ARMORED':
+                ctx.strokeStyle = '#ccccdd';
+                ctx.lineWidth = 1;
+                ctx.shadowBlur = 0;
+                for (let i = 0; i < 3; i++) {
+                    const lineAngle = this.rotation * -1 + (i * Math.PI / 3);
+                    ctx.beginPath();
+                    ctx.moveTo(Math.cos(lineAngle) * this.radius * 0.3, Math.sin(lineAngle) * this.radius * 0.3);
+                    ctx.lineTo(Math.cos(lineAngle) * this.radius * 0.8, Math.sin(lineAngle) * this.radius * 0.8);
+                    ctx.stroke();
+                }
+                break;
+        }
+    }
+    
+    drawArmorIndicator(ctx) {
+        const indicatorRadius = this.radius + 8;
+        ctx.strokeStyle = '#ffffff80';
+        ctx.lineWidth = 2;
+        
+        for (let i = 0; i < this.typeInfo.hitsRequired; i++) {
+            const angle = -Math.PI / 2 + (i / this.typeInfo.hitsRequired) * Math.PI * 0.5;
+            const filled = i < this.hitsRemaining;
+            
+            ctx.beginPath();
+            ctx.arc(
+                Math.cos(angle) * indicatorRadius,
+                Math.sin(angle) * indicatorRadius,
+                3, 0, Math.PI * 2
+            );
+            
+            if (filled) {
+                ctx.fillStyle = '#aaaacc';
+                ctx.fill();
+            }
+            ctx.stroke();
+        }
     }
 }
 
