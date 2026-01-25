@@ -2613,16 +2613,21 @@ class EnemyBullet {
         this.trailCounter++;
         this.pulsePhase += 0.2;
         
-        // Spawn trail particles (green)
+        // Spawn enhanced UFO trail particles with alien green glow
         if (this.trailCounter % 3 === 0) {
+            // Cycle through alien green tones
+            const alienColors = [COLORS.ufoBullet, '#66ff44', '#44ff88', '#aaffaa', COLORS.ufoPrimary];
+            const colorPick = Math.random();
+            const particleColor = colorPick > 0.8 ? '#ffffff' : alienColors[Math.floor(Math.random() * alienColors.length)];
+            
             this.game.trailParticles.push(new TrailParticle(
-                this.x,
-                this.y,
-                COLORS.ufoBullet,
-                2,
-                8,
-                -this.vx * 0.05,
-                -this.vy * 0.05
+                this.x + (Math.random() - 0.5) * 3,
+                this.y + (Math.random() - 0.5) * 3,
+                particleColor,
+                1.5 + Math.random() * 2,
+                10 + Math.random() * 5,
+                -this.vx * 0.08 + (Math.random() - 0.5) * 0.4,
+                -this.vy * 0.08 + (Math.random() - 0.5) * 0.4
             ));
         }
         
@@ -3093,6 +3098,9 @@ class Asteroid {
         
         // Color variation
         this.hue = 20 + Math.random() * 20; // Orange-ish
+        
+        // Trail particle counter for comet effect
+        this.trailCounter = 0;
     }
 
     update() {
@@ -3100,6 +3108,39 @@ class Asteroid {
         this.y += this.vy;
         this.rotation += this.rotationSpeed;
         this.pulsePhase += 0.05;
+        this.trailCounter++;
+        
+        // Spawn comet-like trail particles behind asteroids
+        // Larger asteroids spawn more frequent/visible trails
+        const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        const trailRate = Math.max(3, 8 - this.size * 2); // Size 3=rate 2, size 1=rate 6
+        
+        if (this.trailCounter % trailRate === 0 && speed > 0.3 && !this.game.freezeActive) {
+            // Trail spawns from back of asteroid (opposite movement direction)
+            const trailAngle = Math.atan2(-this.vy, -this.vx);
+            const offsetDist = this.radius * 0.6;
+            const spawnX = this.x + Math.cos(trailAngle) * offsetDist;
+            const spawnY = this.y + Math.sin(trailAngle) * offsetDist;
+            
+            // Spawn 1-3 particles based on size
+            const particleCount = Math.min(3, this.size);
+            for (let i = 0; i < particleCount; i++) {
+                // Colors: orange/red for normal, or based on asteroid hue
+                const hueVariation = this.hue + (Math.random() - 0.5) * 15;
+                const lightness = 40 + Math.random() * 20;
+                const trailColor = `hsl(${hueVariation}, 80%, ${lightness}%)`;
+                
+                this.game.trailParticles.push(new TrailParticle(
+                    spawnX + (Math.random() - 0.5) * this.radius * 0.4,
+                    spawnY + (Math.random() - 0.5) * this.radius * 0.4,
+                    trailColor,
+                    1 + Math.random() * this.size, // Size scales with asteroid
+                    12 + Math.random() * 8,        // Lifetime
+                    -this.vx * 0.15 + (Math.random() - 0.5) * 0.5,
+                    -this.vy * 0.15 + (Math.random() - 0.5) * 0.5
+                ));
+            }
+        }
 
         // Wrap
         if (this.x < -this.radius) this.x = CANVAS_WIDTH + this.radius;
@@ -3183,16 +3224,21 @@ class Bullet {
         this.lifetime--;
         this.trailCounter++;
 
-        // Spawn trail particles
+        // Spawn enhanced trail particles with color variation
         if (this.trailCounter % 2 === 0) {
+            // Cycle through vibrant trail colors for Geometry Wars feel
+            const trailColors = [COLORS.bullet, '#ff66ff', '#cc00ff', '#ffffff', '#ff00cc'];
+            const colorIndex = this.trailCounter % trailColors.length;
+            const particleColor = Math.random() > 0.7 ? '#ffffff' : trailColors[Math.floor(colorIndex / 2) % trailColors.length];
+            
             this.game.trailParticles.push(new TrailParticle(
-                this.x,
-                this.y,
-                COLORS.bullet,
-                2,
-                10,
-                -this.vx * 0.1,
-                -this.vy * 0.1
+                this.x + (Math.random() - 0.5) * 2,
+                this.y + (Math.random() - 0.5) * 2,
+                particleColor,
+                1.5 + Math.random() * 1.5,
+                12 + Math.random() * 6,
+                -this.vx * 0.12 + (Math.random() - 0.5) * 0.3,
+                -this.vy * 0.12 + (Math.random() - 0.5) * 0.3
             ));
         }
 
@@ -3405,3 +3451,4 @@ class Item {
 window.addEventListener('DOMContentLoaded', () => {
     new Game();
 });
+
