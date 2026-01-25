@@ -511,6 +511,488 @@ class SkillTreeUI {
     }
 }
 
+// ============== SAVE MANAGER CLASS ==============
+// Handles save/load game functionality with localStorage
+
+const SAVE_VERSION = 1;
+const MAX_SAVE_SLOTS = 3;
+const SAVE_KEY_PREFIX = 'asteroids_save_';
+
+class SaveManager {
+    constructor(game) {
+        this.game = game;
+    }
+    
+    getSlotKey(slot) {
+        return `${SAVE_KEY_PREFIX}slot_${slot}`;
+    }
+    
+    getAllSaves() {
+        const saves = [];
+        for (let i = 1; i <= MAX_SAVE_SLOTS; i++) {
+            const data = this.loadRaw(i);
+            if (data) {
+                saves.push({
+                    slot: i,
+                    level: data.level,
+                    score: data.score,
+                    date: new Date(data.savedAt),
+                    skillPoints: data.skillTree?.skillPoints || 0
+                });
+            } else {
+                saves.push({ slot: i, empty: true });
+            }
+        }
+        return saves;
+    }
+    
+    loadRaw(slot) {
+        try {
+            const key = this.getSlotKey(slot);
+            const json = localStorage.getItem(key);
+            if (!json) return null;
+            return JSON.parse(json);
+        } catch (e) {
+            console.warn(`Failed to load save slot ${slot}:`, e);
+            return null;
+        }
+    }
+    
+    save(slot) {
+        if (slot < 1 || slot > MAX_SAVE_SLOTS) {
+            console.error('Invalid save slot:', slot);
+            return false;
+        }
+        
+        const game = this.game;
+        
+        const saveData = {
+            version: SAVE_VERSION,
+            savedAt: Date.now(),
+            score: game.score,
+            lives: game.lives,
+            level: game.level,
+            maxCombo: game.maxCombo,
+            inventory: game.inventory.map(item => item.type),
+            magnetTimer: game.magnetTimer,
+            magnetActive: game.magnetActive,
+            scoreMultiplierTimer: game.scoreMultiplierTimer,
+            scoreMultiplier: game.scoreMultiplier,
+            freezeTimer: game.freezeTimer,
+            freezeActive: game.freezeActive,
+            ship: game.ship ? {
+                x: game.ship.x,
+                y: game.ship.y,
+                angle: game.ship.angle,
+                vx: game.ship.vx,
+                vy: game.ship.vy,
+                hasShield: game.ship.hasShield,
+                hasRapidFire: game.ship.hasRapidFire,
+                hasTripleShot: game.ship.hasTripleShot,
+                hasSpeedBoost: game.ship.hasSpeedBoost,
+                shieldTimer: game.ship.shieldTimer,
+                rapidFireTimer: game.ship.rapidFireTimer,
+                tripleShotTimer: game.ship.tripleShotTimer,
+                speedBoostTimer: game.ship.speedBoostTimer
+            } : null,
+            skillTree: {
+                skillLevels: game.skillTree.skillLevels,
+                skillPoints: game.skillTree.skillPoints,
+                totalPointsEarned: game.skillTree.totalPointsEarned
+            }
+        };
+        
+        try {
+            const key = this.getSlotKey(slot);
+            localStorage.setItem(key, JSON.stringify(saveData));
+            console.log(`Game saved to slot ${slot}`);
+            if (soundManager.playSaveSound) soundManager.playSaveSound();
+            return true;
+        } catch (e) {
+            console.error('Failed to save game:', e);
+            return false;
+        }
+    }
+    
+    load(slot) {
+        const data = this.loadRaw(slot);
+        if (!data) {
+            console.warn('No save data in slot:', slot);
+            return false;
+        }
+        
+        const game = this.game;
+        
+        game.state = 'playing';
+        game.ship = new Ship(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, game);
+        game.asteroids = [];
+        game.bullets = [];
+        game.particles = [];
+        game.trailParticles = [];
+        game.explosionParticles = [];
+        game.powerUps = [];
+        game.items = [];
+        game.inventory = [];
+        game.ufos = [];
+        game.enemyBullets = [];
+        game.boss = null;
+        game.bossLevel = false;
+        game.comboCount = 0;
+        game.comboTimer = 0;
+        game.comboDisplayTimer = 0;
+        
+        game.score = data.score || 0;
+        game.lives = data.lives || 3;
+        game.level = data.level || 1;
+        game.maxCombo = data.maxCombo || 0;
+        
+        if (data.inventory && Array.isArray(data.inventory)) {
+            data.inventory.forEach(type => {
+                if (ITEM_TYPES[type]) {
+                    game.inventory.push({ type: type });
+                }
+            });
+        }
+        
+        game.magnetActive = data.magnetActive || false;
+        game.magnetTimer = data.magnetTimer || 0;
+        game.scoreMultiplier = data.scoreMultiplier || 1;
+        game.scoreMultiplierTimer = data.scoreMultiplierTimer || 0;
+        game.freezeActive = data.freezeActive || false;
+        game.freezeTimer = data.freezeTimer || 0;
+        
+        if (data.ship && game.ship) {
+            game.ship.x = data.ship.x || CANVAS_WIDTH / 2;
+            game.ship.y = data.ship.y || CANVAS_HEIGHT / 2;
+            game.ship.angle = data.ship.angle || 0;
+            game.ship.vx = data.ship.vx || 0;
+            game.ship.vy = data.ship.vy || 0;
+            game.ship.hasShield = data.ship.hasShield || false;
+            game.ship.hasRapidFire = data.ship.hasRapidFire || false;
+            game.ship.hasTripleShot = data.ship.hasTripleShot || false;
+            game.ship.hasSpeedBoost = data.ship.hasSpeedBoost || false;
+            game.ship.shieldTimer = data.ship.shieldTimer || 0;
+            game.ship.rapidFireTimer = data.ship.rapidFireTimer || 0;
+            game.ship.tripleShotTimer = data.ship.tripleShotTimer || 0;
+            game.ship.speedBoostTimer = data.ship.speedBoostTimer || 0;
+        }
+        
+        if (data.skillTree) {
+            if (data.skillTree.skillLevels) {
+                Object.keys(data.skillTree.skillLevels).forEach(skillId => {
+                    if (game.skillTree.skillLevels.hasOwnProperty(skillId)) {
+                        game.skillTree.skillLevels[skillId] = data.skillTree.skillLevels[skillId];
+                    }
+                });
+            }
+            game.skillTree.skillPoints = data.skillTree.skillPoints || 0;
+            game.skillTree.totalPointsEarned = data.skillTree.totalPointsEarned || 0;
+        }
+        
+        const effects = game.skillTree.getAllEffects();
+        game.maxInventorySlots = MAX_INVENTORY_SLOTS + (effects.extraInventorySlots || 0);
+        
+        if (BOSS_LEVELS.includes(game.level)) {
+            game.bossLevel = true;
+            game.boss = new Boss(game);
+        } else {
+            game.spawnAsteroids(3 + game.level);
+        }
+        
+        game.ufoSpawnTimer = game.getRandomUfoSpawnTime();
+        game.updateUI();
+        game.updateInventoryUI();
+        game.triggerFlash('#00ff88', 0.3);
+        if (soundManager.playLoadSound) soundManager.playLoadSound();
+        
+        console.log(`Game loaded from slot ${slot}`);
+        return true;
+    }
+    
+    deleteSave(slot) {
+        try {
+            const key = this.getSlotKey(slot);
+            localStorage.removeItem(key);
+            console.log(`Deleted save slot ${slot}`);
+            return true;
+        } catch (e) {
+            console.error('Failed to delete save:', e);
+            return false;
+        }
+    }
+    
+    hasSaves() {
+        for (let i = 1; i <= MAX_SAVE_SLOTS; i++) {
+            if (this.loadRaw(i)) return true;
+        }
+        return false;
+    }
+    
+    autoSave() {
+        let targetSlot = 1;
+        let oldestTime = Infinity;
+        
+        for (let i = 1; i <= MAX_SAVE_SLOTS; i++) {
+            const data = this.loadRaw(i);
+            if (!data) {
+                targetSlot = i;
+                break;
+            }
+            if (data.savedAt < oldestTime) {
+                oldestTime = data.savedAt;
+                targetSlot = i;
+            }
+        }
+        
+        return this.save(targetSlot);
+    }
+}
+
+// ============== SAVE/LOAD UI CLASS ==============
+class SaveLoadUI {
+    constructor(game) {
+        this.game = game;
+        this.visible = false;
+        this.mode = 'save';
+        this.hoveredSlot = -1;
+        this.hoveredButton = null;
+        this.saveManager = new SaveManager(game);
+        this.confirmDelete = -1;
+    }
+    
+    open(mode) {
+        this.mode = mode;
+        this.visible = true;
+        this.hoveredSlot = -1;
+        this.hoveredButton = null;
+        this.confirmDelete = -1;
+    }
+    
+    close() {
+        this.visible = false;
+        this.confirmDelete = -1;
+    }
+    
+    toggle(mode) {
+        if (this.visible && this.mode === mode) {
+            this.close();
+        } else {
+            this.open(mode);
+        }
+    }
+    
+    handleClick(x, y) {
+        if (!this.visible) return false;
+        
+        const canvasRect = this.game.canvas.getBoundingClientRect();
+        const scaleX = CANVAS_WIDTH / canvasRect.width;
+        const scaleY = CANVAS_HEIGHT / canvasRect.height;
+        x = (x - canvasRect.left) * scaleX;
+        y = (y - canvasRect.top) * scaleY;
+        
+        const centerX = CANVAS_WIDTH / 2;
+        const startY = 150;
+        const slotHeight = 80;
+        const slotWidth = 350;
+        
+        const closeX = centerX + slotWidth / 2 - 30;
+        const closeY = startY - 40;
+        if (Math.abs(x - closeX) < 15 && Math.abs(y - closeY) < 15) {
+            this.close();
+            return true;
+        }
+        
+        const saves = this.saveManager.getAllSaves();
+        for (let i = 0; i < saves.length; i++) {
+            const slotY = startY + i * (slotHeight + 10);
+            const slot = saves[i];
+            
+            if (x >= centerX - slotWidth / 2 && x <= centerX + slotWidth / 2 &&
+                y >= slotY && y <= slotY + slotHeight) {
+                
+                const deleteX = centerX + slotWidth / 2 - 35;
+                const deleteY = slotY + slotHeight / 2;
+                if (!slot.empty && Math.abs(x - deleteX) < 20 && Math.abs(y - deleteY) < 15) {
+                    if (this.confirmDelete === slot.slot) {
+                        this.saveManager.deleteSave(slot.slot);
+                        this.confirmDelete = -1;
+                        soundManager.playExplosion(0.5);
+                    } else {
+                        this.confirmDelete = slot.slot;
+                    }
+                    return true;
+                }
+                
+                this.confirmDelete = -1;
+                
+                if (this.mode === 'save') {
+                    if (this.saveManager.save(slot.slot)) {
+                        this.game.triggerFlash('#00ff00', 0.2);
+                    }
+                    return true;
+                } else if (this.mode === 'load' && !slot.empty) {
+                    if (this.saveManager.load(slot.slot)) {
+                        this.close();
+                    }
+                    return true;
+                }
+            }
+        }
+        
+        return true;
+    }
+    
+    handleMouseMove(x, y) {
+        if (!this.visible) return;
+        
+        const canvasRect = this.game.canvas.getBoundingClientRect();
+        const scaleX = CANVAS_WIDTH / canvasRect.width;
+        const scaleY = CANVAS_HEIGHT / canvasRect.height;
+        x = (x - canvasRect.left) * scaleX;
+        y = (y - canvasRect.top) * scaleY;
+        
+        const centerX = CANVAS_WIDTH / 2;
+        const startY = 150;
+        const slotHeight = 80;
+        const slotWidth = 350;
+        
+        this.hoveredSlot = -1;
+        this.hoveredButton = null;
+        
+        const closeX = centerX + slotWidth / 2 - 30;
+        const closeY = startY - 40;
+        if (Math.abs(x - closeX) < 15 && Math.abs(y - closeY) < 15) {
+            this.hoveredButton = 'close';
+            return;
+        }
+        
+        const saves = this.saveManager.getAllSaves();
+        for (let i = 0; i < saves.length; i++) {
+            const slotY = startY + i * (slotHeight + 10);
+            
+            if (x >= centerX - slotWidth / 2 && x <= centerX + slotWidth / 2 &&
+                y >= slotY && y <= slotY + slotHeight) {
+                this.hoveredSlot = i;
+                
+                const deleteX = centerX + slotWidth / 2 - 35;
+                const deleteY = slotY + slotHeight / 2;
+                if (Math.abs(x - deleteX) < 20 && Math.abs(y - deleteY) < 15) {
+                    this.hoveredButton = 'delete';
+                }
+                break;
+            }
+        }
+    }
+    
+    draw(ctx) {
+        if (!this.visible) return;
+        
+        const centerX = CANVAS_WIDTH / 2;
+        const startY = 150;
+        const slotHeight = 80;
+        const slotWidth = 350;
+        
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        ctx.save();
+        ctx.shadowColor = this.mode === 'save' ? '#00ff00' : '#00ffff';
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = this.mode === 'save' ? '#00ff00' : '#00ffff';
+        ctx.font = 'bold 32px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.mode === 'save' ? 'SAVE GAME' : 'LOAD GAME', centerX, startY - 50);
+        ctx.restore();
+        
+        const closeX = centerX + slotWidth / 2 - 30;
+        const closeY = startY - 40;
+        ctx.save();
+        ctx.strokeStyle = this.hoveredButton === 'close' ? '#ff6666' : '#888888';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(closeX - 10, closeY - 10);
+        ctx.lineTo(closeX + 10, closeY + 10);
+        ctx.moveTo(closeX + 10, closeY - 10);
+        ctx.lineTo(closeX - 10, closeY + 10);
+        ctx.stroke();
+        ctx.restore();
+        
+        const saves = this.saveManager.getAllSaves();
+        for (let i = 0; i < saves.length; i++) {
+            const slotY = startY + i * (slotHeight + 10);
+            const slot = saves[i];
+            const isHovered = this.hoveredSlot === i;
+            const isDeleteHovered = isHovered && this.hoveredButton === 'delete';
+            const isConfirmingDelete = this.confirmDelete === slot.slot;
+            
+            ctx.fillStyle = isHovered ? 'rgba(255, 255, 255, 0.1)' : 'rgba(30, 30, 50, 0.8)';
+            ctx.fillRect(centerX - slotWidth / 2, slotY, slotWidth, slotHeight);
+            
+            ctx.strokeStyle = isHovered ? '#00ffff' : '#444466';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(centerX - slotWidth / 2, slotY, slotWidth, slotHeight);
+            
+            ctx.textAlign = 'left';
+            const textX = centerX - slotWidth / 2 + 20;
+            
+            if (slot.empty) {
+                ctx.fillStyle = '#666666';
+                ctx.font = '18px "Courier New", monospace';
+                ctx.fillText(`SLOT ${slot.slot}`, textX, slotY + 30);
+                ctx.fillStyle = '#444444';
+                ctx.font = '14px "Courier New", monospace';
+                ctx.fillText('— Empty —', textX, slotY + 55);
+            } else {
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 18px "Courier New", monospace';
+                ctx.fillText(`SLOT ${slot.slot}`, textX, slotY + 25);
+                
+                ctx.fillStyle = '#00ffff';
+                ctx.font = '14px "Courier New", monospace';
+                ctx.fillText(`Level ${slot.level}  •  Score: ${slot.score.toLocaleString()}`, textX, slotY + 48);
+                
+                ctx.fillStyle = '#888888';
+                ctx.font = '12px "Courier New", monospace';
+                const dateStr = slot.date.toLocaleDateString() + ' ' + slot.date.toLocaleTimeString();
+                ctx.fillText(`${dateStr}  •  ${slot.skillPoints} skill pts`, textX, slotY + 68);
+                
+                const deleteX = centerX + slotWidth / 2 - 35;
+                const deleteY = slotY + slotHeight / 2;
+                
+                ctx.save();
+                if (isConfirmingDelete) {
+                    ctx.fillStyle = '#ff4444';
+                    ctx.font = 'bold 10px "Courier New", monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('CONFIRM?', deleteX, deleteY - 8);
+                    ctx.fillText('CLICK', deleteX, deleteY + 8);
+                } else {
+                    ctx.strokeStyle = isDeleteHovered ? '#ff6666' : '#666666';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(deleteX - 8, deleteY - 8);
+                    ctx.lineTo(deleteX + 8, deleteY + 8);
+                    ctx.moveTo(deleteX + 8, deleteY - 8);
+                    ctx.lineTo(deleteX - 8, deleteY + 8);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+        }
+        
+        ctx.fillStyle = '#666666';
+        ctx.font = '14px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        const instrY = startY + 3 * (slotHeight + 10) + 30;
+        if (this.mode === 'save') {
+            ctx.fillText('Click a slot to save your progress', centerX, instrY);
+        } else {
+            ctx.fillText('Click a saved game to load it', centerX, instrY);
+        }
+        ctx.fillText('Press ESC to close', centerX, instrY + 25);
+    }
+}
+
 // ============== SOUND MANAGER CLASS ==============
 // Procedural audio using Web Audio API - no external files needed!
 class SoundManager {
@@ -1663,6 +2145,9 @@ class Game {
         this.skillTree = new SkillTree();
         this.skillTreeUI = new SkillTreeUI(this.skillTree, this);
         this.regenTimer = 0;
+        
+        // Save/Load system
+        this.saveLoadUI = new SaveLoadUI(this);
 
         this.setupEventListeners();
         this.gameLoop();
@@ -1706,20 +2191,55 @@ class Game {
                     this.skillTreeUI.toggle();
                 }
             }
+            
+            // Save/Load controls
+            if (e.key === 'Escape') {
+                if (this.saveLoadUI.visible) {
+                    this.saveLoadUI.close();
+                } else if (this.skillTreeUI.visible) {
+                    this.skillTreeUI.toggle();
+                }
+            }
+            
+            // F5 = Quick Save (during gameplay)
+            if (e.key === 'F5' && this.state === 'playing') {
+                e.preventDefault();
+                this.saveLoadUI.saveManager.autoSave();
+                this.triggerFlash('#00ff00', 0.15);
+            }
+            
+            // F9 = Load Menu (from start screen or during play)
+            if (e.key === 'F9') {
+                e.preventDefault();
+                if (this.state === 'start' || this.state === 'playing') {
+                    this.saveLoadUI.toggle('load');
+                }
+            }
+            
+            // L = Load menu on start screen
+            if ((e.key === 'l' || e.key === 'L') && this.state === 'start') {
+                this.saveLoadUI.toggle('load');
+            }
         });
 
         window.addEventListener('keyup', (e) => {
             this.keys[e.key] = false;
         });
         
-        // Mouse events for skill tree
+        // Mouse events for skill tree and save/load UI
         this.canvas.addEventListener('click', (e) => {
+            // Save/Load UI takes priority
+            if (this.saveLoadUI.visible) {
+                this.saveLoadUI.handleClick(e.clientX, e.clientY);
+                return;
+            }
             if (this.skillTreeUI.visible) {
                 this.skillTreeUI.handleClick(e.clientX, e.clientY);
             }
         });
         
         this.canvas.addEventListener('mousemove', (e) => {
+            this.saveLoadUI.handleMouseMove(e.clientX, e.clientY);
             this.skillTreeUI.handleMouseMove(e.clientX, e.clientY);
         });
     }
@@ -1830,6 +2350,9 @@ class Game {
         const basePoints = 1;
         const bonusPoints = Math.random() < xpBonus ? 1 : 0;
         this.skillTree.addSkillPoints(basePoints + bonusPoints);
+        
+        // Auto-save progress on level complete
+        this.saveLoadUI.saveManager.autoSave();
         
         // Check if this is a boss level
         if (BOSS_LEVELS.includes(this.level)) {
@@ -2492,6 +3015,7 @@ class Game {
         if (this.state === 'start') {
             this.drawStartScreen(ctx);
             this.skillTreeUI.draw(ctx);
+            this.saveLoadUI.draw(ctx);
             ctx.restore();
             return;
         }
@@ -2543,6 +3067,9 @@ class Game {
         // Draw skill tree UI overlay (if visible)
         this.skillTreeUI.draw(ctx);
         
+        // Draw save/load UI overlay (if visible)
+        this.saveLoadUI.draw(ctx);
+        
         ctx.restore();
     }
 
@@ -2592,6 +3119,17 @@ class Game {
         ctx.font = '16px "Courier New", monospace';
         ctx.fillText(`Press K for Skill Tree (${this.skillTree.skillPoints} points)`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 120);
         ctx.restore();
+        
+        // Load game hint (if saves exist)
+        if (this.saveLoadUI.saveManager.hasSaves()) {
+            ctx.save();
+            ctx.shadowColor = '#00ff88';
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = '#00ff88';
+            ctx.font = '16px "Courier New", monospace';
+            ctx.fillText('Press L to Load Saved Game', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 150);
+            ctx.restore();
+        }
         
         // Draw decorative asteroids in background
         ctx.save();
@@ -4409,6 +4947,81 @@ SoundManager.prototype.playComboBreak = function() {
     
     osc.start(now);
     osc.stop(now + 0.2);
+};
+
+// === SAVE GAME SOUND ===
+// Ascending confirmation beeps
+SoundManager.prototype.playSaveSound = function() {
+    if (!this.initialized) return;
+    this.resume();
+    
+    const now = this.audioContext.currentTime;
+    
+    const notes = [440, 554.37, 659.25]; // A4, C#5, E5 (A major chord)
+    notes.forEach((freq, i) => {
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        
+        const startTime = now + i * 0.08;
+        
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.15, startTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
+        
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        
+        osc.start(startTime);
+        osc.stop(startTime + 0.15);
+    });
+};
+
+// === LOAD GAME SOUND ===
+// Tech-y loading sound with sweep
+SoundManager.prototype.playLoadSound = function() {
+    if (!this.initialized) return;
+    this.resume();
+    
+    const now = this.audioContext.currentTime;
+    
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(200, now);
+    osc.frequency.exponentialRampToValueAtTime(800, now + 0.15);
+    osc.frequency.exponentialRampToValueAtTime(600, now + 0.3);
+    
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.15, now + 0.05);
+    gain.gain.setValueAtTime(0.15, now + 0.2);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+    
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    
+    osc.start(now);
+    osc.stop(now + 0.35);
+    
+    // Confirmation blip
+    const blip = this.audioContext.createOscillator();
+    const blipGain = this.audioContext.createGain();
+    
+    blip.type = 'square';
+    blip.frequency.value = 880;
+    
+    blipGain.gain.setValueAtTime(0, now + 0.3);
+    blipGain.gain.linearRampToValueAtTime(0.1, now + 0.32);
+    blipGain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+    
+    blip.connect(blipGain);
+    blipGain.connect(this.masterGain);
+    
+    blip.start(now + 0.3);
+    blip.stop(now + 0.4);
 };
 
 // Initialize game
