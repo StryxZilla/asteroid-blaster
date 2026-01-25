@@ -1287,33 +1287,52 @@ class ExplosionParticle {
 }
 
 // ============== SCREEN SHAKE CLASS ==============
+// Enhanced for that Geometry Wars juice!
 class ScreenShake {
     constructor() {
         this.intensity = 0;
         this.offsetX = 0;
         this.offsetY = 0;
         this.angle = 0;
+        this.rotation = 0;           // Camera rotation for extra punch
+        this.trauma = 0;             // Trauma accumulation for smooth shaking
     }
 
     trigger(intensity) {
+        // Stack trauma instead of just taking max - multiple hits feel impactful
+        this.trauma = Math.min(1.0, this.trauma + intensity * 0.02);
         this.intensity = Math.max(this.intensity, intensity);
     }
 
     update() {
         if (this.intensity > 0.1) {
+            // Use trauma^2 for non-linear shake (feels more natural)
+            const shake = this.trauma * this.trauma;
+            
+            // Random direction with slight bias toward last direction
             this.angle = Math.random() * Math.PI * 2;
-            this.offsetX = Math.cos(this.angle) * this.intensity;
-            this.offsetY = Math.sin(this.angle) * this.intensity;
+            this.offsetX = Math.cos(this.angle) * this.intensity * shake;
+            this.offsetY = Math.sin(this.angle) * this.intensity * shake;
+            
+            // Subtle rotation adds polish (max ~2 degrees for big hits)
+            this.rotation = (Math.random() - 0.5) * shake * 0.035;
+            
+            // Decay both intensity and trauma
             this.intensity *= SCREEN_SHAKE_DECAY;
+            this.trauma *= 0.95;
         } else {
             this.intensity = 0;
             this.offsetX = 0;
             this.offsetY = 0;
+            this.rotation = 0;
+            this.trauma = 0;
         }
     }
 
     apply(ctx) {
-        ctx.translate(this.offsetX, this.offsetY);
+        ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+        ctx.rotate(this.rotation);
+        ctx.translate(-CANVAS_WIDTH / 2 + this.offsetX, -CANVAS_HEIGHT / 2 + this.offsetY);
     }
 }
 
@@ -1755,8 +1774,17 @@ class Game {
     }
 
     createExplosion(x, y, intensity) {
-        // Screen shake based on explosion size
-        this.screenShake.trigger(intensity * 0.8);
+        // JUICY screen shake - much stronger for big explosions!
+        // Geometry Wars style: big hits should FEEL powerful
+        const shakeIntensity = intensity * 2.5;
+        this.screenShake.trigger(shakeIntensity);
+        
+        // Screen flash for big explosions (large asteroids)
+        // Adds satisfying visual punch to major kills
+        if (intensity >= 15) {
+            // Orange flash for big asteroid explosions
+            this.triggerFlash('#ff6600', Math.min(0.4, intensity * 0.02));
+        }
         
         // Play explosion sound with size-based intensity
         soundManager.playExplosion(intensity / 15);
@@ -1777,9 +1805,14 @@ class Game {
         this.particles.push(new ShockwaveParticle(x, y, intensity * 3));
     }
     
-    // Create green UFO explosion
+    // Create green UFO explosion - extra satisfying!
     createUfoExplosion(x, y) {
-        this.screenShake.trigger(15);
+        // UFO kills deserve BIG screen shake - they're rare and exciting
+        this.screenShake.trigger(35);
+        
+        // Bright green flash for alien destruction satisfaction
+        this.triggerFlash('#00ff44', 0.5);
+        
         soundManager.playUfoDestroyed();
         
         // Green core particles
