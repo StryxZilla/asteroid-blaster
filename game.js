@@ -1,4 +1,4 @@
-﻿// Game constants
+// Game constants
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const FPS = 60;
@@ -133,7 +133,7 @@ const POWERUP_TYPES = {
 const ITEM_TYPES = {
     REPAIR_KIT: { name: 'Repair Kit', color: '#ff6b6b', symbol: 'â™¥', description: 'Restore 1 life', rarity: 0.15 },
     BOMB: { name: 'Bomb', color: '#ff8c00', symbol: 'âœ¸', description: 'Destroy all asteroids', rarity: 0.10 },
-    FREEZE: { name: 'Freeze', color: '#87ceeb', symbol: 'â„', description: 'Freeze asteroids for 5s', rarity: 0.20 },
+    FREEZE: { name: 'Freeze', color: '#87ceeb', symbol: 'â^]„', description: 'Freeze asteroids for 5s', rarity: 0.20 },
     MAGNET: { name: 'Magnet', color: '#da70d6', symbol: 'âŠ›', description: 'Attract items for 10s', rarity: 0.25 },
     SCORE_BOOST: { name: 'Score x2', color: '#ffd700', symbol: 'â˜…', description: 'Double points for 15s', rarity: 0.30 }
 };
@@ -1193,6 +1193,82 @@ class SoundManager {
 
 // Global sound manager instance
 const soundManager = new SoundManager();
+
+// ============== CHALLENGE HIGH SCORE MANAGER ==============
+class ChallengeHighScoreManager {
+    constructor() {
+        this.storageKey = 'asteroids_challenge_scores';
+        this.scores = this.load();
+    }
+    
+    load() {
+        try {
+            const data = localStorage.getItem(this.storageKey);
+            if (data) return JSON.parse(data);
+        } catch (e) { console.warn('Failed to load challenge scores:', e); }
+        return { timeAttack: [], pacifist: [], oneLife: [] };
+    }
+    
+    save() {
+        try { localStorage.setItem(this.storageKey, JSON.stringify(this.scores)); }
+        catch (e) { console.warn('Failed to save challenge scores:', e); }
+    }
+    
+    addTimeAttackScore(timeMs, initials) {
+        const entry = { time: timeMs, initials: initials.toUpperCase(), date: Date.now() };
+        this.scores.timeAttack.push(entry);
+        this.scores.timeAttack.sort((a, b) => a.time - b.time);
+        this.scores.timeAttack = this.scores.timeAttack.slice(0, 10);
+        this.save();
+        return this.scores.timeAttack.findIndex(s => s.date === entry.date) + 1;
+    }
+    
+    addPacifistScore(timeMs, initials) {
+        const entry = { time: timeMs, initials: initials.toUpperCase(), date: Date.now() };
+        this.scores.pacifist.push(entry);
+        this.scores.pacifist.sort((a, b) => b.time - a.time);
+        this.scores.pacifist = this.scores.pacifist.slice(0, 10);
+        this.save();
+        return this.scores.pacifist.findIndex(s => s.date === entry.date) + 1;
+    }
+    
+    addOneLifeScore(score, level, initials) {
+        const entry = { score, level, initials: initials.toUpperCase(), date: Date.now() };
+        this.scores.oneLife.push(entry);
+        this.scores.oneLife.sort((a, b) => b.score - a.score);
+        this.scores.oneLife = this.scores.oneLife.slice(0, 10);
+        this.save();
+        return this.scores.oneLife.findIndex(s => s.date === entry.date) + 1;
+    }
+    
+    isTimeAttackRecord(timeMs) {
+        return this.scores.timeAttack.length < 10 || timeMs < this.scores.timeAttack[this.scores.timeAttack.length - 1].time;
+    }
+    
+    isPacifistRecord(timeMs) {
+        return this.scores.pacifist.length < 10 || timeMs > this.scores.pacifist[this.scores.pacifist.length - 1].time;
+    }
+    
+    isOneLifeRecord(score) {
+        return this.scores.oneLife.length < 10 || score > this.scores.oneLife[this.scores.oneLife.length - 1].score;
+    }
+    
+    formatTime(ms) {
+        const totalSeconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        const millis = Math.floor((ms % 1000) / 10);
+        return `${minutes}:${seconds.toString().padStart(2, '0')}.${millis.toString().padStart(2, '0')}`;
+    }
+}
+
+const challengeScoreManager = new ChallengeHighScoreManager();
+
+const CHALLENGE_MODES = {
+    TIME_ATTACK: { name: 'TIME ATTACK', desc: 'Destroy 50 asteroids FAST!', color: '#ffaa00', target: 50 },
+    PACIFIST: { name: 'PACIFIST', desc: 'Survive 2 min - NO shooting!', color: '#00ff88', duration: 7200 },
+    ONE_LIFE: { name: 'ONE LIFE', desc: 'Single life - no continues', color: '#ff4466' }
+};
 
 // ============== ACHIEVEMENT SYSTEM ==============
 // Unlock achievements for milestones - persistent with localStorage
@@ -2466,6 +2542,16 @@ class Game {
         
         // Engine sound state tracking
         this.wasThrusting = false;
+        // Challenge mode system
+        this.gameMode = 'classic';
+        this.challengeStartTime = 0;
+        this.challengeAsteroidsDestroyed = 0;
+        this.modeSelectIndex = 0;
+        this.challengeInitials = ['A', 'A', 'A'];
+        this.challengeInitialIndex = 0;
+        this.isNewChallengeRecord = false;
+        this.challengeRank = 0;
+        this.challengeEndTime = 0;
 
         this.setupEventListeners();
         this.gameLoop();
@@ -2549,7 +2635,7 @@ class Game {
                 }
             }
 
-            if (e.key === ' ' && this.state === 'playing' && this.ship) {
+            if (e.key === ' ' && this.state === 'playing' && this.ship && this.gameMode !== 'pacifist') {
                 e.preventDefault();
                 this.ship.shoot();
             }
@@ -2645,6 +2731,67 @@ class Game {
     triggerFlash(color, alpha) {
         this.flashColor = color;
         this.flashAlpha = alpha;
+    }
+    startChallengeMode() {
+        const modes = ['classic', 'timeAttack', 'pacifist', 'oneLife'];
+        this.gameMode = modes[this.modeSelectIndex];
+        
+        this.state = 'playing';
+        this.score = 0;
+        this.level = 1;
+        this.ship = new Ship(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, this);
+        this.asteroids = [];
+        this.bullets = [];
+        this.particles = [];
+        this.trailParticles = [];
+        this.explosionParticles = [];
+        this.powerUps = [];
+        this.items = [];
+        this.inventory = [];
+        this.ufos = [];
+        this.enemyBullets = [];
+        this.ufoSpawnTimer = this.getRandomUfoSpawnTime();
+        this.magnetActive = false;
+        this.magnetTimer = 0;
+        this.scoreMultiplier = 1;
+        this.scoreMultiplierTimer = 0;
+        this.freezeActive = false;
+        this.freezeTimer = 0;
+        this.challengeStartTime = Date.now();
+        this.challengeAsteroidsDestroyed = 0;
+        this.isNewChallengeRecord = false;
+        
+        this.lives = this.gameMode === 'oneLife' ? 1 : 3;
+        const asteroidCount = this.gameMode === 'timeAttack' ? 8 : this.gameMode === 'pacifist' ? 6 : 4;
+        this.spawnAsteroids(asteroidCount);
+        
+        this.updateUI();
+        this.updateInventoryUI();
+        this.triggerFlash('#00ffff', 0.3);
+        soundManager.playGameStart();
+    }
+    
+    submitChallengeScore() {
+        const initials = this.challengeInitials.join('');
+        if (this.gameMode === 'timeAttack') {
+            this.challengeRank = challengeScoreManager.addTimeAttackScore(this.challengeEndTime - this.challengeStartTime, initials);
+        } else if (this.gameMode === 'pacifist') {
+            this.challengeRank = challengeScoreManager.addPacifistScore(Date.now() - this.challengeStartTime, initials);
+        } else if (this.gameMode === 'oneLife') {
+            this.challengeRank = challengeScoreManager.addOneLifeScore(this.score, this.level, initials);
+        }
+        this.state = 'modeSelect';
+    }
+    
+    completeChallengeMode() {
+        this.challengeEndTime = Date.now();
+        this.state = 'challengeComplete';
+        soundManager.playLevelComplete();
+        if (this.gameMode === 'timeAttack') {
+            this.isNewChallengeRecord = challengeScoreManager.isTimeAttackRecord(this.challengeEndTime - this.challengeStartTime);
+        } else if (this.gameMode === 'pacifist') {
+            this.isNewChallengeRecord = challengeScoreManager.isPacifistRecord(this.challengeEndTime - this.challengeStartTime);
+        }
     }
 
     spawnAsteroids(count) {
@@ -2796,6 +2943,12 @@ class Game {
     }
 
     gameOver() {
+        if (this.gameMode === 'oneLife' && challengeScoreManager.isOneLifeRecord(this.score)) {
+            this.isNewChallengeRecord = true;
+            this.challengeEndTime = Date.now();
+            this.state = 'challengeComplete';
+            return;
+        }
         this.state = 'gameover';
         this.triggerFlash('#ff0000', 0.5);
         
@@ -2841,6 +2994,7 @@ class Game {
     }
 
     addScore(points) {
+        if (this.gameMode === 'timeAttack' && points >= 20) this.challengeAsteroidsDestroyed++;
         const finalPoints = points * this.scoreMultiplier;
         this.score += finalPoints;
         shipUpgradeManager.addScrap(finalPoints * SCRAP_PER_SCORE);
@@ -3241,6 +3395,15 @@ class Game {
 
         if (this.state !== 'playing') return;
         
+        if (this.gameMode === 'timeAttack' && this.challengeAsteroidsDestroyed >= 50) {
+            this.completeChallengeMode();
+            return;
+        }
+        if (this.gameMode === 'pacifist' && Date.now() - this.challengeStartTime >= 120000) {
+            this.completeChallengeMode();
+            return;
+        }
+        
         // Skip gameplay updates during certain transitions
         if (this.transitionManager.shouldPauseGameplay()) return;
 
@@ -3611,6 +3774,7 @@ class Game {
         }
 
         this.drawItemEffectIndicators(ctx);
+        this.drawChallengeHUD(ctx);
         this.drawWeaponIndicator(ctx);
         
         // Draw flash overlay
@@ -4119,6 +4283,187 @@ class Game {
         ctx.restore();
     }
 
+
+    drawModeSelectScreen(ctx) {
+        ctx.save();
+        ctx.shadowColor = COLORS.shipPrimary;
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = COLORS.shipPrimary;
+        ctx.font = 'bold 36px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('SELECT MODE', CANVAS_WIDTH / 2, 80);
+        ctx.restore();
+        
+        const modes = [
+            { key: 'classic', name: 'CLASSIC', desc: 'Standard arcade mode', color: '#00ffff' },
+            { key: 'timeAttack', name: 'TIME ATTACK', desc: 'Destroy 50 asteroids FAST!', color: '#ffaa00' },
+            { key: 'pacifist', name: 'PACIFIST', desc: 'Survive 2 min - NO shooting!', color: '#00ff88' },
+            { key: 'oneLife', name: 'ONE LIFE', desc: 'Single life - no continues', color: '#ff4466' }
+        ];
+        
+        modes.forEach((mode, i) => {
+            const y = 160 + i * 80;
+            const isSelected = i === this.modeSelectIndex;
+            ctx.save();
+            if (isSelected) {
+                ctx.shadowColor = mode.color;
+                ctx.shadowBlur = 15;
+                ctx.fillStyle = mode.color;
+                ctx.fillRect(150, y - 25, 500, 60);
+                ctx.fillStyle = '#000';
+            } else {
+                ctx.strokeStyle = mode.color + '60';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(150, y - 25, 500, 60);
+                ctx.fillStyle = mode.color;
+            }
+            ctx.font = 'bold 24px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(mode.name, CANVAS_WIDTH / 2, y);
+            ctx.font = '14px "Courier New", monospace';
+            ctx.fillText(mode.desc, CANVAS_WIDTH / 2, y + 22);
+            ctx.restore();
+        });
+        
+        ctx.fillStyle = '#666';
+        ctx.font = '16px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('UP/DOWN to select, ENTER to start', CANVAS_WIDTH / 2, 520);
+        this.drawChallengeLeaderboard(ctx, modes[this.modeSelectIndex].key);
+    }
+    
+    drawChallengeLeaderboard(ctx, modeKey) {
+        if (modeKey === 'classic') return;
+        const scores = challengeScoreManager.scores[modeKey] || [];
+        if (scores.length === 0) return;
+        ctx.save();
+        ctx.fillStyle = '#888';
+        ctx.font = '12px "Courier New", monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText('TOP SCORES:', CANVAS_WIDTH - 30, 100);
+        scores.slice(0, 3).forEach((score, i) => {
+            const colors = ['#ffd700', '#c0c0c0', '#cd7f32'];
+            ctx.fillStyle = colors[i];
+            let text = modeKey === 'oneLife' 
+                ? `${i+1}. ${score.initials} - ${score.score} (L${score.level})`
+                : `${i+1}. ${score.initials} - ${challengeScoreManager.formatTime(score.time)}`;
+            ctx.fillText(text, CANVAS_WIDTH - 30, 120 + i * 18);
+        });
+        ctx.restore();
+    }
+    
+    drawChallengeCompleteScreen(ctx) {
+        ctx.save();
+        ctx.shadowColor = '#00ff00';
+        ctx.shadowBlur = 30;
+        ctx.fillStyle = '#00ff00';
+        ctx.font = 'bold 48px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('CHALLENGE COMPLETE!', CANVAS_WIDTH / 2, 150);
+        ctx.restore();
+        
+        const timeStr = challengeScoreManager.formatTime(this.challengeEndTime - this.challengeStartTime);
+        ctx.fillStyle = '#fff';
+        ctx.font = '28px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        
+        if (this.gameMode === 'timeAttack') {
+            ctx.fillText('TIME: ' + timeStr, CANVAS_WIDTH / 2, 230);
+            ctx.fillText('50 asteroids destroyed!', CANVAS_WIDTH / 2, 270);
+        } else if (this.gameMode === 'pacifist') {
+            ctx.fillText('SURVIVED 2 MINUTES!', CANVAS_WIDTH / 2, 230);
+            ctx.fillText('Score: ' + this.score, CANVAS_WIDTH / 2, 270);
+        } else if (this.gameMode === 'oneLife') {
+            ctx.fillText('Score: ' + this.score, CANVAS_WIDTH / 2, 230);
+            ctx.fillText('Level: ' + this.level, CANVAS_WIDTH / 2, 270);
+        }
+        
+        if (this.isNewChallengeRecord) {
+            const pulse = Math.sin(this.time * 0.1) * 0.3 + 1;
+            ctx.save();
+            ctx.shadowColor = '#ffd700';
+            ctx.shadowBlur = 20 * pulse;
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold ' + (32 * pulse) + 'px "Courier New", monospace';
+            ctx.fillText('NEW RECORD!', CANVAS_WIDTH / 2, 340);
+            ctx.restore();
+        }
+        
+        if (Math.floor(this.time / 30) % 2 === 0) {
+            ctx.fillStyle = '#aaa';
+            ctx.font = '20px "Courier New", monospace';
+            ctx.fillText('Press ENTER to save score', CANVAS_WIDTH / 2, 450);
+        }
+    }
+    
+    drawChallengeInitialsScreen(ctx) {
+        ctx.save();
+        ctx.shadowColor = '#ffd700';
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 36px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('ENTER YOUR INITIALS', CANVAS_WIDTH / 2, 150);
+        ctx.restore();
+        
+        for (let i = 0; i < 3; i++) {
+            const x = CANVAS_WIDTH / 2 - 90 + i * 60;
+            const isSelected = i === this.challengeInitialIndex;
+            ctx.save();
+            ctx.strokeStyle = isSelected ? '#00ffff' : '#666';
+            if (isSelected) { ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 15; }
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x, 200, 50, 70);
+            ctx.fillStyle = isSelected ? '#00ffff' : '#fff';
+            ctx.font = 'bold 48px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(this.challengeInitials[i], x + 25, 255);
+            ctx.restore();
+        }
+        
+        ctx.fillStyle = '#888';
+        ctx.font = '16px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('UP/DOWN to change, LEFT/RIGHT to move', CANVAS_WIDTH / 2, 320);
+        ctx.fillText('ENTER to confirm', CANVAS_WIDTH / 2, 345);
+    }
+    
+    drawChallengeHUD(ctx) {
+        if (this.gameMode === 'classic') return;
+        ctx.save();
+        
+        if (this.gameMode === 'timeAttack') {
+            const timeStr = challengeScoreManager.formatTime(Date.now() - this.challengeStartTime);
+            ctx.shadowColor = '#ffaa00';
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = '#ffaa00';
+            ctx.font = 'bold 24px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(timeStr, CANVAS_WIDTH / 2, 30);
+            ctx.font = '16px "Courier New", monospace';
+            ctx.fillText(this.challengeAsteroidsDestroyed + ' / 50 ASTEROIDS', CANVAS_WIDTH / 2, 52);
+        } else if (this.gameMode === 'pacifist') {
+            const remaining = Math.max(0, 120000 - (Date.now() - this.challengeStartTime));
+            const timeStr = challengeScoreManager.formatTime(remaining);
+            ctx.shadowColor = remaining < 30000 ? '#ff0000' : '#00ff88';
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = remaining < 30000 ? '#ff0000' : '#00ff88';
+            ctx.font = 'bold 28px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(timeStr, CANVAS_WIDTH / 2, 35);
+            ctx.font = '14px "Courier New", monospace';
+            ctx.fillText('NO SHOOTING!', CANVAS_WIDTH / 2, 55);
+        } else if (this.gameMode === 'oneLife') {
+            ctx.shadowColor = '#ff4466';
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = '#ff4466';
+            ctx.font = 'bold 18px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('ONE LIFE MODE', CANVAS_WIDTH / 2, 25);
+        }
+        
+        ctx.restore();
+    }
     gameLoop() {
         this.update();
         this.draw();
@@ -6034,4 +6379,11 @@ class Item {
 window.addEventListener('DOMContentLoaded', () => {
     new Game();
 });
+
+
+
+
+
+
+
 
