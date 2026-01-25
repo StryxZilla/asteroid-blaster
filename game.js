@@ -1008,7 +1008,7 @@ class SaveLoadUI {
                 ctx.fillText(`SLOT ${slot.slot}`, textX, slotY + 30);
                 ctx.fillStyle = '#444444';
                 ctx.font = '14px "Courier New", monospace';
-                ctx.fillText('Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•â•¬Ã´â”œÃ§â”¬Ã‘ Empty Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•â•¬Ã´â”œÃ§â”¬Ã‘', textX, slotY + 55);
+                ctx.fillText('├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├â┬º├óΓÇ¥┬¼├âΓÇÿ Empty ├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├â┬º├óΓÇ¥┬¼├âΓÇÿ', textX, slotY + 55);
             } else {
                 ctx.fillStyle = '#ffffff';
                 ctx.font = 'bold 18px "Courier New", monospace';
@@ -1016,12 +1016,12 @@ class SaveLoadUI {
                 
                 ctx.fillStyle = '#00ffff';
                 ctx.font = '14px "Courier New", monospace';
-                ctx.fillText(`Level ${slot.level}  Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•Î“Ã¶Â¼â”œâ”‚  Score: ${slot.score.toLocaleString()}`, textX, slotY + 48);
+                ctx.fillText(`Level ${slot.level}  ├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├ÄΓÇ£├â┬╢├é┬╝├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ  Score: ${slot.score.toLocaleString()}`, textX, slotY + 48);
                 
                 ctx.fillStyle = '#888888';
                 ctx.font = '12px "Courier New", monospace';
                 const dateStr = slot.date.toLocaleDateString() + ' ' + slot.date.toLocaleTimeString();
-                ctx.fillText(`${dateStr}  Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•Î“Ã¶Â¼â”œâ”‚  ${slot.skillPoints} skill pts`, textX, slotY + 68);
+                ctx.fillText(`${dateStr}  ├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├ÄΓÇ£├â┬╢├é┬╝├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ  ${slot.skillPoints} skill pts`, textX, slotY + 68);
                 
                 const deleteX = centerX + slotWidth / 2 - 35;
                 const deleteY = slotY + slotHeight / 2;
@@ -2541,34 +2541,233 @@ class ExplosionParticle {
     }
 }
 
+// ============== SHIP DEBRIS PARTICLE CLASS ==============
+// Hull pieces that tumble and fade during ship destruction
+class ShipDebrisParticle {
+    constructor(x, y, angle, color) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        
+        // Launch debris outward from explosion center
+        const speed = 2 + Math.random() * 4;
+        const launchAngle = angle + (Math.random() - 0.5) * 0.5;
+        this.vx = Math.cos(launchAngle) * speed;
+        this.vy = Math.sin(launchAngle) * speed;
+        
+        // Tumbling rotation
+        this.rotation = Math.random() * Math.PI * 2;
+        this.rotSpeed = (Math.random() - 0.5) * 0.3;
+        
+        // Debris shape (triangular hull piece)
+        this.size = 4 + Math.random() * 8;
+        this.shape = Math.floor(Math.random() * 3); // 0=triangle, 1=quad, 2=line
+        
+        this.lifetime = 60 + Math.random() * 40;
+        this.maxLifetime = this.lifetime;
+        
+        // Trail
+        this.trail = [];
+        this.trailTimer = 0;
+    }
+    
+    update() {
+        // Movement with drag
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vx *= 0.98;
+        this.vy *= 0.98;
+        
+        // Rotation
+        this.rotation += this.rotSpeed;
+        this.rotSpeed *= 0.99;
+        
+        // Trail spawning
+        this.trailTimer++;
+        if (this.trailTimer % 3 === 0 && this.lifetime > this.maxLifetime * 0.3) {
+            this.trail.push({
+                x: this.x,
+                y: this.y,
+                alpha: 0.6,
+                size: this.size * 0.5
+            });
+        }
+        
+        // Update trail
+        this.trail = this.trail.filter(t => {
+            t.alpha -= 0.08;
+            t.size *= 0.95;
+            return t.alpha > 0;
+        });
+        
+        this.lifetime--;
+    }
+    
+    draw(ctx) {
+        const alpha = Math.min(1, this.lifetime / (this.maxLifetime * 0.3));
+        
+        // Draw trail
+        this.trail.forEach(t => {
+            ctx.save();
+            ctx.globalAlpha = t.alpha * alpha;
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, t.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        });
+        
+        // Draw debris piece
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+        ctx.globalAlpha = alpha;
+        
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = this.color;
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 2;
+        
+        ctx.beginPath();
+        if (this.shape === 0) {
+            // Triangle piece
+            ctx.moveTo(0, -this.size);
+            ctx.lineTo(-this.size * 0.7, this.size * 0.5);
+            ctx.lineTo(this.size * 0.7, this.size * 0.5);
+            ctx.closePath();
+        } else if (this.shape === 1) {
+            // Quad piece
+            ctx.moveTo(-this.size * 0.5, -this.size * 0.5);
+            ctx.lineTo(this.size * 0.5, -this.size * 0.3);
+            ctx.lineTo(this.size * 0.3, this.size * 0.5);
+            ctx.lineTo(-this.size * 0.4, this.size * 0.3);
+            ctx.closePath();
+        } else {
+            // Line piece (strut)
+            ctx.moveTo(-this.size, 0);
+            ctx.lineTo(this.size, 0);
+        }
+        
+        if (this.shape === 2) {
+            ctx.stroke();
+        } else {
+            ctx.fill();
+            ctx.stroke();
+        }
+        
+        ctx.restore();
+    }
+}
+
 // ============== SCREEN SHAKE CLASS ==============
+// Enhanced screen shake with rotation, intensity scaling, and directional shake
 class ScreenShake {
     constructor() {
         this.intensity = 0;
         this.offsetX = 0;
         this.offsetY = 0;
-        this.angle = 0;
+        this.rotation = 0;
+        
+        // Directional shake properties
+        this.directionX = 0;
+        this.directionY = 0;
+        this.directionalBias = 0;
+        
+        // Shake characteristics
+        this.frequency = 0;
+        this.traumaDecay = 0.92; // Smoother decay
     }
 
+    // Standard trigger - random direction
     trigger(intensity) {
         this.intensity = Math.max(this.intensity, intensity);
+        this.directionalBias = 0;
+    }
+    
+    // Directional trigger - shake toward/away from impact source
+    // sourceX/Y: where the impact happened, pushes camera away from it
+    triggerDirectional(intensity, sourceX, sourceY) {
+        this.intensity = Math.max(this.intensity, intensity);
+        
+        // Calculate direction from screen center to source
+        const centerX = CANVAS_WIDTH / 2;
+        const centerY = CANVAS_HEIGHT / 2;
+        const dx = sourceX - centerX;
+        const dy = sourceY - centerY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist > 0) {
+            // Direction points from center toward impact
+            this.directionX = dx / dist;
+            this.directionY = dy / dist;
+            this.directionalBias = 0.7; // 70% directional, 30% random for organic feel
+        }
     }
 
     update() {
         if (this.intensity > 0.1) {
-            this.angle = Math.random() * Math.PI * 2;
-            this.offsetX = Math.cos(this.angle) * this.intensity;
-            this.offsetY = Math.sin(this.angle) * this.intensity;
-            this.intensity *= SCREEN_SHAKE_DECAY;
+            this.frequency += 0.6;
+            
+            // Base random shake component (Perlin-like smoothing via sin)
+            const randomAngle = Math.sin(this.frequency * 3.7) * Math.PI + 
+                               Math.cos(this.frequency * 2.3) * Math.PI;
+            let shakeX = Math.cos(randomAngle) * this.intensity;
+            let shakeY = Math.sin(randomAngle) * this.intensity;
+            
+            // Add high-frequency jitter for impact feel
+            const jitter = 0.3;
+            shakeX += (Math.random() - 0.5) * this.intensity * jitter;
+            shakeY += (Math.random() - 0.5) * this.intensity * jitter;
+            
+            // Blend in directional component for directional impacts
+            if (this.directionalBias > 0) {
+                // Oscillate along the impact direction
+                const directionalMag = Math.sin(this.frequency * 2.5) * this.intensity;
+                const directionalX = this.directionX * directionalMag;
+                const directionalY = this.directionY * directionalMag;
+                
+                // Blend random and directional
+                shakeX = shakeX * (1 - this.directionalBias) + directionalX * this.directionalBias;
+                shakeY = shakeY * (1 - this.directionalBias) + directionalY * this.directionalBias;
+                
+                // Decay directional bias so shake becomes more random over time
+                this.directionalBias *= 0.94;
+            }
+            
+            this.offsetX = shakeX;
+            this.offsetY = shakeY;
+            
+            // Rotation shake - subtle but adds impact
+            // Intensity-scaled: bigger hits = more rotation (capped for sanity)
+            const maxRotation = 0.04; // ~2.3 degrees max
+            const rotationScale = Math.min(this.intensity / 30, 1); // Scale based on intensity
+            this.rotation = (Math.sin(this.frequency * 4.1) * 0.6 + (Math.random() - 0.5) * 0.4) 
+                           * maxRotation * rotationScale;
+            
+            // Smooth intensity decay with slight variation for organic feel
+            const decayVariation = 1 + (Math.random() - 0.5) * 0.08;
+            this.intensity *= this.traumaDecay * decayVariation;
         } else {
+            // Reset when below threshold
             this.intensity = 0;
             this.offsetX = 0;
             this.offsetY = 0;
+            this.rotation = 0;
+            this.directionalBias = 0;
+            this.frequency = 0;
         }
     }
 
     apply(ctx) {
         ctx.translate(this.offsetX, this.offsetY);
+        
+        // Apply rotation around screen center for natural feel
+        if (Math.abs(this.rotation) > 0.0001) {
+            ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+            ctx.rotate(this.rotation);
+            ctx.translate(-CANVAS_WIDTH / 2, -CANVAS_HEIGHT / 2);
+        }
     }
 }
 
@@ -2862,6 +3061,397 @@ class TouchControlManager {
     }
 }
 
+// ============== WAVE ANNOUNCEMENT SYSTEM ==============
+// Dramatic level/wave announcements with Geometry Wars-style effects
+
+class WaveAnnouncement {
+    constructor(game) {
+        this.game = game;
+        this.active = false;
+        this.timer = 0;
+        this.duration = 180; // 3 seconds at 60fps
+        
+        // Text content
+        this.mainText = '';
+        this.subText = '';
+        this.isBossWave = false;
+        
+        // Animation phases
+        this.phase = 'idle'; // idle, enter, hold, exit
+        this.phaseTimer = 0;
+        
+        // Animation values
+        this.scale = 0;
+        this.alpha = 0;
+        this.glowIntensity = 0;
+        this.letterOffsets = [];
+        
+        // Screen effects
+        this.screenDarken = 0;
+        this.edgeGlow = 0;
+        this.scanlineOffset = 0;
+        
+        // Particle effects
+        this.particles = [];
+    }
+    
+    trigger(level, isBoss = false) {
+        this.active = true;
+        this.timer = 0;
+        this.isBossWave = isBoss;
+        
+        if (isBoss) {
+            this.mainText = 'WARNING';
+            this.subText = `BOSS INCOMING - WAVE ${level}`;
+            this.duration = 210; // Longer for boss
+        } else {
+            this.mainText = `WAVE ${level}`;
+            this.subText = this.getWaveSubtext(level);
+            this.duration = 150;
+        }
+        
+        // Reset animation state
+        this.phase = 'enter';
+        this.phaseTimer = 0;
+        this.scale = 0;
+        this.alpha = 0;
+        this.glowIntensity = 0;
+        this.screenDarken = 0;
+        this.edgeGlow = 0;
+        this.letterOffsets = [];
+        this.particles = [];
+        
+        // Initialize letter offsets for staggered animation
+        for (let i = 0; i < this.mainText.length; i++) {
+            this.letterOffsets.push({
+                y: 50 + Math.random() * 30,
+                rotation: (Math.random() - 0.5) * 0.5,
+                delay: i * 3
+            });
+        }
+        
+        // Play announcement sound
+        if (isBoss) {
+            soundManager.playBossEnrage();
+        }
+    }
+    
+    getWaveSubtext(level) {
+        const subtexts = [
+            'SURVIVE',
+            'DESTROY ALL ASTEROIDS',
+            'SHOW NO MERCY',
+            'CLEAR THE FIELD',
+            'OBLITERATE',
+            'ANNIHILATE',
+            'ERADICATE',
+            'DOMINATE'
+        ];
+        
+        // Special messages for milestone levels
+        if (level === 1) return 'BEGIN';
+        if (level === 5) return 'THINGS ARE HEATING UP';
+        if (level === 10) return 'HALFWAY THERE';
+        if (level === 15) return 'ELITE TERRITORY';
+        if (level === 20) return 'LEGENDARY STATUS';
+        if (level === 25) return 'MASTER CLASS';
+        if (level >= 30) return 'GODLIKE';
+        
+        return subtexts[Math.floor(Math.random() * subtexts.length)];
+    }
+    
+    update() {
+        if (!this.active) return;
+        
+        this.timer++;
+        this.phaseTimer++;
+        this.scanlineOffset = (this.scanlineOffset + 2) % 10;
+        
+        // Phase transitions
+        const enterDuration = 30;
+        const holdDuration = this.duration - 60;
+        const exitDuration = 30;
+        
+        if (this.phase === 'enter') {
+            const progress = Math.min(1, this.phaseTimer / enterDuration);
+            const eased = this.easeOutBack(progress);
+            
+            this.scale = eased;
+            this.alpha = progress;
+            this.screenDarken = progress * (this.isBossWave ? 0.5 : 0.3);
+            this.edgeGlow = progress;
+            this.glowIntensity = progress;
+            
+            // Update letter offsets
+            this.letterOffsets.forEach((offset, i) => {
+                if (this.phaseTimer > offset.delay) {
+                    offset.y *= 0.85;
+                    offset.rotation *= 0.9;
+                }
+            });
+            
+            if (this.phaseTimer >= enterDuration) {
+                this.phase = 'hold';
+                this.phaseTimer = 0;
+            }
+        } else if (this.phase === 'hold') {
+            this.scale = 1 + Math.sin(this.timer * 0.1) * 0.02;
+            this.alpha = 1;
+            this.glowIntensity = 0.8 + Math.sin(this.timer * 0.15) * 0.2;
+            
+            // Spawn particles during hold
+            if (this.timer % 3 === 0) {
+                this.spawnParticle();
+            }
+            
+            if (this.phaseTimer >= holdDuration) {
+                this.phase = 'exit';
+                this.phaseTimer = 0;
+            }
+        } else if (this.phase === 'exit') {
+            const progress = Math.min(1, this.phaseTimer / exitDuration);
+            const eased = this.easeInBack(progress);
+            
+            this.scale = 1 + eased * 0.5;
+            this.alpha = 1 - progress;
+            this.screenDarken = (1 - progress) * (this.isBossWave ? 0.5 : 0.3);
+            this.edgeGlow = 1 - progress;
+            this.glowIntensity = 1 - progress;
+            
+            if (this.phaseTimer >= exitDuration) {
+                this.active = false;
+                this.phase = 'idle';
+            }
+        }
+        
+        // Update particles
+        this.particles = this.particles.filter(p => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.lifetime--;
+            p.alpha = p.lifetime / p.maxLifetime;
+            return p.lifetime > 0;
+        });
+    }
+    
+    spawnParticle() {
+        const centerX = CANVAS_WIDTH / 2;
+        const centerY = CANVAS_HEIGHT / 2;
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 100 + Math.random() * 150;
+        
+        this.particles.push({
+            x: centerX + Math.cos(angle) * distance,
+            y: centerY + Math.sin(angle) * distance,
+            vx: Math.cos(angle) * (2 + Math.random() * 2),
+            vy: Math.sin(angle) * (2 + Math.random() * 2),
+            size: 2 + Math.random() * 3,
+            color: this.isBossWave ? '#ff0066' : '#00ffff',
+            lifetime: 40 + Math.random() * 20,
+            maxLifetime: 60,
+            alpha: 1
+        });
+    }
+    
+    easeOutBack(t) {
+        const c1 = 1.70158;
+        const c3 = c1 + 1;
+        return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+    }
+    
+    easeInBack(t) {
+        const c1 = 1.70158;
+        const c3 = c1 + 1;
+        return c3 * t * t * t - c1 * t * t;
+    }
+    
+    draw(ctx) {
+        if (!this.active) return;
+        
+        ctx.save();
+        
+        // Screen darkening overlay
+        if (this.screenDarken > 0) {
+            ctx.fillStyle = `rgba(0, 0, 0, ${this.screenDarken})`;
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        }
+        
+        // Edge glow effect
+        if (this.edgeGlow > 0) {
+            const glowColor = this.isBossWave ? '#ff0066' : '#00ffff';
+            const gradient = ctx.createRadialGradient(
+                CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_HEIGHT * 0.3,
+                CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_HEIGHT * 0.8
+            );
+            gradient.addColorStop(0, 'transparent');
+            gradient.addColorStop(1, glowColor);
+            ctx.globalAlpha = this.edgeGlow * 0.3;
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            ctx.globalAlpha = 1;
+        }
+        
+        // Scanlines effect for boss
+        if (this.isBossWave && this.alpha > 0) {
+            ctx.globalAlpha = this.alpha * 0.1;
+            ctx.strokeStyle = '#ff0066';
+            ctx.lineWidth = 1;
+            for (let y = this.scanlineOffset; y < CANVAS_HEIGHT; y += 10) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(CANVAS_WIDTH, y);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+        }
+        
+        // Draw particles
+        this.particles.forEach(p => {
+            ctx.globalAlpha = p.alpha;
+            ctx.fillStyle = p.color;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+        
+        // Main text
+        const centerX = CANVAS_WIDTH / 2;
+        const centerY = CANVAS_HEIGHT / 2 - 20;
+        
+        ctx.globalAlpha = this.alpha;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Draw main text with letter animation
+        const mainColor = this.isBossWave ? '#ff0066' : '#00ffff';
+        const fontSize = this.isBossWave ? 72 : 64;
+        ctx.font = `bold ${fontSize}px "Courier New", monospace`;
+        
+        // Glow layers
+        const glowLayers = [40, 30, 20, 10];
+        glowLayers.forEach((blur, i) => {
+            ctx.shadowBlur = blur * this.glowIntensity;
+            ctx.shadowColor = mainColor;
+            ctx.fillStyle = mainColor;
+            
+            // Draw each letter
+            let xOffset = -((this.mainText.length - 1) * fontSize * 0.35);
+            for (let i = 0; i < this.mainText.length; i++) {
+                const letter = this.mainText[i];
+                const offset = this.letterOffsets[i] || { y: 0, rotation: 0 };
+                
+                ctx.save();
+                ctx.translate(centerX + xOffset, centerY + offset.y * this.scale);
+                ctx.rotate(offset.rotation);
+                ctx.scale(this.scale, this.scale);
+                ctx.fillText(letter, 0, 0);
+                ctx.restore();
+                
+                xOffset += fontSize * 0.7;
+            }
+        });
+        
+        // White core text
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#ffffff';
+        let xOffset = -((this.mainText.length - 1) * fontSize * 0.35);
+        for (let i = 0; i < this.mainText.length; i++) {
+            const letter = this.mainText[i];
+            const offset = this.letterOffsets[i] || { y: 0, rotation: 0 };
+            
+            ctx.save();
+            ctx.translate(centerX + xOffset, centerY + offset.y * this.scale);
+            ctx.rotate(offset.rotation);
+            ctx.scale(this.scale, this.scale);
+            ctx.fillText(letter, 0, 0);
+            ctx.restore();
+            
+            xOffset += fontSize * 0.7;
+        }
+        
+        // Subtitle
+        if (this.subText && this.phase !== 'enter') {
+            const subAlpha = this.phase === 'hold' ? 1 : this.alpha;
+            ctx.globalAlpha = subAlpha * 0.9;
+            ctx.font = 'bold 24px "Courier New", monospace';
+            ctx.shadowBlur = 15 * this.glowIntensity;
+            ctx.shadowColor = mainColor;
+            ctx.fillStyle = mainColor;
+            ctx.fillText(this.subText, centerX, centerY + 60);
+            
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#ffffff';
+            ctx.globalAlpha = subAlpha * 0.7;
+            ctx.fillText(this.subText, centerX, centerY + 60);
+        }
+        
+        // Decorative lines
+        if (this.alpha > 0.5) {
+            const lineAlpha = (this.alpha - 0.5) * 2;
+            ctx.globalAlpha = lineAlpha * 0.6;
+            ctx.strokeStyle = mainColor;
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = mainColor;
+            
+            // Left line
+            const lineWidth = 150 * this.scale;
+            ctx.beginPath();
+            ctx.moveTo(centerX - 250 * this.scale, centerY);
+            ctx.lineTo(centerX - 250 * this.scale + lineWidth, centerY);
+            ctx.stroke();
+            
+            // Right line
+            ctx.beginPath();
+            ctx.moveTo(centerX + 250 * this.scale - lineWidth, centerY);
+            ctx.lineTo(centerX + 250 * this.scale, centerY);
+            ctx.stroke();
+            
+            // Corner accents
+            const cornerSize = 15 * this.scale;
+            ctx.lineWidth = 3;
+            
+            // Top-left
+            ctx.beginPath();
+            ctx.moveTo(centerX - 200 * this.scale, centerY - 50 * this.scale);
+            ctx.lineTo(centerX - 200 * this.scale, centerY - 50 * this.scale + cornerSize);
+            ctx.moveTo(centerX - 200 * this.scale, centerY - 50 * this.scale);
+            ctx.lineTo(centerX - 200 * this.scale + cornerSize, centerY - 50 * this.scale);
+            ctx.stroke();
+            
+            // Top-right
+            ctx.beginPath();
+            ctx.moveTo(centerX + 200 * this.scale, centerY - 50 * this.scale);
+            ctx.lineTo(centerX + 200 * this.scale, centerY - 50 * this.scale + cornerSize);
+            ctx.moveTo(centerX + 200 * this.scale, centerY - 50 * this.scale);
+            ctx.lineTo(centerX + 200 * this.scale - cornerSize, centerY - 50 * this.scale);
+            ctx.stroke();
+            
+            // Bottom-left
+            ctx.beginPath();
+            ctx.moveTo(centerX - 200 * this.scale, centerY + 80 * this.scale);
+            ctx.lineTo(centerX - 200 * this.scale, centerY + 80 * this.scale - cornerSize);
+            ctx.moveTo(centerX - 200 * this.scale, centerY + 80 * this.scale);
+            ctx.lineTo(centerX - 200 * this.scale + cornerSize, centerY + 80 * this.scale);
+            ctx.stroke();
+            
+            // Bottom-right
+            ctx.beginPath();
+            ctx.moveTo(centerX + 200 * this.scale, centerY + 80 * this.scale);
+            ctx.lineTo(centerX + 200 * this.scale, centerY + 80 * this.scale - cornerSize);
+            ctx.moveTo(centerX + 200 * this.scale, centerY + 80 * this.scale);
+            ctx.lineTo(centerX + 200 * this.scale - cornerSize, centerY + 80 * this.scale);
+            ctx.stroke();
+        }
+        
+        ctx.restore();
+    }
+}
+
 
 
 class Game {
@@ -2880,6 +3470,7 @@ class Game {
         this.particles = [];
         this.trailParticles = [];
         this.explosionParticles = [];
+        this.shipDebris = [];
         this.powerUps = [];
         this.items = [];
         this.inventory = [];
@@ -2941,6 +3532,9 @@ class Game {
 
                 // Mobile touch controls
         this.touchControls = new TouchControlManager(this.canvas);
+
+        // Wave announcement system
+        this.waveAnnouncement = new WaveAnnouncement(this);
 
         this.setupEventListeners();
         this.gameLoop();
@@ -3112,6 +3706,7 @@ class Game {
         this.particles = [];
         this.trailParticles = [];
         this.explosionParticles = [];
+        this.shipDebris = [];
         this.powerUps = [];
         this.items = [];
         this.inventory = [];
@@ -3134,6 +3729,9 @@ class Game {
         this.spawnAsteroids(4);
         this.updateUI();
         this.updateInventoryUI();
+        
+        // Trigger wave 1 announcement
+        this.waveAnnouncement.trigger(1, false);
         
         // Flash effect on start
         this.triggerFlash('#00ffff', 0.3);
@@ -3216,9 +3814,13 @@ class Game {
             this.bossLevel = true;
             this.boss = new Boss(this);
             this.triggerFlash('#ff0066', 0.4);
+            // Trigger dramatic boss warning announcement
+            this.waveAnnouncement.trigger(this.level, true);
             // Don't play normal level complete - boss appear sound plays instead
         } else {
             this.bossLevel = false;
+            // Trigger wave announcement
+            this.waveAnnouncement.trigger(this.level, false);
             this.spawnAsteroids(3 + this.level);
             this.triggerFlash('#00ff00', 0.2);
             soundManager.playLevelComplete();
@@ -3576,8 +4178,8 @@ class Game {
     }
 
     createExplosion(x, y, intensity) {
-        // Screen shake based on explosion size
-        this.screenShake.trigger(intensity * 0.8);
+        // Directional screen shake based on explosion size and position
+        this.screenShake.triggerDirectional(intensity * 0.8, x, y);
         
         // Play explosion sound with size-based intensity
         soundManager.playExplosion(intensity / 15);
@@ -3600,7 +4202,7 @@ class Game {
     
     // Create green UFO explosion
     createUfoExplosion(x, y) {
-        this.screenShake.trigger(15);
+        this.screenShake.triggerDirectional(15, x, y);
         soundManager.playUfoDestroyed();
         
         // Green core particles
@@ -3617,6 +4219,54 @@ class Game {
         this.particles.push(new ShockwaveParticle(x, y, 60));
     }
 
+    // Create dramatic ship destruction effect
+    createShipExplosion(x, y, angle) {
+        // Massive directional screen shake from ship position
+        this.screenShake.triggerDirectional(35, x, y);
+        
+        // Bright flash
+        this.triggerFlash('#00ffff', 0.6);
+        
+        // Play death sound
+        soundManager.playShipDeath();
+        
+        // Create hull debris pieces (8-12 pieces)
+        const debrisCount = 8 + Math.floor(Math.random() * 5);
+        const colors = [COLORS.shipPrimary, COLORS.shipSecondary, '#ffffff', COLORS.shipEngine];
+        
+        for (let i = 0; i < debrisCount; i++) {
+            const debrisAngle = (i / debrisCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            this.shipDebris.push(new ShipDebrisParticle(x, y, debrisAngle, color));
+        }
+        
+        // Core explosion particles (cyan themed)
+        for (let i = 0; i < 20; i++) {
+            this.explosionParticles.push(new ExplosionParticle(x, y, COLORS.shipPrimary, true));
+        }
+        
+        // Secondary explosion particles
+        for (let i = 0; i < 30; i++) {
+            const color = Math.random() > 0.5 ? COLORS.shipPrimary : COLORS.shipEngine;
+            this.explosionParticles.push(new ExplosionParticle(x, y, color, false));
+        }
+        
+        // Large shockwave
+        this.particles.push(new ShockwaveParticle(x, y, 100));
+        
+        // Cascading secondary explosions (delayed)
+        const game = this;
+        for (let wave = 1; wave < 4; wave++) {
+            setTimeout(() => {
+                if (game.state === 'gameover' && wave > 1) return;
+                const offsetX = (Math.random() - 0.5) * 30;
+                const offsetY = (Math.random() - 0.5) * 30;
+                game.createExplosion(x + offsetX, y + offsetY, 12 - wave * 2);
+                game.screenShake.trigger(12 - wave * 3);
+            }, wave * 100);
+        }
+    }
+
     update() {
         this.time++;
         this.titlePulse += 0.05;
@@ -3628,6 +4278,11 @@ class Game {
         
         // Update screen shake
         this.screenShake.update();
+        
+        // Update wave announcement (always, even when paused for dramatic effect)
+        if (this.waveAnnouncement) {
+            this.waveAnnouncement.update();
+        }
         
         // Fade flash effect
         if (this.flashAlpha > 0) {
@@ -3709,6 +4364,11 @@ class Game {
         this.explosionParticles = this.explosionParticles.filter(particle => {
             particle.update();
             return particle.lifetime > 0;
+        });
+
+        this.shipDebris = this.shipDebris.filter(debris => {
+            debris.update();
+            return debris.lifetime > 0;
         });
 
         this.particles = this.particles.filter(particle => {
@@ -3833,7 +4493,10 @@ class Game {
                     this.asteroids[i].x, this.asteroids[i].y, this.asteroids[i].radius
                 )) {
                     if (!this.ship.hasShield) {
-                        this.createExplosion(this.ship.x, this.ship.y, 25);
+                        const shipX = this.ship.x;
+                        const shipY = this.ship.y;
+                        const shipAngle = this.ship.angle;
+                        this.createShipExplosion(shipX, shipY, shipAngle);
                         this.ship = null;
                         this.loseLife();
                         break;
@@ -3866,7 +4529,10 @@ class Game {
                     this.ufos[i].x, this.ufos[i].y, UFO_SIZE
                 )) {
                     if (!this.ship.hasShield) {
-                        this.createExplosion(this.ship.x, this.ship.y, 25);
+                        const shipX = this.ship.x;
+                        const shipY = this.ship.y;
+                        const shipAngle = this.ship.angle;
+                        this.createShipExplosion(shipX, shipY, shipAngle);
                         this.createUfoExplosion(this.ufos[i].x, this.ufos[i].y);
                         this.ufos.splice(i, 1);
                         this.ship = null;
@@ -3892,7 +4558,10 @@ class Game {
                     this.enemyBullets.splice(i, 1);
                     
                     if (!this.ship.hasShield) {
-                        this.createExplosion(this.ship.x, this.ship.y, 25);
+                        const shipX = this.ship.x;
+                        const shipY = this.ship.y;
+                        const shipAngle = this.ship.angle;
+                        this.createShipExplosion(shipX, shipY, shipAngle);
                         this.ship = null;
                         this.loseLife();
                         break;
@@ -3999,6 +4668,7 @@ class Game {
         // Draw game objects in order (back to front)
         this.trailParticles.forEach(particle => particle.draw(ctx));
         this.explosionParticles.forEach(particle => particle.draw(ctx));
+        this.shipDebris.forEach(debris => debris.draw(ctx));
         this.particles.forEach(particle => particle.draw(ctx));
         this.items.forEach(item => item.draw(ctx));
         this.powerUps.forEach(powerUp => powerUp.draw(ctx));
@@ -4044,6 +4714,11 @@ class Game {
         // Draw help popup (if visible)
         if (this.showHelp) {
             this.drawHelpScreen(ctx);
+        }
+        
+        // Draw wave announcement (on top of most elements)
+        if (this.waveAnnouncement) {
+            this.waveAnnouncement.draw(ctx);
         }
         
         ctx.restore();
@@ -6215,7 +6890,87 @@ SoundManager.prototype.playBossDefeat = function() {
     });
 };
 
-
+// === SHIP DEATH SOUND ===
+// Dramatic cascading explosions with deep bass
+SoundManager.prototype.playShipDeath = function() {
+    if (!this.initialized) return;
+    this.resume();
+    
+    const now = this.audioContext.currentTime;
+    
+    // Deep bass impact
+    const bass = this.audioContext.createOscillator();
+    const bassGain = this.audioContext.createGain();
+    
+    bass.type = 'sine';
+    bass.frequency.setValueAtTime(80, now);
+    bass.frequency.exponentialRampToValueAtTime(20, now + 0.8);
+    
+    bassGain.gain.setValueAtTime(0.5, now);
+    bassGain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+    
+    bass.connect(bassGain);
+    bassGain.connect(this.masterGain);
+    
+    bass.start(now);
+    bass.stop(now + 0.8);
+    
+    // Cascading explosions
+    for (let i = 0; i < 4; i++) {
+        const time = now + i * 0.12;
+        
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
+        
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(200 - i * 30, time);
+        osc.frequency.exponentialRampToValueAtTime(40, time + 0.2);
+        
+        const filter = this.audioContext.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1500 - i * 200, time);
+        filter.frequency.exponentialRampToValueAtTime(100, time + 0.25);
+        
+        gain.gain.setValueAtTime(0.25 - i * 0.04, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.25);
+        
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+        
+        osc.start(time);
+        osc.stop(time + 0.25);
+    }
+    
+    // Metal shatter noise
+    const bufferSize = this.audioContext.sampleRate * 0.5;
+    const noiseBuffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    
+    for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+    }
+    
+    const noise = this.audioContext.createBufferSource();
+    noise.buffer = noiseBuffer;
+    
+    const noiseFilter = this.audioContext.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.setValueAtTime(2000, now);
+    noiseFilter.frequency.exponentialRampToValueAtTime(500, now + 0.5);
+    noiseFilter.Q.value = 3;
+    
+    const noiseGain = this.audioContext.createGain();
+    noiseGain.gain.setValueAtTime(0.2, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+    
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(this.masterGain);
+    
+    noise.start(now);
+    noise.stop(now + 0.5);
+};
 
 // === COMBO MILESTONE SOUND ===
 // Celebratory ascending tone for combo milestones
