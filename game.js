@@ -32,71 +32,6 @@ const UFO_SHOOT_INTERVAL = 90; // 1.5 seconds
 const UFO_BULLET_SPEED = 4;
 const UFO_POINTS = 500;
 
-// Special asteroid type configuration
-const ASTEROID_TYPES = {
-    NORMAL: { 
-        name: 'Normal',
-        spawnWeight: 70,
-        strokeColor: '#ff6600',
-        fillHue: 20,
-        glowColor: '#ff4400',
-        hitsRequired: 1,
-        pointMultiplier: 1
-    },
-    ICE: { 
-        name: 'Ice',
-        spawnWeight: 10,
-        strokeColor: '#00ffff',
-        fillHue: 190,
-        glowColor: '#00ddff',
-        hitsRequired: 1,
-        pointMultiplier: 1.5,
-        freezeRadius: 150
-    },
-    EXPLOSIVE: { 
-        name: 'Explosive',
-        spawnWeight: 8,
-        strokeColor: '#ff3300',
-        fillHue: 5,
-        glowColor: '#ff0000',
-        hitsRequired: 1,
-        pointMultiplier: 1.2,
-        explosionRadius: 120
-    },
-    GOLDEN: { 
-        name: 'Golden',
-        spawnWeight: 5,
-        strokeColor: '#ffd700',
-        fillHue: 45,
-        glowColor: '#ffcc00',
-        hitsRequired: 1,
-        pointMultiplier: 5
-    },
-    ARMORED: { 
-        name: 'Armored',
-        spawnWeight: 7,
-        strokeColor: '#888899',
-        fillHue: 220,
-        glowColor: '#aaaacc',
-        hitsRequired: 2,
-        pointMultiplier: 2
-    }
-};
-
-// Helper to pick random asteroid type based on weights
-function getRandomAsteroidType() {
-    const types = Object.keys(ASTEROID_TYPES);
-    const totalWeight = types.reduce((sum, t) => sum + ASTEROID_TYPES[t].spawnWeight, 0);
-    let roll = Math.random() * totalWeight;
-    
-    for (const type of types) {
-        roll -= ASTEROID_TYPES[type].spawnWeight;
-        if (roll <= 0) return type;
-    }
-    return 'NORMAL';
-}
-
-
 // Color palette - Neon cyberpunk theme
 const COLORS = {
     shipPrimary: '#00ffff',
@@ -131,225 +66,17 @@ const POWERUP_TYPES = {
 
 // Inventory item types
 const ITEM_TYPES = {
-    REPAIR_KIT: { name: 'Repair Kit', color: '#ff6b6b', symbol: 'â™¥', description: 'Restore 1 life', rarity: 0.15 },
-    BOMB: { name: 'Bomb', color: '#ff8c00', symbol: 'âœ¸', description: 'Destroy all asteroids', rarity: 0.10 },
-    FREEZE: { name: 'Freeze', color: '#87ceeb', symbol: 'â^]„', description: 'Freeze asteroids for 5s', rarity: 0.20 },
-    MAGNET: { name: 'Magnet', color: '#da70d6', symbol: 'âŠ›', description: 'Attract items for 10s', rarity: 0.25 },
-    SCORE_BOOST: { name: 'Score x2', color: '#ffd700', symbol: 'â˜…', description: 'Double points for 15s', rarity: 0.30 }
+    REPAIR_KIT: { name: 'Repair Kit', color: '#ff6b6b', symbol: 'ΓÖÑ', description: 'Restore 1 life', rarity: 0.15 },
+    BOMB: { name: 'Bomb', color: '#ff8c00', symbol: 'Γ£╕', description: 'Destroy all asteroids', rarity: 0.10 },
+    FREEZE: { name: 'Freeze', color: '#87ceeb', symbol: 'Γ¥ä', description: 'Freeze asteroids for 5s', rarity: 0.20 },
+    MAGNET: { name: 'Magnet', color: '#da70d6', symbol: 'Γè¢', description: 'Attract items for 10s', rarity: 0.25 },
+    SCORE_BOOST: { name: 'Score x2', color: '#ffd700', symbol: 'Γÿà', description: 'Double points for 15s', rarity: 0.30 }
 };
 
 const MAX_INVENTORY_SLOTS = 5;
 const ITEM_SPAWN_CHANCE = 0.25;
 const ITEM_SIZE = 10;
 const ITEM_LIFETIME = 480;
-
-// ============== SURVIVAL MODE CONSTANTS ==============
-const SURVIVAL_INITIAL_SPAWN_RATE = 300; // Frames between asteroid spawns (5 sec at 60fps)
-const SURVIVAL_MIN_SPAWN_RATE = 60; // Minimum spawn rate (1 second)
-const SURVIVAL_SPAWN_RATE_DECREASE = 5; // Decrease per minute of survival
-const SURVIVAL_MAX_ASTEROIDS = 25; // Cap to prevent lag
-const SURVIVAL_BOSS_INTERVAL = 5400; // Boss every 90 seconds (90 * 60fps)
-const SURVIVAL_UFO_MULTIPLIER = 0.7; // UFOs spawn more frequently in survival
-
-// ============== SURVIVAL HIGH SCORE MANAGER ==============
-class SurvivalHighScoreManager {
-    constructor() {
-        this.storageKey = 'asteroids_survival_highscores';
-        this.maxScores = 10;
-        this.scores = this.load();
-    }
-    
-    load() {
-        try {
-            const data = localStorage.getItem(this.storageKey);
-            return data ? JSON.parse(data) : [];
-        } catch (e) {
-            console.warn('Could not load survival high scores:', e);
-            return [];
-        }
-    }
-    
-    save() {
-        try {
-            localStorage.setItem(this.storageKey, JSON.stringify(this.scores));
-        } catch (e) {
-            console.warn('Could not save survival high scores:', e);
-        }
-    }
-    
-    isHighScore(timeSeconds, score) {
-        if (this.scores.length < this.maxScores) return true;
-        const worst = this.scores[this.scores.length - 1];
-        return timeSeconds > worst.time || (timeSeconds === worst.time && score > worst.score);
-    }
-    
-    addScore(initials, timeSeconds, score) {
-        this.scores.push({
-            initials: initials.toUpperCase().substring(0, 3),
-            time: timeSeconds,
-            score: score,
-            date: new Date().toISOString()
-        });
-        this.scores.sort((a, b) => {
-            if (b.time !== a.time) return b.time - a.time;
-            return b.score - a.score;
-        });
-        this.scores = this.scores.slice(0, this.maxScores);
-        this.save();
-    }
-    
-    getTopScores(count = 5) {
-        return this.scores.slice(0, count);
-    }
-    
-    formatTime(seconds) {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
-    }
-}
-
-const survivalHighScores = new SurvivalHighScoreManager();
-
-// ============== SHIP UPGRADE SYSTEM ==============
-// Between-level shop for permanent ship improvements
-const SCRAP_PER_SCORE = 0.1; // 10% of score becomes scrap
-
-const SHIP_UPGRADES = {
-    ENGINE_BOOST: {
-        name: 'Engine Boost',
-        icon: '^',
-        color: '#ff8800',
-        description: 'Increase thrust power',
-        maxLevel: 5,
-        baseCost: 100,
-        costMultiplier: 2.0,
-        effect: (level) => 1 + (level * 0.15)
-    },
-    MANEUVERABILITY: {
-        name: 'Maneuverability',
-        icon: '<>',
-        color: '#00ff88',
-        description: 'Faster turn speed',
-        maxLevel: 5,
-        baseCost: 80,
-        costMultiplier: 1.8,
-        effect: (level) => 1 + (level * 0.12)
-    },
-    VELOCITY_ROUNDS: {
-        name: 'Velocity Rounds',
-        icon: '>>',
-        color: '#ff00ff',
-        description: 'Faster bullets',
-        maxLevel: 5,
-        baseCost: 120,
-        costMultiplier: 2.2,
-        effect: (level) => 1 + (level * 0.10)
-    },
-    EXTENDED_RANGE: {
-        name: 'Extended Range',
-        icon: '---',
-        color: '#ffff00',
-        description: 'Longer bullet lifetime',
-        maxLevel: 5,
-        baseCost: 100,
-        costMultiplier: 1.9,
-        effect: (level) => 1 + (level * 0.20)
-    },
-    HULL_PLATING: {
-        name: 'Hull Plating',
-        icon: '[#]',
-        color: '#8888ff',
-        description: '+1 starting life',
-        maxLevel: 3,
-        baseCost: 300,
-        costMultiplier: 2.5,
-        effect: (level) => level
-    },
-    AUTO_REPAIR: {
-        name: 'Auto-Repair',
-        icon: '+H+',
-        color: '#ff6666',
-        description: 'Regen life every N levels',
-        maxLevel: 3,
-        baseCost: 500,
-        costMultiplier: 2.0,
-        effect: (level) => level > 0 ? Math.max(1, 4 - level) : 0
-    }
-};
-
-class ShipUpgradeManager {
-    constructor() {
-        this.upgrades = {};
-        this.scrap = 0;
-        this.totalScrapEarned = 0;
-        this.init();
-    }
-    
-    init() {
-        for (const key of Object.keys(SHIP_UPGRADES)) {
-            this.upgrades[key] = 0;
-        }
-    }
-    
-    reset() {
-        this.init();
-        this.scrap = 0;
-        this.totalScrapEarned = 0;
-    }
-    
-    addScrap(amount) {
-        const rounded = Math.floor(amount);
-        this.scrap += rounded;
-        this.totalScrapEarned += rounded;
-    }
-    
-    getUpgradeCost(upgradeKey) {
-        const upgrade = SHIP_UPGRADES[upgradeKey];
-        const level = this.upgrades[upgradeKey];
-        if (level >= upgrade.maxLevel) return Infinity;
-        return Math.floor(upgrade.baseCost * Math.pow(upgrade.costMultiplier, level));
-    }
-    
-    canUpgrade(upgradeKey) {
-        const upgrade = SHIP_UPGRADES[upgradeKey];
-        return this.upgrades[upgradeKey] < upgrade.maxLevel && this.scrap >= this.getUpgradeCost(upgradeKey);
-    }
-    
-    purchaseUpgrade(upgradeKey) {
-        if (!this.canUpgrade(upgradeKey)) return false;
-        const cost = this.getUpgradeCost(upgradeKey);
-        this.scrap -= cost;
-        this.upgrades[upgradeKey]++;
-        soundManager.playPowerUp();
-        return true;
-    }
-    
-    getEffect(upgradeKey) {
-        const upgrade = SHIP_UPGRADES[upgradeKey];
-        return upgrade.effect(this.upgrades[upgradeKey]);
-    }
-    
-    getThrustMultiplier() { return this.getEffect('ENGINE_BOOST'); }
-    getTurnMultiplier() { return this.getEffect('MANEUVERABILITY'); }
-    getBulletSpeedMultiplier() { return this.getEffect('VELOCITY_ROUNDS'); }
-    getBulletLifetimeMultiplier() { return this.getEffect('EXTENDED_RANGE'); }
-    getExtraLives() { return this.getEffect('HULL_PLATING'); }
-    getRegenInterval() { return this.getEffect('AUTO_REPAIR'); }
-    
-    serialize() {
-        return { upgrades: {...this.upgrades}, scrap: this.scrap, totalScrapEarned: this.totalScrapEarned };
-    }
-    
-    deserialize(data) {
-        if (data.upgrades) this.upgrades = {...data.upgrades};
-        if (data.scrap !== undefined) this.scrap = data.scrap;
-        if (data.totalScrapEarned !== undefined) this.totalScrapEarned = data.totalScrapEarned;
-    }
-}
-
-const shipUpgradeManager = new ShipUpgradeManager();
-
 
 // ============== SOUND MANAGER CLASS ==============
 // Procedural audio using Web Audio API - no external files needed!
@@ -708,7 +435,7 @@ class SoundManager {
         const lfoGain = this.audioContext.createGain();
         lfo.type = 'sine';
         lfo.frequency.value = 8; // 8 Hz wobble
-        lfoGain.gain.value = 10; // Â±10 Hz variation
+        lfoGain.gain.value = 10; // ┬▒10 Hz variation
         
         lfo.connect(lfoGain);
         lfoGain.connect(this.engineOscillator.frequency);
@@ -1193,1560 +920,156 @@ class SoundManager {
 
 // Global sound manager instance
 const soundManager = new SoundManager();
-
-// ============== CHALLENGE HIGH SCORE MANAGER ==============
-class ChallengeHighScoreManager {
+// ============== STATS MANAGER CLASS ==============
+// Comprehensive statistics tracking with localStorage persistence
+class StatsManager {
     constructor() {
-        this.storageKey = 'asteroids_challenge_scores';
-        this.scores = this.load();
+        this.storageKey = 'asteroids_neon_stats';
+        this.stats = this.load();
+        this.sessionStartTime = null;
+        this.sessionStats = this.createEmptySessionStats();
     }
     
-    load() {
-        try {
-            const data = localStorage.getItem(this.storageKey);
-            if (data) return JSON.parse(data);
-        } catch (e) { console.warn('Failed to load challenge scores:', e); }
-        return { timeAttack: [], pacifist: [], oneLife: [] };
-    }
-    
-    save() {
-        try { localStorage.setItem(this.storageKey, JSON.stringify(this.scores)); }
-        catch (e) { console.warn('Failed to save challenge scores:', e); }
-    }
-    
-    addTimeAttackScore(timeMs, initials) {
-        const entry = { time: timeMs, initials: initials.toUpperCase(), date: Date.now() };
-        this.scores.timeAttack.push(entry);
-        this.scores.timeAttack.sort((a, b) => a.time - b.time);
-        this.scores.timeAttack = this.scores.timeAttack.slice(0, 10);
-        this.save();
-        return this.scores.timeAttack.findIndex(s => s.date === entry.date) + 1;
-    }
-    
-    addPacifistScore(timeMs, initials) {
-        const entry = { time: timeMs, initials: initials.toUpperCase(), date: Date.now() };
-        this.scores.pacifist.push(entry);
-        this.scores.pacifist.sort((a, b) => b.time - a.time);
-        this.scores.pacifist = this.scores.pacifist.slice(0, 10);
-        this.save();
-        return this.scores.pacifist.findIndex(s => s.date === entry.date) + 1;
-    }
-    
-    addOneLifeScore(score, level, initials) {
-        const entry = { score, level, initials: initials.toUpperCase(), date: Date.now() };
-        this.scores.oneLife.push(entry);
-        this.scores.oneLife.sort((a, b) => b.score - a.score);
-        this.scores.oneLife = this.scores.oneLife.slice(0, 10);
-        this.save();
-        return this.scores.oneLife.findIndex(s => s.date === entry.date) + 1;
-    }
-    
-    isTimeAttackRecord(timeMs) {
-        return this.scores.timeAttack.length < 10 || timeMs < this.scores.timeAttack[this.scores.timeAttack.length - 1].time;
-    }
-    
-    isPacifistRecord(timeMs) {
-        return this.scores.pacifist.length < 10 || timeMs > this.scores.pacifist[this.scores.pacifist.length - 1].time;
-    }
-    
-    isOneLifeRecord(score) {
-        return this.scores.oneLife.length < 10 || score > this.scores.oneLife[this.scores.oneLife.length - 1].score;
-    }
-    
-    formatTime(ms) {
-        const totalSeconds = Math.floor(ms / 1000);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        const millis = Math.floor((ms % 1000) / 10);
-        return `${minutes}:${seconds.toString().padStart(2, '0')}.${millis.toString().padStart(2, '0')}`;
-    }
-}
-
-const challengeScoreManager = new ChallengeHighScoreManager();
-
-const CHALLENGE_MODES = {
-    TIME_ATTACK: { name: 'TIME ATTACK', desc: 'Destroy 50 asteroids FAST!', color: '#ffaa00', target: 50 },
-    PACIFIST: { name: 'PACIFIST', desc: 'Survive 2 min - NO shooting!', color: '#00ff88', duration: 7200 },
-    ONE_LIFE: { name: 'ONE LIFE', desc: 'Single life - no continues', color: '#ff4466' }
-};
-
-// ============== ACHIEVEMENT SYSTEM ==============
-// Unlock achievements for milestones - persistent with localStorage
-
-const ACHIEVEMENTS = {
-    // Combat achievements
-    FIRST_BLOOD: { 
-        id: 'first_blood', 
-        name: 'First Blood', 
-        description: 'Destroy your first asteroid',
-        icon: '*',
-        color: '#ff6600',
-        secret: false
-    },
-    CENTURY: { 
-        id: 'century', 
-        name: 'Century', 
-        description: 'Score 1,000 points',
-        icon: '!',
-        color: '#ffcc00',
-        secret: false
-    },
-    HIGH_SCORER: { 
-        id: 'high_scorer', 
-        name: 'High Scorer', 
-        description: 'Score 10,000 points',
-        icon: '!!',
-        color: '#ff00ff',
-        secret: false
-    },
-    LEGENDARY: { 
-        id: 'legendary', 
-        name: 'Legendary', 
-        description: 'Score 100,000 points',
-        icon: '!!!',
-        color: '#00ffff',
-        secret: false
-    },
-    
-    // Survival achievements
-    SURVIVOR: { 
-        id: 'survivor', 
-        name: 'Survivor', 
-        description: 'Reach level 5',
-        icon: 'V',
-        color: '#00ff00',
-        secret: false
-    },
-    VETERAN: { 
-        id: 'veteran', 
-        name: 'Veteran', 
-        description: 'Reach level 10',
-        icon: 'X',
-        color: '#00ffff',
-        secret: false
-    },
-    ELITE: { 
-        id: 'elite', 
-        name: 'Elite', 
-        description: 'Reach level 20',
-        icon: 'XX',
-        color: '#ff00ff',
-        secret: false
-    },
-    
-    // Enemy achievements
-    UFO_HUNTER: { 
-        id: 'ufo_hunter', 
-        name: 'UFO Hunter', 
-        description: 'Destroy a UFO',
-        icon: '@',
-        color: '#00ff00',
-        secret: false
-    },
-    UFO_EXTERMINATOR: { 
-        id: 'ufo_exterminator', 
-        name: 'UFO Exterminator', 
-        description: 'Destroy 10 UFOs total',
-        icon: '@@',
-        color: '#88ff00',
-        secret: false
-    },
-    BOSS_SLAYER: { 
-        id: 'boss_slayer', 
-        name: 'Boss Slayer', 
-        description: 'Defeat a boss',
-        icon: 'B',
-        color: '#ff00aa',
-        secret: false
-    },
-    BOSS_MASTER: { 
-        id: 'boss_master', 
-        name: 'Boss Master', 
-        description: 'Defeat 5 bosses total',
-        icon: 'BB',
-        color: '#ff00ff',
-        secret: false
-    },
-    
-    // Collection achievements
-    COLLECTOR: { 
-        id: 'collector', 
-        name: 'Collector', 
-        description: 'Fill your inventory completely',
-        icon: '#',
-        color: '#da70d6',
-        secret: false
-    },
-    POWER_SURGE: { 
-        id: 'power_surge', 
-        name: 'Power Surge', 
-        description: 'Collect your first power-up',
-        icon: '+',
-        color: '#00ffff',
-        secret: false
-    },
-    POWER_ADDICT: { 
-        id: 'power_addict', 
-        name: 'Power Addict', 
-        description: 'Collect 50 power-ups total',
-        icon: '++',
-        color: '#ff00ff',
-        secret: false
-    },
-    
-    // Combo achievements
-    COMBO_STARTER: { 
-        id: 'combo_starter', 
-        name: 'Combo Starter', 
-        description: 'Achieve a 5x combo',
-        icon: 'C5',
-        color: '#ffff00',
-        secret: false
-    },
-    COMBO_KING: { 
-        id: 'combo_king', 
-        name: 'Combo King', 
-        description: 'Achieve a 10x combo',
-        icon: 'C10',
-        color: '#ff8800',
-        secret: false
-    },
-    COMBO_MASTER: { 
-        id: 'combo_master', 
-        name: 'Combo Master', 
-        description: 'Achieve a 25x combo',
-        icon: 'C25',
-        color: '#ff0088',
-        secret: false
-    },
-    COMBO_LEGEND: { 
-        id: 'combo_legend', 
-        name: 'Combo Legend', 
-        description: 'Achieve a 50x combo',
-        icon: 'C50',
-        color: '#00ffff',
-        secret: true
-    },
-    
-    // Skill achievements  
-    STUDENT: { 
-        id: 'student', 
-        name: 'Student', 
-        description: 'Unlock your first skill',
-        icon: 'S1',
-        color: '#88ff88',
-        secret: false
-    },
-    SKILLED: { 
-        id: 'skilled', 
-        name: 'Skilled', 
-        description: 'Unlock 5 skills',
-        icon: 'S5',
-        color: '#00ff88',
-        secret: false
-    },
-    MASTER_OF_ALL: { 
-        id: 'master_of_all', 
-        name: 'Master of All', 
-        description: 'Unlock all 16 skills',
-        icon: 'S!',
-        color: '#ffff00',
-        secret: false
-    },
-    
-    // Special achievements
-    PERFECT_LEVEL: { 
-        id: 'perfect_level', 
-        name: 'Perfect Level', 
-        description: 'Complete a level without taking damage',
-        icon: 'P',
-        color: '#ffffff',
-        secret: false
-    },
-    BOMBER: { 
-        id: 'bomber', 
-        name: 'Bomber', 
-        description: 'Use a bomb to destroy 10+ asteroids',
-        icon: '*!',
-        color: '#ff8c00',
-        secret: true
-    },
-    ASTEROID_SLAYER: { 
-        id: 'asteroid_slayer', 
-        name: 'Asteroid Slayer', 
-        description: 'Destroy 500 asteroids total',
-        icon: 'A!',
-        color: '#ff6600',
-        secret: false
-    }
-};
-
-class AchievementManager {
-    constructor() {
-        this.unlocked = {};
-        this.stats = {
-            asteroidsDestroyed: 0,
+    createEmptyStats() {
+        return {
+            totalPlaytime: 0,
+            gamesPlayed: 0,
+            totalScore: 0,
+            highestScore: 0,
+            highestLevel: 0,
+            asteroidsDestroyed: { small: 0, medium: 0, large: 0, total: 0 },
             ufosDestroyed: 0,
             bossesDefeated: 0,
-            powerUpsCollected: 0,
+            shotsFired: 0,
+            shotsHit: 0,
+            deaths: 0,
+            livesLost: 0,
+            powerUpsCollected: { SHIELD: 0, RAPID_FIRE: 0, TRIPLE_SHOT: 0, SPEED_BOOST: 0, EXTRA_LIFE: 0, total: 0 },
+            itemsCollected: { REPAIR_KIT: 0, BOMB: 0, FREEZE: 0, MAGNET: 0, SCORE_BOOST: 0, total: 0 },
+            itemsUsed: 0,
             highestCombo: 0,
-            skillsUnlocked: 0,
-            levelsWithoutDamage: 0,
-            biggestBombKill: 0
+            totalComboKills: 0,
+            firstPlayDate: null,
+            lastPlayDate: null
         };
-        this.toasts = [];
-        this.load();
+    }
+    
+    createEmptySessionStats() {
+        return { playTime: 0, score: 0, level: 0, asteroidsDestroyed: 0, ufosDestroyed: 0, bossesDefeated: 0, shotsFired: 0, shotsHit: 0, deaths: 0, powerUpsCollected: 0, itemsCollected: 0, highestCombo: 0 };
     }
     
     load() {
         try {
-            const saved = localStorage.getItem('asteroids_achievements');
+            const saved = localStorage.getItem(this.storageKey);
             if (saved) {
-                const data = JSON.parse(saved);
-                this.unlocked = data.unlocked || {};
-                this.stats = { ...this.stats, ...data.stats };
+                const loaded = JSON.parse(saved);
+                return this.mergeStats(this.createEmptyStats(), loaded);
             }
-        } catch (e) {
-            console.warn('Failed to load achievements:', e);
+        } catch (e) { console.warn('Failed to load stats:', e); }
+        return this.createEmptyStats();
+    }
+    
+    mergeStats(base, loaded) {
+        const result = { ...base };
+        for (const key in loaded) {
+            if (typeof loaded[key] === 'object' && loaded[key] !== null && !Array.isArray(loaded[key])) {
+                result[key] = { ...base[key], ...loaded[key] };
+            } else {
+                result[key] = loaded[key];
+            }
         }
+        return result;
     }
     
     save() {
-        try {
-            localStorage.setItem('asteroids_achievements', JSON.stringify({
-                unlocked: this.unlocked,
-                stats: this.stats
-            }));
-        } catch (e) {
-            console.warn('Failed to save achievements:', e);
-        }
+        try { localStorage.setItem(this.storageKey, JSON.stringify(this.stats)); }
+        catch (e) { console.warn('Failed to save stats:', e); }
     }
     
-    isUnlocked(achievementId) {
-        return !!this.unlocked[achievementId];
-    }
-    
-    unlock(achievementKey) {
-        const achievement = ACHIEVEMENTS[achievementKey];
-        if (!achievement || this.isUnlocked(achievement.id)) return false;
-        
-        this.unlocked[achievement.id] = {
-            unlockedAt: Date.now()
-        };
-        
-        // Show toast notification
-        this.showToast(achievement);
-        
-        // Play achievement sound
-        this.playAchievementSound();
-        
-        this.save();
-        return true;
-    }
-    
-    showToast(achievement) {
-        this.toasts.push({
-            achievement: achievement,
-            timer: 300, // 5 seconds at 60fps
-            y: -60,
-            targetY: 80,
-            alpha: 0
-        });
-    }
-    
-    playAchievementSound() {
-        if (!soundManager.initialized) return;
-        soundManager.resume();
-        
-        const now = soundManager.audioContext.currentTime;
-        
-        // Triumphant fanfare for achievements
-        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
-        
-        notes.forEach((freq, i) => {
-            const osc = soundManager.audioContext.createOscillator();
-            const gain = soundManager.audioContext.createGain();
-            
-            osc.type = 'triangle';
-            osc.frequency.value = freq;
-            
-            const startTime = now + i * 0.1;
-            gain.gain.setValueAtTime(0, startTime);
-            gain.gain.linearRampToValueAtTime(0.15, startTime + 0.05);
-            gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.3);
-            
-            osc.connect(gain);
-            gain.connect(soundManager.masterGain);
-            
-            osc.start(startTime);
-            osc.stop(startTime + 0.35);
-        });
-        
-        // Extra sparkle on last note
-        const sparkle = soundManager.audioContext.createOscillator();
-        const sparkleGain = soundManager.audioContext.createGain();
-        sparkle.type = 'sine';
-        sparkle.frequency.setValueAtTime(2093, now + 0.35);
-        sparkle.frequency.exponentialRampToValueAtTime(4186, now + 0.5);
-        sparkleGain.gain.setValueAtTime(0.1, now + 0.35);
-        sparkleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-        sparkle.connect(sparkleGain);
-        sparkleGain.connect(soundManager.masterGain);
-        sparkle.start(now + 0.35);
-        sparkle.stop(now + 0.55);
-    }
-    
-    // Call this each frame to update toast animations
-    update() {
-        for (let i = this.toasts.length - 1; i >= 0; i--) {
-            const toast = this.toasts[i];
-            toast.timer--;
-            
-            // Slide in
-            if (toast.y < toast.targetY) {
-                toast.y += (toast.targetY - toast.y) * 0.15;
-                toast.alpha = Math.min(1, toast.alpha + 0.1);
-            }
-            
-            // Fade out near end
-            if (toast.timer < 60) {
-                toast.alpha = toast.timer / 60;
-                toast.y -= 0.5;
-            }
-            
-            if (toast.timer <= 0) {
-                this.toasts.splice(i, 1);
-            }
-        }
-    }
-    
-    draw(ctx) {
-        this.toasts.forEach((toast, index) => {
-            const achievement = toast.achievement;
-            const x = CANVAS_WIDTH / 2;
-            const y = toast.y + index * 70;
-            
-            ctx.save();
-            ctx.globalAlpha = toast.alpha;
-            
-            // Background box
-            const boxWidth = 280;
-            const boxHeight = 60;
-            
-            ctx.fillStyle = '#000000cc';
-            ctx.strokeStyle = achievement.color;
-            ctx.lineWidth = 2;
-            ctx.shadowColor = achievement.color;
-            ctx.shadowBlur = 15;
-            
-            // Rounded rectangle
-            const radius = 10;
-            ctx.beginPath();
-            ctx.moveTo(x - boxWidth/2 + radius, y - boxHeight/2);
-            ctx.lineTo(x + boxWidth/2 - radius, y - boxHeight/2);
-            ctx.quadraticCurveTo(x + boxWidth/2, y - boxHeight/2, x + boxWidth/2, y - boxHeight/2 + radius);
-            ctx.lineTo(x + boxWidth/2, y + boxHeight/2 - radius);
-            ctx.quadraticCurveTo(x + boxWidth/2, y + boxHeight/2, x + boxWidth/2 - radius, y + boxHeight/2);
-            ctx.lineTo(x - boxWidth/2 + radius, y + boxHeight/2);
-            ctx.quadraticCurveTo(x - boxWidth/2, y + boxHeight/2, x - boxWidth/2, y + boxHeight/2 - radius);
-            ctx.lineTo(x - boxWidth/2, y - boxHeight/2 + radius);
-            ctx.quadraticCurveTo(x - boxWidth/2, y - boxHeight/2, x - boxWidth/2 + radius, y - boxHeight/2);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-            
-            // Icon circle
-            ctx.beginPath();
-            ctx.arc(x - boxWidth/2 + 35, y, 20, 0, Math.PI * 2);
-            ctx.fillStyle = achievement.color + '40';
-            ctx.fill();
-            ctx.strokeStyle = achievement.color;
-            ctx.stroke();
-            
-            // Icon text
-            ctx.fillStyle = achievement.color;
-            ctx.font = 'bold 14px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(achievement.icon, x - boxWidth/2 + 35, y);
-            
-            // "ACHIEVEMENT UNLOCKED" header
-            ctx.fillStyle = '#888888';
-            ctx.font = '10px "Courier New", monospace';
-            ctx.textAlign = 'left';
-            ctx.fillText('ACHIEVEMENT UNLOCKED', x - boxWidth/2 + 65, y - 15);
-            
-            // Achievement name
-            ctx.fillStyle = achievement.color;
-            ctx.font = 'bold 16px "Courier New", monospace';
-            ctx.fillText(achievement.name, x - boxWidth/2 + 65, y + 2);
-            
-            // Description
-            ctx.fillStyle = '#aaaaaa';
-            ctx.font = '11px "Courier New", monospace';
-            ctx.fillText(achievement.description, x - boxWidth/2 + 65, y + 18);
-            
-            ctx.restore();
-        });
-    }
-    
-    // Track stats and check for cumulative achievements
-    trackAsteroidDestroyed() {
-        this.stats.asteroidsDestroyed++;
-        
-        if (this.stats.asteroidsDestroyed === 1) {
-            this.unlock('FIRST_BLOOD');
-        }
-        if (this.stats.asteroidsDestroyed >= 500) {
-            this.unlock('ASTEROID_SLAYER');
-        }
-        
+    startSession() {
+        this.sessionStartTime = Date.now();
+        this.sessionStats = this.createEmptySessionStats();
+        this.stats.gamesPlayed++;
+        if (!this.stats.firstPlayDate) this.stats.firstPlayDate = new Date().toISOString();
+        this.stats.lastPlayDate = new Date().toISOString();
         this.save();
     }
     
-    trackUfoDestroyed() {
+    endSession(finalScore, finalLevel) {
+        if (this.sessionStartTime) {
+            const playTimeSeconds = Math.floor((Date.now() - this.sessionStartTime) / 1000);
+            this.stats.totalPlaytime += playTimeSeconds;
+            this.sessionStats.playTime = playTimeSeconds;
+        }
+        this.sessionStats.score = finalScore;
+        this.sessionStats.level = finalLevel;
+        this.stats.totalScore += finalScore;
+        if (finalScore > this.stats.highestScore) this.stats.highestScore = finalScore;
+        if (finalLevel > this.stats.highestLevel) this.stats.highestLevel = finalLevel;
+        this.save();
+    }
+    
+    recordAsteroidDestroyed(size) {
+        this.stats.asteroidsDestroyed.total++;
+        this.sessionStats.asteroidsDestroyed++;
+        if (size === 1) this.stats.asteroidsDestroyed.small++;
+        else if (size === 2) this.stats.asteroidsDestroyed.medium++;
+        else if (size >= 3) this.stats.asteroidsDestroyed.large++;
+        this.stats.shotsHit++;
+        this.sessionStats.shotsHit++;
+    }
+    
+    recordUfoDestroyed() {
         this.stats.ufosDestroyed++;
-        
-        if (this.stats.ufosDestroyed === 1) {
-            this.unlock('UFO_HUNTER');
-        }
-        if (this.stats.ufosDestroyed >= 10) {
-            this.unlock('UFO_EXTERMINATOR');
-        }
-        
-        this.save();
+        this.sessionStats.ufosDestroyed++;
+        this.stats.shotsHit++;
+        this.sessionStats.shotsHit++;
     }
     
-    trackBossDefeated() {
-        this.stats.bossesDefeated++;
-        
-        if (this.stats.bossesDefeated === 1) {
-            this.unlock('BOSS_SLAYER');
-        }
-        if (this.stats.bossesDefeated >= 5) {
-            this.unlock('BOSS_MASTER');
-        }
-        
-        this.save();
+    recordBossDefeated() { this.stats.bossesDefeated++; this.sessionStats.bossesDefeated++; this.save(); }
+    recordShotFired(count = 1) { this.stats.shotsFired += count; this.sessionStats.shotsFired += count; }
+    recordDeath() { this.stats.deaths++; this.sessionStats.deaths++; this.save(); }
+    recordLifeLost() { this.stats.livesLost++; }
+    
+    recordPowerUpCollected(type) {
+        this.stats.powerUpsCollected.total++;
+        this.sessionStats.powerUpsCollected++;
+        if (this.stats.powerUpsCollected[type] !== undefined) this.stats.powerUpsCollected[type]++;
     }
     
-    trackPowerUpCollected() {
-        this.stats.powerUpsCollected++;
-        
-        if (this.stats.powerUpsCollected === 1) {
-            this.unlock('POWER_SURGE');
-        }
-        if (this.stats.powerUpsCollected >= 50) {
-            this.unlock('POWER_ADDICT');
-        }
-        
-        this.save();
+    recordItemCollected(type) {
+        this.stats.itemsCollected.total++;
+        this.sessionStats.itemsCollected++;
+        if (this.stats.itemsCollected[type] !== undefined) this.stats.itemsCollected[type]++;
     }
     
-    trackCombo(comboCount) {
-        if (comboCount > this.stats.highestCombo) {
-            this.stats.highestCombo = comboCount;
-            this.save();
-        }
-        
-        if (comboCount >= 5) this.unlock('COMBO_STARTER');
-        if (comboCount >= 10) this.unlock('COMBO_KING');
-        if (comboCount >= 25) this.unlock('COMBO_MASTER');
-        if (comboCount >= 50) this.unlock('COMBO_LEGEND');
+    recordItemUsed() { this.stats.itemsUsed++; }
+    
+    recordCombo(comboCount) {
+        this.stats.totalComboKills += comboCount;
+        if (comboCount > this.stats.highestCombo) this.stats.highestCombo = comboCount;
+        if (comboCount > this.sessionStats.highestCombo) this.sessionStats.highestCombo = comboCount;
     }
     
-    trackScore(score) {
-        if (score >= 1000) this.unlock('CENTURY');
-        if (score >= 10000) this.unlock('HIGH_SCORER');
-        if (score >= 100000) this.unlock('LEGENDARY');
+    getAccuracy() {
+        if (this.stats.shotsFired === 0) return 0;
+        return Math.round((this.stats.shotsHit / this.stats.shotsFired) * 100);
     }
     
-    trackLevel(level) {
-        if (level >= 5) this.unlock('SURVIVOR');
-        if (level >= 10) this.unlock('VETERAN');
-        if (level >= 20) this.unlock('ELITE');
+    formatPlaytime(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        if (hours > 0) return hours + 'h ' + minutes + 'm ' + secs + 's';
+        if (minutes > 0) return minutes + 'm ' + secs + 's';
+        return secs + 's';
     }
     
-    trackSkillUnlocked(totalSkills) {
-        this.stats.skillsUnlocked = totalSkills;
-        
-        if (totalSkills >= 1) this.unlock('STUDENT');
-        if (totalSkills >= 5) this.unlock('SKILLED');
-        if (totalSkills >= 16) this.unlock('MASTER_OF_ALL');
-        
-        this.save();
-    }
-    
-    trackInventoryFull() {
-        this.unlock('COLLECTOR');
-    }
-    
-    trackPerfectLevel() {
-        this.unlock('PERFECT_LEVEL');
-    }
-    
-    trackBombKill(asteroidCount) {
-        if (asteroidCount > this.stats.biggestBombKill) {
-            this.stats.biggestBombKill = asteroidCount;
-            this.save();
-        }
-        
-        if (asteroidCount >= 10) {
-            this.unlock('BOMBER');
-        }
-    }
-    
-    getUnlockedCount() {
-        return Object.keys(this.unlocked).length;
-    }
-    
-    getTotalCount() {
-        return Object.keys(ACHIEVEMENTS).length;
-    }
-    
-    // Get all achievements with unlock status for display
-    getAllAchievements() {
-        return Object.entries(ACHIEVEMENTS).map(([key, ach]) => ({
-            ...ach,
-            key: key,
-            unlocked: this.isUnlocked(ach.id),
-            unlockedAt: this.unlocked[ach.id]?.unlockedAt
-        }));
-    }
+    resetStats() { this.stats = this.createEmptyStats(); this.sessionStats = this.createEmptySessionStats(); this.save(); }
 }
 
-// Global achievement manager instance
-const achievementManager = new AchievementManager();
-
-
-// ============== ENVIRONMENTAL HAZARDS CONSTANTS ==============
-const HAZARD_SPAWN_INTERVAL = 1800; // 30 seconds at 60fps
-const BLACK_HOLE_LIFETIME = 600; // 10 seconds
-const BLACK_HOLE_PULL_RADIUS = 200;
-const BLACK_HOLE_KILL_RADIUS = 25;
-const BLACK_HOLE_STRENGTH = 0.15;
-const SOLAR_FLARE_WARNING_TIME = 180; // 3 seconds warning
-const SOLAR_FLARE_ACTIVE_TIME = 60; // 1 second of danger
-const ASTEROID_FIELD_LIFETIME = 480; // 8 seconds
-const ASTEROID_FIELD_SIZE = 150;
-const ASTEROID_FIELD_DENSITY = 8;
-
-// ============== BLACK HOLE CLASS ==============
-// Creates gravitational pull on all objects
-class BlackHole {
-    constructor(x, y, game) {
-        this.x = x;
-        this.y = y;
-        this.game = game;
-        this.lifetime = BLACK_HOLE_LIFETIME;
-        this.maxLifetime = BLACK_HOLE_LIFETIME;
-        this.phase = 0;
-        this.rotationPhase = 0;
-        this.spawnAnimation = 0;
-        this.particles = [];
-        
-        // Play spawn sound
-        this.playSpawnSound();
-    }
-    
-    playSpawnSound() {
-        if (!soundManager.initialized) return;
-        soundManager.resume();
-        
-        const now = soundManager.audioContext.currentTime;
-        
-        // Deep rumbling bass
-        const bass = soundManager.audioContext.createOscillator();
-        const bassGain = soundManager.audioContext.createGain();
-        
-        bass.type = 'sine';
-        bass.frequency.setValueAtTime(30, now);
-        bass.frequency.exponentialRampToValueAtTime(60, now + 0.5);
-        bass.frequency.exponentialRampToValueAtTime(40, now + 1);
-        
-        bassGain.gain.setValueAtTime(0, now);
-        bassGain.gain.linearRampToValueAtTime(0.3, now + 0.3);
-        bassGain.gain.exponentialRampToValueAtTime(0.01, now + 1);
-        
-        bass.connect(bassGain);
-        bassGain.connect(soundManager.masterGain);
-        
-        bass.start(now);
-        bass.stop(now + 1);
-        
-        // Eerie warble
-        const warble = soundManager.audioContext.createOscillator();
-        const warbleGain = soundManager.audioContext.createGain();
-        
-        warble.type = 'sine';
-        warble.frequency.setValueAtTime(200, now);
-        warble.frequency.exponentialRampToValueAtTime(100, now + 0.8);
-        
-        const lfo = soundManager.audioContext.createOscillator();
-        const lfoGain = soundManager.audioContext.createGain();
-        lfo.type = 'sine';
-        lfo.frequency.value = 8;
-        lfoGain.gain.value = 30;
-        lfo.connect(lfoGain);
-        lfoGain.connect(warble.frequency);
-        lfo.start(now);
-        lfo.stop(now + 0.8);
-        
-        warbleGain.gain.setValueAtTime(0.1, now);
-        warbleGain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
-        
-        warble.connect(warbleGain);
-        warbleGain.connect(soundManager.masterGain);
-        
-        warble.start(now);
-        warble.stop(now + 0.8);
-    }
-    
-    update() {
-        this.lifetime--;
-        this.phase += 0.05;
-        this.rotationPhase += 0.03;
-        this.spawnAnimation = Math.min(1, this.spawnAnimation + 0.02);
-        
-        // Spawn swirling particles
-        if (Math.random() < 0.3) {
-            const angle = Math.random() * Math.PI * 2;
-            const dist = BLACK_HOLE_PULL_RADIUS * (0.5 + Math.random() * 0.5);
-            this.particles.push({
-                x: this.x + Math.cos(angle) * dist,
-                y: this.y + Math.sin(angle) * dist,
-                angle: angle,
-                dist: dist,
-                life: 60,
-                maxLife: 60,
-                size: 1 + Math.random() * 2
-            });
-        }
-        
-        // Update particles (spiral inward)
-        this.particles = this.particles.filter(p => {
-            p.life--;
-            p.angle += 0.1 + (1 - p.dist / BLACK_HOLE_PULL_RADIUS) * 0.1;
-            p.dist -= 2;
-            p.x = this.x + Math.cos(p.angle) * p.dist;
-            p.y = this.y + Math.sin(p.angle) * p.dist;
-            return p.life > 0 && p.dist > BLACK_HOLE_KILL_RADIUS;
-        });
-        
-        // Apply gravitational pull to game objects
-        this.applyGravity();
-    }
-    
-    applyGravity() {
-        const pullStrength = BLACK_HOLE_STRENGTH * this.spawnAnimation;
-        
-        // Pull ship
-        if (this.game.ship && !this.game.ship.invulnerable) {
-            this.pullObject(this.game.ship, pullStrength);
-        }
-        
-        // Pull asteroids
-        this.game.asteroids.forEach(asteroid => {
-            if (!this.game.freezeActive) {
-                this.pullObject(asteroid, pullStrength * 0.8);
-            }
-        });
-        
-        // Pull bullets
-        this.game.bullets.forEach(bullet => {
-            this.pullObject(bullet, pullStrength * 0.5);
-        });
-        
-        // Pull enemy bullets
-        this.game.enemyBullets.forEach(bullet => {
-            this.pullObject(bullet, pullStrength * 0.5);
-        });
-        
-        // Pull items and powerups (strongly)
-        this.game.items.forEach(item => {
-            this.pullObject(item, pullStrength * 1.5);
-        });
-        
-        this.game.powerUps.forEach(powerUp => {
-            this.pullObject(powerUp, pullStrength * 1.5);
-        });
-        
-        // Pull UFOs
-        this.game.ufos.forEach(ufo => {
-            if (!ufo.frozen) {
-                this.pullObject(ufo, pullStrength * 0.6);
-            }
-        });
-    }
-    
-    pullObject(obj, strength) {
-        const dx = this.x - obj.x;
-        const dy = this.y - obj.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        
-        if (dist < BLACK_HOLE_PULL_RADIUS && dist > 0) {
-            const force = strength * (1 - dist / BLACK_HOLE_PULL_RADIUS);
-            obj.vx += (dx / dist) * force;
-            obj.vy += (dy / dist) * force;
-        }
-    }
-    
-    checkShipCollision() {
-        if (!this.game.ship || this.game.ship.invulnerable) return false;
-        
-        const dx = this.x - this.game.ship.x;
-        const dy = this.y - this.game.ship.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        
-        return dist < BLACK_HOLE_KILL_RADIUS + SHIP_SIZE;
-    }
-    
-    draw(ctx) {
-        const scale = this.spawnAnimation;
-        const fadeOut = this.lifetime < 60 ? this.lifetime / 60 : 1;
-        
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.globalAlpha = fadeOut;
-        
-        // Draw swirling particles first
-        this.particles.forEach(p => {
-            const alpha = (p.life / p.maxLife) * fadeOut;
-            ctx.fillStyle = `rgba(128, 0, 255, ${alpha})`;
-            ctx.beginPath();
-            ctx.arc(p.x - this.x, p.y - this.y, p.size, 0, Math.PI * 2);
-            ctx.fill();
-        });
-        
-        // Outer accretion disk
-        ctx.save();
-        ctx.rotate(this.rotationPhase);
-        
-        for (let i = 0; i < 3; i++) {
-            const diskRadius = (BLACK_HOLE_PULL_RADIUS * 0.6 - i * 20) * scale;
-            const gradient = ctx.createRadialGradient(0, 0, diskRadius * 0.3, 0, 0, diskRadius);
-            gradient.addColorStop(0, 'transparent');
-            gradient.addColorStop(0.5, `rgba(128, 0, 255, ${0.1 - i * 0.02})`);
-            gradient.addColorStop(0.8, `rgba(200, 100, 255, ${0.15 - i * 0.03})`);
-            gradient.addColorStop(1, 'transparent');
-            
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.ellipse(0, 0, diskRadius, diskRadius * 0.3, this.rotationPhase * 0.5, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        ctx.restore();
-        
-        // Event horizon (black center)
-        const holeRadius = BLACK_HOLE_KILL_RADIUS * scale;
-        const holeGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, holeRadius * 1.5);
-        holeGradient.addColorStop(0, '#000000');
-        holeGradient.addColorStop(0.6, '#000000');
-        holeGradient.addColorStop(0.8, '#1a0033');
-        holeGradient.addColorStop(1, 'transparent');
-        
-        ctx.fillStyle = holeGradient;
-        ctx.beginPath();
-        ctx.arc(0, 0, holeRadius * 1.5, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Glowing ring around event horizon
-        const ringPulse = 1 + Math.sin(this.phase * 2) * 0.1;
-        ctx.strokeStyle = '#9933ff';
-        ctx.lineWidth = 3 * ringPulse;
-        ctx.shadowColor = '#cc66ff';
-        ctx.shadowBlur = 20;
-        ctx.beginPath();
-        ctx.arc(0, 0, holeRadius * ringPulse, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        // Inner bright ring
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1;
-        ctx.shadowBlur = 10;
-        ctx.beginPath();
-        ctx.arc(0, 0, holeRadius * 0.8 * ringPulse, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        ctx.restore();
-        
-        // Warning radius indicator (subtle)
-        if (this.lifetime > 60) {
-            ctx.save();
-            ctx.strokeStyle = `rgba(128, 0, 255, ${0.2 * fadeOut})`;
-            ctx.lineWidth = 1;
-            ctx.setLineDash([10, 10]);
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, BLACK_HOLE_PULL_RADIUS * scale, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.restore();
-        }
-    }
-}
-
-// ============== SOLAR FLARE CLASS ==============
-// Screen-wide beam that damages anything in its path
-class SolarFlare {
-    constructor(game) {
-        this.game = game;
-        this.state = 'warning'; // 'warning', 'active', 'fading'
-        this.timer = SOLAR_FLARE_WARNING_TIME;
-        this.maxWarningTime = SOLAR_FLARE_WARNING_TIME;
-        
-        // Random direction (horizontal or vertical)
-        this.isHorizontal = Math.random() > 0.5;
-        
-        // Position - either Y position for horizontal, or X for vertical
-        if (this.isHorizontal) {
-            this.position = 100 + Math.random() * (CANVAS_HEIGHT - 200);
-            this.beamWidth = 80;
-        } else {
-            this.position = 100 + Math.random() * (CANVAS_WIDTH - 200);
-            this.beamWidth = 80;
-        }
-        
-        this.phase = 0;
-        this.intensity = 0;
-        this.particles = [];
-        
-        // Play warning sound
-        this.playWarningSound();
-    }
-    
-    playWarningSound() {
-        if (!soundManager.initialized) return;
-        soundManager.resume();
-        
-        const now = soundManager.audioContext.currentTime;
-        
-        // Rising alarm tone
-        const alarm = soundManager.audioContext.createOscillator();
-        const alarmGain = soundManager.audioContext.createGain();
-        
-        alarm.type = 'square';
-        alarm.frequency.setValueAtTime(200, now);
-        alarm.frequency.linearRampToValueAtTime(400, now + 0.2);
-        alarm.frequency.linearRampToValueAtTime(200, now + 0.4);
-        alarm.frequency.linearRampToValueAtTime(400, now + 0.6);
-        
-        alarmGain.gain.setValueAtTime(0.15, now);
-        alarmGain.gain.setValueAtTime(0.15, now + 0.5);
-        alarmGain.gain.exponentialRampToValueAtTime(0.01, now + 0.7);
-        
-        alarm.connect(alarmGain);
-        alarmGain.connect(soundManager.masterGain);
-        
-        alarm.start(now);
-        alarm.stop(now + 0.7);
-    }
-    
-    playFireSound() {
-        if (!soundManager.initialized) return;
-        soundManager.resume();
-        
-        const now = soundManager.audioContext.currentTime;
-        
-        // Intense beam sound
-        const beam = soundManager.audioContext.createOscillator();
-        const beamGain = soundManager.audioContext.createGain();
-        
-        beam.type = 'sawtooth';
-        beam.frequency.setValueAtTime(100, now);
-        beam.frequency.exponentialRampToValueAtTime(50, now + 0.5);
-        
-        beamGain.gain.setValueAtTime(0.3, now);
-        beamGain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
-        
-        const filter = soundManager.audioContext.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(500, now);
-        filter.frequency.exponentialRampToValueAtTime(100, now + 0.5);
-        
-        beam.connect(filter);
-        filter.connect(beamGain);
-        beamGain.connect(soundManager.masterGain);
-        
-        beam.start(now);
-        beam.stop(now + 0.6);
-        
-        // Add crackling noise
-        const bufferSize = soundManager.audioContext.sampleRate * 0.5;
-        const noiseBuffer = soundManager.audioContext.createBuffer(1, bufferSize, soundManager.audioContext.sampleRate);
-        const output = noiseBuffer.getChannelData(0);
-        
-        for (let i = 0; i < bufferSize; i++) {
-            output[i] = Math.random() * 2 - 1;
-        }
-        
-        const noise = soundManager.audioContext.createBufferSource();
-        noise.buffer = noiseBuffer;
-        
-        const noiseFilter = soundManager.audioContext.createBiquadFilter();
-        noiseFilter.type = 'bandpass';
-        noiseFilter.frequency.value = 2000;
-        noiseFilter.Q.value = 1;
-        
-        const noiseGain = soundManager.audioContext.createGain();
-        noiseGain.gain.setValueAtTime(0.2, now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-        
-        noise.connect(noiseFilter);
-        noiseFilter.connect(noiseGain);
-        noiseGain.connect(soundManager.masterGain);
-        
-        noise.start(now);
-        noise.stop(now + 0.5);
-    }
-    
-    update() {
-        this.timer--;
-        this.phase += 0.15;
-        
-        if (this.state === 'warning') {
-            this.intensity = (this.maxWarningTime - this.timer) / this.maxWarningTime * 0.3;
-            
-            if (this.timer <= 0) {
-                this.state = 'active';
-                this.timer = SOLAR_FLARE_ACTIVE_TIME;
-                this.playFireSound();
-                this.game.screenShake.trigger(15);
-                this.game.triggerFlash('#ffff00', 0.4);
-            }
-        } else if (this.state === 'active') {
-            this.intensity = 1;
-            
-            // Spawn fire particles
-            for (let i = 0; i < 5; i++) {
-                if (this.isHorizontal) {
-                    this.particles.push({
-                        x: Math.random() * CANVAS_WIDTH,
-                        y: this.position + (Math.random() - 0.5) * this.beamWidth,
-                        vx: (Math.random() - 0.5) * 3,
-                        vy: (Math.random() - 0.5) * 5,
-                        life: 20 + Math.random() * 20,
-                        size: 2 + Math.random() * 4
-                    });
-                } else {
-                    this.particles.push({
-                        x: this.position + (Math.random() - 0.5) * this.beamWidth,
-                        y: Math.random() * CANVAS_HEIGHT,
-                        vx: (Math.random() - 0.5) * 5,
-                        vy: (Math.random() - 0.5) * 3,
-                        life: 20 + Math.random() * 20,
-                        size: 2 + Math.random() * 4
-                    });
-                }
-            }
-            
-            if (this.timer <= 0) {
-                this.state = 'fading';
-                this.timer = 30;
-            }
-        } else if (this.state === 'fading') {
-            this.intensity = this.timer / 30;
-        }
-        
-        // Update particles
-        this.particles = this.particles.filter(p => {
-            p.x += p.vx;
-            p.y += p.vy;
-            p.life--;
-            p.size *= 0.95;
-            return p.life > 0;
-        });
-    }
-    
-    isInBeam(x, y, radius = 0) {
-        if (this.state !== 'active') return false;
-        
-        if (this.isHorizontal) {
-            return Math.abs(y - this.position) < (this.beamWidth / 2 + radius);
-        } else {
-            return Math.abs(x - this.position) < (this.beamWidth / 2 + radius);
-        }
-    }
-    
-    isFinished() {
-        return this.state === 'fading' && this.timer <= 0;
-    }
-    
-    draw(ctx) {
-        ctx.save();
-        
-        const warningAlpha = this.state === 'warning' ? 
-            0.3 + Math.sin(this.phase * 2) * 0.2 : 0;
-        
-        // Warning zone
-        if (this.state === 'warning') {
-            ctx.fillStyle = `rgba(255, 200, 0, ${warningAlpha * 0.3})`;
-            ctx.strokeStyle = `rgba(255, 200, 0, ${warningAlpha})`;
-            ctx.lineWidth = 2;
-            ctx.setLineDash([15, 15]);
-            
-            if (this.isHorizontal) {
-                ctx.fillRect(0, this.position - this.beamWidth / 2, CANVAS_WIDTH, this.beamWidth);
-                ctx.strokeRect(0, this.position - this.beamWidth / 2, CANVAS_WIDTH, this.beamWidth);
-            } else {
-                ctx.fillRect(this.position - this.beamWidth / 2, 0, this.beamWidth, CANVAS_HEIGHT);
-                ctx.strokeRect(this.position - this.beamWidth / 2, 0, this.beamWidth, CANVAS_HEIGHT);
-            }
-            
-            // Warning text
-            ctx.setLineDash([]);
-            ctx.fillStyle = `rgba(255, 255, 0, ${warningAlpha})`;
-            ctx.font = 'bold 24px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            
-            const countdown = Math.ceil(this.timer / 60);
-            if (this.isHorizontal) {
-                ctx.fillText(`! SOLAR FLARE ${countdown} !`, CANVAS_WIDTH / 2, this.position);
-            } else {
-                ctx.save();
-                ctx.translate(this.position, CANVAS_HEIGHT / 2);
-                ctx.rotate(-Math.PI / 2);
-                ctx.fillText(`! SOLAR FLARE ${countdown} !`, 0, 0);
-                ctx.restore();
-            }
-        }
-        
-        // Active beam
-        if (this.state === 'active' || this.state === 'fading') {
-            const beamGradient = this.isHorizontal ?
-                ctx.createLinearGradient(0, this.position - this.beamWidth / 2, 0, this.position + this.beamWidth / 2) :
-                ctx.createLinearGradient(this.position - this.beamWidth / 2, 0, this.position + this.beamWidth / 2, 0);
-            
-            beamGradient.addColorStop(0, `rgba(255, 100, 0, 0)`);
-            beamGradient.addColorStop(0.2, `rgba(255, 150, 0, ${this.intensity * 0.5})`);
-            beamGradient.addColorStop(0.4, `rgba(255, 200, 50, ${this.intensity * 0.8})`);
-            beamGradient.addColorStop(0.5, `rgba(255, 255, 200, ${this.intensity})`);
-            beamGradient.addColorStop(0.6, `rgba(255, 200, 50, ${this.intensity * 0.8})`);
-            beamGradient.addColorStop(0.8, `rgba(255, 150, 0, ${this.intensity * 0.5})`);
-            beamGradient.addColorStop(1, `rgba(255, 100, 0, 0)`);
-            
-            ctx.fillStyle = beamGradient;
-            ctx.shadowColor = '#ffaa00';
-            ctx.shadowBlur = 30 * this.intensity;
-            
-            if (this.isHorizontal) {
-                ctx.fillRect(0, this.position - this.beamWidth / 2, CANVAS_WIDTH, this.beamWidth);
-            } else {
-                ctx.fillRect(this.position - this.beamWidth / 2, 0, this.beamWidth, CANVAS_HEIGHT);
-            }
-        }
-        
-        // Particles
-        this.particles.forEach(p => {
-            const alpha = p.life / 40;
-            ctx.fillStyle = `rgba(255, ${150 + Math.random() * 100}, 0, ${alpha})`;
-            ctx.shadowColor = '#ffaa00';
-            ctx.shadowBlur = 5;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ctx.fill();
-        });
-        
-        ctx.restore();
-    }
-}
-
-// ============== ASTEROID FIELD CLASS ==============
-// Dense cluster of small asteroids drifting across the screen
-class AsteroidField {
-    constructor(game) {
-        this.game = game;
-        this.lifetime = ASTEROID_FIELD_LIFETIME;
-        
-        // Start from a random edge
-        const side = Math.floor(Math.random() * 4);
-        const angle = Math.random() * Math.PI * 0.5 - Math.PI * 0.25; // Slight angle variation
-        
-        switch(side) {
-            case 0: // Top
-                this.x = Math.random() * CANVAS_WIDTH;
-                this.y = -ASTEROID_FIELD_SIZE;
-                this.vx = Math.sin(angle) * 1.5;
-                this.vy = 1.5;
-                break;
-            case 1: // Right
-                this.x = CANVAS_WIDTH + ASTEROID_FIELD_SIZE;
-                this.y = Math.random() * CANVAS_HEIGHT;
-                this.vx = -1.5;
-                this.vy = Math.sin(angle) * 1.5;
-                break;
-            case 2: // Bottom
-                this.x = Math.random() * CANVAS_WIDTH;
-                this.y = CANVAS_HEIGHT + ASTEROID_FIELD_SIZE;
-                this.vx = Math.sin(angle) * 1.5;
-                this.vy = -1.5;
-                break;
-            case 3: // Left
-                this.x = -ASTEROID_FIELD_SIZE;
-                this.y = Math.random() * CANVAS_HEIGHT;
-                this.vx = 1.5;
-                this.vy = Math.sin(angle) * 1.5;
-                break;
-        }
-        
-        // Create mini asteroids within the field
-        this.miniAsteroids = [];
-        for (let i = 0; i < ASTEROID_FIELD_DENSITY; i++) {
-            const offsetAngle = Math.random() * Math.PI * 2;
-            const offsetDist = Math.random() * ASTEROID_FIELD_SIZE * 0.8;
-            this.miniAsteroids.push({
-                offsetX: Math.cos(offsetAngle) * offsetDist,
-                offsetY: Math.sin(offsetAngle) * offsetDist,
-                radius: 8 + Math.random() * 12,
-                rotation: Math.random() * Math.PI * 2,
-                rotSpeed: (Math.random() - 0.5) * 0.1,
-                hue: 20 + Math.random() * 20,
-                vertices: this.generateVertices(8 + Math.random() * 12)
-            });
-        }
-        
-        this.phase = 0;
-        this.playSpawnSound();
-    }
-    
-    generateVertices(radius) {
-        const vertices = [];
-        const count = 6 + Math.floor(Math.random() * 4);
-        for (let i = 0; i < count; i++) {
-            const angle = (i / count) * Math.PI * 2;
-            const dist = radius * (0.7 + Math.random() * 0.3);
-            vertices.push({ x: Math.cos(angle) * dist, y: Math.sin(angle) * dist });
-        }
-        return vertices;
-    }
-    
-    playSpawnSound() {
-        if (!soundManager.initialized) return;
-        soundManager.resume();
-        
-        const now = soundManager.audioContext.currentTime;
-        
-        // Rumbling approach sound
-        const rumble = soundManager.audioContext.createOscillator();
-        const rumbleGain = soundManager.audioContext.createGain();
-        
-        rumble.type = 'triangle';
-        rumble.frequency.value = 60;
-        
-        // LFO for rumble
-        const lfo = soundManager.audioContext.createOscillator();
-        const lfoGain = soundManager.audioContext.createGain();
-        lfo.type = 'sine';
-        lfo.frequency.value = 4;
-        lfoGain.gain.value = 20;
-        lfo.connect(lfoGain);
-        lfoGain.connect(rumble.frequency);
-        lfo.start(now);
-        lfo.stop(now + 1);
-        
-        rumbleGain.gain.setValueAtTime(0, now);
-        rumbleGain.gain.linearRampToValueAtTime(0.15, now + 0.3);
-        rumbleGain.gain.exponentialRampToValueAtTime(0.01, now + 1);
-        
-        rumble.connect(rumbleGain);
-        rumbleGain.connect(soundManager.masterGain);
-        
-        rumble.start(now);
-        rumble.stop(now + 1);
-    }
-    
-    update() {
-        this.lifetime--;
-        this.x += this.vx;
-        this.y += this.vy;
-        this.phase += 0.05;
-        
-        // Update mini asteroid rotations
-        this.miniAsteroids.forEach(a => {
-            a.rotation += a.rotSpeed;
-        });
-    }
-    
-    isOffScreen() {
-        return this.x < -ASTEROID_FIELD_SIZE * 2 || 
-               this.x > CANVAS_WIDTH + ASTEROID_FIELD_SIZE * 2 ||
-               this.y < -ASTEROID_FIELD_SIZE * 2 || 
-               this.y > CANVAS_HEIGHT + ASTEROID_FIELD_SIZE * 2;
-    }
-    
-    checkCollision(x, y, radius) {
-        for (const asteroid of this.miniAsteroids) {
-            const ax = this.x + asteroid.offsetX;
-            const ay = this.y + asteroid.offsetY;
-            const dx = x - ax;
-            const dy = y - ay;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            
-            if (dist < asteroid.radius + radius) {
-                return { x: ax, y: ay, asteroid };
-            }
-        }
-        return null;
-    }
-    
-    removeMiniAsteroid(asteroid) {
-        const idx = this.miniAsteroids.indexOf(asteroid);
-        if (idx > -1) {
-            this.miniAsteroids.splice(idx, 1);
-        }
-    }
-    
-    draw(ctx) {
-        ctx.save();
-        
-        // Draw field boundary (subtle dust cloud)
-        const cloudAlpha = 0.1 + Math.sin(this.phase) * 0.05;
-        const cloudGradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, ASTEROID_FIELD_SIZE);
-        cloudGradient.addColorStop(0, `rgba(255, 150, 100, ${cloudAlpha})`);
-        cloudGradient.addColorStop(0.7, `rgba(255, 100, 50, ${cloudAlpha * 0.5})`);
-        cloudGradient.addColorStop(1, 'transparent');
-        
-        ctx.fillStyle = cloudGradient;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, ASTEROID_FIELD_SIZE, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Draw mini asteroids
-        this.miniAsteroids.forEach(asteroid => {
-            const ax = this.x + asteroid.offsetX;
-            const ay = this.y + asteroid.offsetY;
-            
-            ctx.save();
-            ctx.translate(ax, ay);
-            ctx.rotate(asteroid.rotation);
-            
-            // Glow
-            ctx.shadowColor = '#ff6600';
-            ctx.shadowBlur = 8;
-            
-            // Fill
-            const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, asteroid.radius);
-            gradient.addColorStop(0, `hsl(${asteroid.hue}, 70%, 20%)`);
-            gradient.addColorStop(1, `hsl(${asteroid.hue}, 80%, 8%)`);
-            
-            ctx.fillStyle = gradient;
-            ctx.strokeStyle = '#ff6600';
-            ctx.lineWidth = 1.5;
-            
-            ctx.beginPath();
-            asteroid.vertices.forEach((v, i) => {
-                if (i === 0) ctx.moveTo(v.x, v.y);
-                else ctx.lineTo(v.x, v.y);
-            });
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-            
-            ctx.restore();
-        });
-        
-        ctx.restore();
-    }
-}
-
-// ============== ENVIRONMENTAL HAZARDS MANAGER ==============
-class EnvironmentalHazardsManager {
-    constructor(game) {
-        this.game = game;
-        this.blackHoles = [];
-        this.solarFlares = [];
-        this.asteroidFields = [];
-        this.spawnTimer = HAZARD_SPAWN_INTERVAL / 2; // First hazard comes sooner
-        this.hazardLevel = 0; // Increases with game level
-    }
-    
-    reset() {
-        this.blackHoles = [];
-        this.solarFlares = [];
-        this.asteroidFields = [];
-        this.spawnTimer = HAZARD_SPAWN_INTERVAL / 2;
-        this.hazardLevel = 0;
-    }
-    
-    update() {
-        // Update hazard level based on game level
-        this.hazardLevel = Math.min(this.game.level / 5, 3);
-        
-        // Spawn new hazards periodically (more frequent at higher levels)
-        this.spawnTimer--;
-        const spawnInterval = HAZARD_SPAWN_INTERVAL / (1 + this.hazardLevel * 0.3);
-        
-        if (this.spawnTimer <= 0) {
-            this.spawnRandomHazard();
-            this.spawnTimer = spawnInterval;
-        }
-        
-        // Update black holes
-        this.blackHoles = this.blackHoles.filter(hole => {
-            hole.update();
-            
-            // Check ship collision with event horizon
-            if (hole.checkShipCollision()) {
-                if (this.game.ship && !this.game.ship.hasShield) {
-                    this.game.createExplosion(this.game.ship.x, this.game.ship.y, 25);
-                    this.game.ship = null;
-                    this.game.loseLife();
-                } else if (this.game.ship && this.game.ship.hasShield) {
-                    soundManager.playShieldHit();
-                    this.game.triggerFlash('#9933ff', 0.3);
-                }
-            }
-            
-            return hole.lifetime > 0;
-        });
-        
-        // Update solar flares
-        this.solarFlares = this.solarFlares.filter(flare => {
-            flare.update();
-            
-            // Check ship collision during active phase
-            if (this.game.ship && !this.game.ship.invulnerable && flare.isInBeam(this.game.ship.x, this.game.ship.y, SHIP_SIZE)) {
-                if (!this.game.ship.hasShield) {
-                    this.game.createExplosion(this.game.ship.x, this.game.ship.y, 25);
-                    this.game.ship = null;
-                    this.game.loseLife();
-                } else {
-                    soundManager.playShieldHit();
-                    this.game.triggerFlash('#ffaa00', 0.2);
-                }
-            }
-            
-            // Damage asteroids in beam
-            if (flare.state === 'active') {
-                for (let i = this.game.asteroids.length - 1; i >= 0; i--) {
-                    const asteroid = this.game.asteroids[i];
-                    if (flare.isInBeam(asteroid.x, asteroid.y, asteroid.radius)) {
-                        this.game.createExplosion(asteroid.x, asteroid.y, asteroid.size * 4);
-                        if (asteroid.size > 1) {
-                            for (let k = 0; k < 2; k++) {
-                                this.game.asteroids.push(new Asteroid(asteroid.x, asteroid.y, asteroid.size - 1, this.game));
-                            }
-                        }
-                        this.game.asteroids.splice(i, 1);
-                    }
-                }
-                
-                // Damage UFOs in beam
-                for (let i = this.game.ufos.length - 1; i >= 0; i--) {
-                    const ufo = this.game.ufos[i];
-                    if (flare.isInBeam(ufo.x, ufo.y, UFO_SIZE)) {
-                        this.game.createUfoExplosion(ufo.x, ufo.y);
-                        this.game.ufos.splice(i, 1);
-                    }
-                }
-            }
-            
-            return !flare.isFinished();
-        });
-        
-        // Update asteroid fields
-        this.asteroidFields = this.asteroidFields.filter(field => {
-            field.update();
-            
-            // Check ship collision
-            if (this.game.ship && !this.game.ship.invulnerable) {
-                const hit = field.checkCollision(this.game.ship.x, this.game.ship.y, SHIP_SIZE);
-                if (hit) {
-                    if (!this.game.ship.hasShield) {
-                        this.game.createExplosion(this.game.ship.x, this.game.ship.y, 25);
-                        this.game.ship = null;
-                        this.game.loseLife();
-                    } else {
-                        soundManager.playShieldHit();
-                        this.game.createExplosion(hit.x, hit.y, 10);
-                        field.removeMiniAsteroid(hit.asteroid);
-                    }
-                }
-            }
-            
-            // Check bullet collisions
-            for (let i = this.game.bullets.length - 1; i >= 0; i--) {
-                const bullet = this.game.bullets[i];
-                const hit = field.checkCollision(bullet.x, bullet.y, 4);
-                if (hit) {
-                    this.game.bullets.splice(i, 1);
-                    this.game.createExplosion(hit.x, hit.y, 8);
-                    this.game.addScore(5);
-                    field.removeMiniAsteroid(hit.asteroid);
-                }
-            }
-            
-            return !field.isOffScreen() && field.miniAsteroids.length > 0;
-        });
-    }
-    
-    spawnRandomHazard() {
-        // Don't spawn hazards during boss fights
-        if (this.game.boss) return;
-        
-        // Don't spawn too many hazards at once
-        const totalHazards = this.blackHoles.length + this.solarFlares.length + this.asteroidFields.length;
-        if (totalHazards >= 2 + Math.floor(this.hazardLevel)) return;
-        
-        const hazardType = Math.random();
-        
-        if (hazardType < 0.35) {
-            // Black hole (35% chance)
-            this.spawnBlackHole();
-        } else if (hazardType < 0.65) {
-            // Solar flare (30% chance)
-            this.spawnSolarFlare();
-        } else {
-            // Asteroid field (35% chance)
-            this.spawnAsteroidField();
-        }
-    }
-    
-    spawnBlackHole() {
-        // Don't spawn too close to ship or screen edges
-        let x, y, attempts = 0;
-        do {
-            x = 100 + Math.random() * (CANVAS_WIDTH - 200);
-            y = 100 + Math.random() * (CANVAS_HEIGHT - 200);
-            attempts++;
-        } while (this.game.ship && 
-                 Math.hypot(x - this.game.ship.x, y - this.game.ship.y) < BLACK_HOLE_PULL_RADIUS + 100 &&
-                 attempts < 10);
-        
-        this.blackHoles.push(new BlackHole(x, y, this.game));
-        this.game.triggerFlash('#9933ff', 0.2);
-    }
-    
-    spawnSolarFlare() {
-        this.solarFlares.push(new SolarFlare(this.game));
-    }
-    
-    spawnAsteroidField() {
-        this.asteroidFields.push(new AsteroidField(this.game));
-    }
-    
-    draw(ctx) {
-        // Draw in order: fields (back), black holes (middle), flares (front)
-        this.asteroidFields.forEach(field => field.draw(ctx));
-        this.blackHoles.forEach(hole => hole.draw(ctx));
-        this.solarFlares.forEach(flare => flare.draw(ctx));
-    }
-    
-    // For freeze effect
-    freezeHazards() {
-        // Black holes continue pulling even when frozen (gravity doesn't stop!)
-        // But we slow down asteroid fields
-        this.asteroidFields.forEach(field => {
-            field.vx *= 0.1;
-            field.vy *= 0.1;
-        });
-    }
-    
-    unfreezeHazards() {
-        this.asteroidFields.forEach(field => {
-            field.vx *= 10;
-            field.vy *= 10;
-        });
-    }
-}
+// Global stats manager instance
+const statsManager = new StatsManager();
 
 
 // ============== STARFIELD CLASS ==============
@@ -2994,419 +1317,6 @@ class ScreenShake {
     }
 }
 
-// ============== TRANSITION MANAGER CLASS ==============
-// Handles dramatic screen transitions for AAA feel
-class TransitionManager {
-    constructor(game) {
-        this.game = game;
-        
-        // Level announcement state
-        this.levelAnnouncement = {
-            active: false,
-            level: 1,
-            phase: 0, // 0-1: zoom in, 1-2: hold, 2-3: fade out
-            timer: 0,
-            maxTimer: 180, // 3 seconds total
-            scale: 0,
-            alpha: 0
-        };
-        
-        // Death transition state
-        this.deathTransition = {
-            active: false,
-            phase: 0, // 0-1: slow-mo + zoom, 1-2: fade to red
-            timer: 0,
-            maxTimer: 90, // 1.5 seconds
-            slowMoFactor: 1,
-            redOverlay: 0,
-            deathX: 0,
-            deathY: 0
-        };
-        
-        // Game over transition
-        this.gameOverTransition = {
-            active: false,
-            timer: 0,
-            maxTimer: 60,
-            fadeAlpha: 0
-        };
-        
-        // Level complete celebration
-        this.levelComplete = {
-            active: false,
-            timer: 0,
-            maxTimer: 120, // 2 seconds
-            rings: [],
-            sparkles: []
-        };
-    }
-    
-    // Start level announcement
-    startLevelAnnouncement(level) {
-        this.levelAnnouncement.active = true;
-        this.levelAnnouncement.level = level;
-        this.levelAnnouncement.timer = 0;
-        this.levelAnnouncement.scale = 0;
-        this.levelAnnouncement.alpha = 0;
-        this.levelAnnouncement.phase = 0;
-        
-        // Play a dramatic sound
-        soundManager.playLevelComplete();
-    }
-    
-    // Start death transition (slow-mo effect)
-    startDeathTransition(x, y) {
-        this.deathTransition.active = true;
-        this.deathTransition.timer = 0;
-        this.deathTransition.phase = 0;
-        this.deathTransition.slowMoFactor = 1;
-        this.deathTransition.redOverlay = 0;
-        this.deathTransition.deathX = x;
-        this.deathTransition.deathY = y;
-    }
-    
-    // Start game over transition
-    startGameOverTransition() {
-        this.gameOverTransition.active = true;
-        this.gameOverTransition.timer = 0;
-        this.gameOverTransition.fadeAlpha = 0;
-    }
-    
-    // Start level complete celebration
-    startLevelComplete() {
-        this.levelComplete.active = true;
-        this.levelComplete.timer = 0;
-        this.levelComplete.rings = [];
-        this.levelComplete.sparkles = [];
-        
-        // Create expanding rings from center
-        for (let i = 0; i < 3; i++) {
-            this.levelComplete.rings.push({
-                radius: 0,
-                maxRadius: 400 + i * 100,
-                delay: i * 15,
-                alpha: 1,
-                color: i === 0 ? '#00ffff' : (i === 1 ? '#ff00ff' : '#ffff00')
-            });
-        }
-    }
-    
-    // Get slow-mo factor for game update
-    getSlowMoFactor() {
-        if (this.deathTransition.active) {
-            return this.deathTransition.slowMoFactor;
-        }
-        return 1;
-    }
-    
-    // Check if game should skip normal updates (during transitions)
-    shouldPauseGameplay() {
-        return this.levelAnnouncement.active && this.levelAnnouncement.phase < 1;
-    }
-    
-    // Update transitions
-    update() {
-        // Update level announcement
-        if (this.levelAnnouncement.active) {
-            this.updateLevelAnnouncement();
-        }
-        
-        // Update death transition
-        if (this.deathTransition.active) {
-            this.updateDeathTransition();
-        }
-        
-        // Update game over transition
-        if (this.gameOverTransition.active) {
-            this.updateGameOverTransition();
-        }
-        
-        // Update level complete celebration
-        if (this.levelComplete.active) {
-            this.updateLevelComplete();
-        }
-    }
-    
-    updateLevelAnnouncement() {
-        const la = this.levelAnnouncement;
-        la.timer++;
-        
-        const progress = la.timer / la.maxTimer;
-        
-        if (progress < 0.33) {
-            // Phase 1: Zoom in (0-33%)
-            la.phase = progress / 0.33;
-            la.scale = this.easeOutBack(la.phase) * 1.2;
-            la.alpha = this.easeOutQuad(la.phase);
-        } else if (progress < 0.67) {
-            // Phase 2: Hold (33-67%)
-            la.phase = 1 + (progress - 0.33) / 0.34;
-            la.scale = 1.2 - (la.phase - 1) * 0.2; // Slight settle
-            la.alpha = 1;
-        } else {
-            // Phase 3: Fade out (67-100%)
-            la.phase = 2 + (progress - 0.67) / 0.33;
-            la.scale = 1 + (la.phase - 2) * 0.3; // Zoom out slightly
-            la.alpha = 1 - this.easeInQuad(la.phase - 2);
-        }
-        
-        if (la.timer >= la.maxTimer) {
-            la.active = false;
-        }
-    }
-    
-    updateDeathTransition() {
-        const dt = this.deathTransition;
-        dt.timer++;
-        
-        const progress = dt.timer / dt.maxTimer;
-        
-        if (progress < 0.5) {
-            // Phase 1: Slow-mo ramp down
-            dt.phase = progress / 0.5;
-            dt.slowMoFactor = 1 - this.easeInQuad(dt.phase) * 0.7; // Slow to 30%
-            dt.redOverlay = this.easeOutQuad(dt.phase) * 0.3;
-        } else {
-            // Phase 2: Fade to red and speed back up
-            dt.phase = 1 + (progress - 0.5) / 0.5;
-            dt.slowMoFactor = 0.3 + this.easeOutQuad(dt.phase - 1) * 0.7; // Speed back up
-            dt.redOverlay = 0.3 + (dt.phase - 1) * 0.2; // Max 0.5 red
-        }
-        
-        if (dt.timer >= dt.maxTimer) {
-            dt.active = false;
-            dt.slowMoFactor = 1;
-        }
-    }
-    
-    updateGameOverTransition() {
-        const gt = this.gameOverTransition;
-        gt.timer++;
-        
-        const progress = gt.timer / gt.maxTimer;
-        gt.fadeAlpha = this.easeInQuad(progress) * 0.6;
-        
-        if (gt.timer >= gt.maxTimer) {
-            gt.active = false;
-        }
-    }
-    
-    updateLevelComplete() {
-        const lc = this.levelComplete;
-        lc.timer++;
-        
-        // Update rings
-        lc.rings.forEach(ring => {
-            if (lc.timer > ring.delay) {
-                const ringProgress = (lc.timer - ring.delay) / (lc.maxTimer - ring.delay);
-                ring.radius = this.easeOutQuad(ringProgress) * ring.maxRadius;
-                ring.alpha = 1 - this.easeInQuad(ringProgress);
-            }
-        });
-        
-        // Spawn sparkles
-        if (lc.timer < 60 && lc.timer % 3 === 0) {
-            const angle = Math.random() * Math.PI * 2;
-            const dist = Math.random() * 200;
-            lc.sparkles.push({
-                x: CANVAS_WIDTH / 2 + Math.cos(angle) * dist,
-                y: CANVAS_HEIGHT / 2 + Math.sin(angle) * dist,
-                vx: Math.cos(angle) * 2,
-                vy: Math.sin(angle) * 2 - 1,
-                size: 2 + Math.random() * 3,
-                alpha: 1,
-                color: ['#00ffff', '#ff00ff', '#ffff00', '#00ff00'][Math.floor(Math.random() * 4)]
-            });
-        }
-        
-        // Update sparkles
-        lc.sparkles.forEach(s => {
-            s.x += s.vx;
-            s.y += s.vy;
-            s.vy += 0.05; // gravity
-            s.alpha -= 0.02;
-            s.size *= 0.98;
-        });
-        lc.sparkles = lc.sparkles.filter(s => s.alpha > 0);
-        
-        if (lc.timer >= lc.maxTimer) {
-            lc.active = false;
-        }
-    }
-    
-    // Draw all active transitions
-    draw(ctx) {
-        // Draw level complete celebration (behind other UI)
-        if (this.levelComplete.active) {
-            this.drawLevelComplete(ctx);
-        }
-        
-        // Draw death transition red overlay
-        if (this.deathTransition.active && this.deathTransition.redOverlay > 0) {
-            this.drawDeathOverlay(ctx);
-        }
-        
-        // Draw game over transition
-        if (this.gameOverTransition.active) {
-            this.drawGameOverOverlay(ctx);
-        }
-        
-        // Draw level announcement (on top)
-        if (this.levelAnnouncement.active) {
-            this.drawLevelAnnouncement(ctx);
-        }
-    }
-    
-    drawLevelAnnouncement(ctx) {
-        const la = this.levelAnnouncement;
-        if (la.alpha <= 0) return;
-        
-        ctx.save();
-        
-        // Semi-transparent background
-        ctx.fillStyle = `rgba(0, 0, 0, ${la.alpha * 0.5})`;
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        
-        // Center transform for zoom effect
-        ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
-        ctx.scale(la.scale, la.scale);
-        
-        // Glowing "LEVEL X" text
-        const levelText = `LEVEL ${la.level}`;
-        
-        // Outer glow layers
-        for (let i = 3; i >= 0; i--) {
-            ctx.shadowColor = '#00ffff';
-            ctx.shadowBlur = 20 + i * 15;
-            ctx.fillStyle = `rgba(0, 255, 255, ${la.alpha * (0.3 - i * 0.05)})`;
-            ctx.font = 'bold 72px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(levelText, 0, 0);
-        }
-        
-        // Main text
-        ctx.shadowColor = '#00ffff';
-        ctx.shadowBlur = 30;
-        ctx.fillStyle = `rgba(255, 255, 255, ${la.alpha})`;
-        ctx.fillText(levelText, 0, 0);
-        
-        // Subtitle with wave message
-        const subtitles = [
-            'GET READY!',
-            'INCOMING ASTEROIDS!',
-            'STAY SHARP!',
-            'GOOD LUCK!',
-            'DANGER ZONE!',
-            'BRACE YOURSELF!'
-        ];
-        const subtitle = subtitles[(la.level - 1) % subtitles.length];
-        
-        ctx.shadowColor = '#ff00ff';
-        ctx.shadowBlur = 15;
-        ctx.fillStyle = `rgba(255, 0, 255, ${la.alpha * 0.8})`;
-        ctx.font = '24px "Courier New", monospace';
-        ctx.fillText(subtitle, 0, 50);
-        
-        // Decorative lines
-        ctx.strokeStyle = `rgba(0, 255, 255, ${la.alpha * 0.5})`;
-        ctx.lineWidth = 2;
-        ctx.shadowBlur = 10;
-        
-        const lineWidth = 150;
-        ctx.beginPath();
-        ctx.moveTo(-lineWidth, -45);
-        ctx.lineTo(lineWidth, -45);
-        ctx.moveTo(-lineWidth, 80);
-        ctx.lineTo(lineWidth, 80);
-        ctx.stroke();
-        
-        ctx.restore();
-    }
-    
-    drawDeathOverlay(ctx) {
-        const dt = this.deathTransition;
-        
-        ctx.save();
-        
-        // Red vignette effect centered on death location
-        const gradient = ctx.createRadialGradient(
-            dt.deathX, dt.deathY, 0,
-            dt.deathX, dt.deathY, CANVAS_WIDTH
-        );
-        gradient.addColorStop(0, `rgba(255, 0, 0, ${dt.redOverlay * 0.3})`);
-        gradient.addColorStop(0.5, `rgba(255, 0, 0, ${dt.redOverlay * 0.5})`);
-        gradient.addColorStop(1, `rgba(100, 0, 0, ${dt.redOverlay})`);
-        
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        
-        ctx.restore();
-    }
-    
-    drawGameOverOverlay(ctx) {
-        const gt = this.gameOverTransition;
-        
-        ctx.save();
-        ctx.fillStyle = `rgba(20, 0, 0, ${gt.fadeAlpha})`;
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        ctx.restore();
-    }
-    
-    drawLevelComplete(ctx) {
-        const lc = this.levelComplete;
-        
-        ctx.save();
-        
-        // Draw expanding rings
-        lc.rings.forEach(ring => {
-            if (ring.radius > 0 && ring.alpha > 0) {
-                ctx.beginPath();
-                ctx.arc(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, ring.radius, 0, Math.PI * 2);
-                ctx.strokeStyle = ring.color;
-                ctx.lineWidth = 3;
-                ctx.globalAlpha = ring.alpha * 0.6;
-                ctx.shadowColor = ring.color;
-                ctx.shadowBlur = 20;
-                ctx.stroke();
-            }
-        });
-        
-        // Draw sparkles
-        lc.sparkles.forEach(s => {
-            ctx.beginPath();
-            ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-            ctx.fillStyle = s.color;
-            ctx.globalAlpha = s.alpha;
-            ctx.shadowColor = s.color;
-            ctx.shadowBlur = s.size * 3;
-            ctx.fill();
-        });
-        
-        ctx.restore();
-    }
-    
-    // Easing functions
-    easeOutBack(t) {
-        const c1 = 1.70158;
-        const c3 = c1 + 1;
-        return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
-    }
-    
-    easeOutQuad(t) {
-        return 1 - (1 - t) * (1 - t);
-    }
-    
-    easeInQuad(t) {
-        return t * t;
-    }
-    
-    easeInOutQuad(t) {
-        return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-    }
-}
-
-
 // ============== GAME CLASS ==============
 class Game {
     constructor() {
@@ -3433,13 +1343,9 @@ class Game {
         this.enemyBullets = [];
         this.ufoSpawnTimer = this.getRandomUfoSpawnTime();
 
-        // Environmental hazards system
-        this.hazardsManager = new EnvironmentalHazardsManager(this);
-
         // Visual systems
         this.starField = new StarField();
         this.screenShake = new ScreenShake();
-        this.transitionManager = new TransitionManager(this);
         
         // Global visual effects
         this.flashAlpha = 0;
@@ -3452,22 +1358,6 @@ class Game {
         this.scoreMultiplierTimer = 0;
         this.freezeActive = false;
         this.freezeTimer = 0;
-        
-        // Upgrade shop state
-        this.showingUpgradeShop = false;
-        this.upgradeShopSelection = 0;
-        this.pendingLevelUp = false;
-        
-        // ===== SURVIVAL MODE =====
-        this.gameMode = 'classic'; // 'classic' or 'survival'
-        this.modeSelectIndex = 0; // 0 = classic, 1 = survival
-        this.survivalTime = 0; // Frames survived
-        this.survivalSpawnRate = SURVIVAL_INITIAL_SPAWN_RATE;
-        this.survivalSpawnTimer = 0;
-        this.survivalBossTimer = SURVIVAL_BOSS_INTERVAL;
-        this.survivalBossCount = 0;
-        this.survivalEnteringInitials = false;
-        this.survivalInitials = '';
 
         // Animation timers
         this.time = 0;
@@ -3475,16 +1365,6 @@ class Game {
         
         // Engine sound state tracking
         this.wasThrusting = false;
-        // Challenge mode system
-        this.gameMode = 'classic';
-        this.challengeStartTime = 0;
-        this.challengeAsteroidsDestroyed = 0;
-        this.modeSelectIndex = 0;
-        this.challengeInitials = ['A', 'A', 'A'];
-        this.challengeInitialIndex = 0;
-        this.isNewChallengeRecord = false;
-        this.challengeRank = 0;
-        this.challengeEndTime = 0;
 
         this.setupEventListeners();
         this.gameLoop();
@@ -3501,74 +1381,21 @@ class Game {
             // Initialize audio on first user interaction
             soundManager.init();
 
-            // Handle survival high score initials entry
-            if (this.survivalEnteringInitials) {
-                e.preventDefault();
-                if (e.key === 'Backspace' && this.survivalInitials.length > 0) {
-                    this.survivalInitials = this.survivalInitials.slice(0, -1);
-                } else if (e.key === 'Enter' && this.survivalInitials.length === 3) {
-                    const timeSeconds = Math.floor(this.survivalTime / 60);
-                    survivalHighScores.addScore(this.survivalInitials, timeSeconds, this.score);
-                    this.survivalEnteringInitials = false;
-                    soundManager.playPowerUp();
-                } else if (e.key.length === 1 && /[A-Za-z]/.test(e.key) && this.survivalInitials.length < 3) {
-                    this.survivalInitials += e.key.toUpperCase();
-                    soundManager.playItemCollect();
-                }
-                return;
-            }
-
-            // Mode selection controls
-            if (this.state === 'modeSelect') {
-                if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'w' || e.key === 's') {
-                    this.modeSelectIndex = this.modeSelectIndex === 0 ? 1 : 0;
-                    soundManager.playItemCollect();
-                }
-                if (e.key === 'Enter') {
-                    this.gameMode = this.modeSelectIndex === 0 ? 'classic' : 'survival';
+            if (e.key === 'Enter') {
+                if (this.state === 'start' || this.state === 'gameover') {
                     this.startGame();
                 }
-                if (e.key === 'Escape') {
-                    this.state = 'start';
-                }
-                return;
+
+            // Stats screen toggle
+            if ((e.key === 's' || e.key === 'S') && this.state === 'start') {
+                this.state = 'stats';
+            }
+            if (e.key === 'Escape' && this.state === 'stats') {
+                this.state = 'start';
+            }
             }
 
-            if (e.key === 'Enter') {
-                if (this.state === 'start') {
-                    this.state = 'modeSelect';
-                    soundManager.playGameStart();
-                } else if (this.state === 'gameover') {
-                    this.state = 'modeSelect';
-                    this.modeSelectIndex = this.gameMode === 'survival' ? 1 : 0;
-                }
-                if (this.showingUpgradeShop) {
-                    const keys = Object.keys(SHIP_UPGRADES);
-                    if (this.upgradeShopSelection < keys.length) {
-                        shipUpgradeManager.purchaseUpgrade(keys[this.upgradeShopSelection]);
-                    } else {
-                        this.proceedToNextLevel();
-                    }
-                }
-            }
-            
-            // Upgrade shop navigation
-            if (this.showingUpgradeShop) {
-                const totalOptions = Object.keys(SHIP_UPGRADES).length + 1;
-                if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
-                    this.upgradeShopSelection = (this.upgradeShopSelection - 1 + totalOptions) % totalOptions;
-                    soundManager.playItemCollect();
-                }
-                if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
-                    this.upgradeShopSelection = (this.upgradeShopSelection + 1) % totalOptions;
-                    soundManager.playItemCollect();
-                }
-                if (e.key === 'Escape') {
-                    this.proceedToNextLevel();
-                }
-            }
-
-            if (e.key === ' ' && this.state === 'playing' && this.ship && this.gameMode !== 'pacifist') {
+            if (e.key === ' ' && this.state === 'playing' && this.ship) {
                 e.preventDefault();
                 this.ship.shoot();
             }
@@ -3582,39 +1409,18 @@ class Game {
             if (e.key === 'm' || e.key === 'M') {
                 soundManager.toggleMute();
             }
-            
-            // Weapon switching with Q/E or Tab
-            if (this.state === 'playing' && this.ship) {
-                if (e.key === 'q' || e.key === 'Q') {
-                    this.ship.cycleWeapon(-1);
-                }
-                if (e.key === 'e' || e.key === 'E' || e.key === 'Tab') {
-                    e.preventDefault();
-                    this.ship.cycleWeapon(1);
-                }
-                
-                // Beam weapon - start on space down
-                if (e.key === ' ' && this.ship.getCurrentWeaponType() === 'BEAM') {
-                    this.ship.startBeam();
-                }
-            }
         });
 
         window.addEventListener('keyup', (e) => {
             this.keys[e.key] = false;
-            
-            // Stop beam on space release
-            if (e.key === ' ' && this.ship && this.ship.getCurrentWeaponType() === 'BEAM') {
-                this.ship.stopBeam();
-            }
         });
     }
 
     startGame() {
         this.state = 'playing';
+        statsManager.startSession();
         this.score = 0;
-        shipUpgradeManager.reset();
-        this.lives = 3 + shipUpgradeManager.getExtraLives();
+        this.lives = 3;
         this.level = 1;
         this.ship = new Ship(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, this);
         this.asteroids = [];
@@ -3628,9 +1434,6 @@ class Game {
         this.ufos = [];
         this.enemyBullets = [];
         this.ufoSpawnTimer = this.getRandomUfoSpawnTime();
-
-        // Environmental hazards system
-        this.hazardsManager = new EnvironmentalHazardsManager(this);
         this.magnetActive = false;
         this.magnetTimer = 0;
         this.scoreMultiplier = 1;
@@ -3638,27 +1441,12 @@ class Game {
         this.freezeActive = false;
         this.freezeTimer = 0;
 
-        // Reset survival mode state
-        this.survivalTime = 0;
-        this.survivalSpawnRate = SURVIVAL_INITIAL_SPAWN_RATE;
-        this.survivalSpawnTimer = this.survivalSpawnRate;
-        this.survivalBossTimer = SURVIVAL_BOSS_INTERVAL;
-        this.survivalBossCount = 0;
-        this.survivalEnteringInitials = false;
-        this.survivalInitials = '';
-
-        // Mode-specific setup
-        if (this.gameMode === 'survival') {
-            this.spawnAsteroids(3); // Start with fewer in survival
-        } else {
-            this.spawnAsteroids(4);
-        }
-        
+        this.spawnAsteroids(4);
         this.updateUI();
         this.updateInventoryUI();
         
         // Flash effect on start
-        this.triggerFlash(this.gameMode === 'survival' ? '#ff00ff' : '#00ffff', 0.3);
+        this.triggerFlash('#00ffff', 0.3);
         
         // Play game start sound
         soundManager.playGameStart();
@@ -3667,73 +1455,6 @@ class Game {
     triggerFlash(color, alpha) {
         this.flashColor = color;
         this.flashAlpha = alpha;
-    }
-    startChallengeMode() {
-        const modes = ['classic', 'timeAttack', 'pacifist', 'oneLife'];
-        this.gameMode = modes[this.modeSelectIndex];
-        
-        this.state = 'playing';
-        this.score = 0;
-        this.level = 1;
-        this.ship = new Ship(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, this);
-        this.asteroids = [];
-        this.bullets = [];
-        this.particles = [];
-        this.trailParticles = [];
-        this.explosionParticles = [];
-        this.powerUps = [];
-        this.items = [];
-        this.inventory = [];
-        this.ufos = [];
-        this.enemyBullets = [];
-        this.ufoSpawnTimer = this.getRandomUfoSpawnTime();
-
-        // Environmental hazards system
-        this.hazardsManager = new EnvironmentalHazardsManager(this);
-        this.magnetActive = false;
-        this.magnetTimer = 0;
-        this.scoreMultiplier = 1;
-        this.scoreMultiplierTimer = 0;
-        this.freezeActive = false;
-        this.freezeTimer = 0;
-
-        // Reset environmental hazards
-        this.hazardsManager.reset();
-        this.challengeStartTime = Date.now();
-        this.challengeAsteroidsDestroyed = 0;
-        this.isNewChallengeRecord = false;
-        
-        this.lives = this.gameMode === 'oneLife' ? 1 : 3;
-        const asteroidCount = this.gameMode === 'timeAttack' ? 8 : this.gameMode === 'pacifist' ? 6 : 4;
-        this.spawnAsteroids(asteroidCount);
-        
-        this.updateUI();
-        this.updateInventoryUI();
-        this.triggerFlash('#00ffff', 0.3);
-        soundManager.playGameStart();
-    }
-    
-    submitChallengeScore() {
-        const initials = this.challengeInitials.join('');
-        if (this.gameMode === 'timeAttack') {
-            this.challengeRank = challengeScoreManager.addTimeAttackScore(this.challengeEndTime - this.challengeStartTime, initials);
-        } else if (this.gameMode === 'pacifist') {
-            this.challengeRank = challengeScoreManager.addPacifistScore(Date.now() - this.challengeStartTime, initials);
-        } else if (this.gameMode === 'oneLife') {
-            this.challengeRank = challengeScoreManager.addOneLifeScore(this.score, this.level, initials);
-        }
-        this.state = 'modeSelect';
-    }
-    
-    completeChallengeMode() {
-        this.challengeEndTime = Date.now();
-        this.state = 'challengeComplete';
-        soundManager.playLevelComplete();
-        if (this.gameMode === 'timeAttack') {
-            this.isNewChallengeRecord = challengeScoreManager.isTimeAttackRecord(this.challengeEndTime - this.challengeStartTime);
-        } else if (this.gameMode === 'pacifist') {
-            this.isNewChallengeRecord = challengeScoreManager.isPacifistRecord(this.challengeEndTime - this.challengeStartTime);
-        }
     }
 
     spawnAsteroids(count) {
@@ -3780,137 +1501,34 @@ class Game {
         soundManager.playUfoAppear();
         this.triggerFlash(COLORS.ufoPrimary, 0.15);
     }
-    
-    // ===== SURVIVAL MODE METHODS =====
-    spawnSurvivalAsteroid() {
-        // Spawn from edges only
-        const side = Math.floor(Math.random() * 4);
-        let x, y;
-        const margin = 50;
-        
-        switch(side) {
-            case 0: x = Math.random() * CANVAS_WIDTH; y = -margin; break;
-            case 1: x = CANVAS_WIDTH + margin; y = Math.random() * CANVAS_HEIGHT; break;
-            case 2: x = Math.random() * CANVAS_WIDTH; y = CANVAS_HEIGHT + margin; break;
-            case 3: x = -margin; y = Math.random() * CANVAS_HEIGHT; break;
-        }
-        
-        // Mix of sizes, weighted toward larger
-        const sizeRoll = Math.random();
-        let size = sizeRoll < 0.5 ? 3 : (sizeRoll < 0.85 ? 2 : 1);
-        
-        this.asteroids.push(new Asteroid(x, y, size, this));
-    }
-    
-    spawnSurvivalBoss() {
-        // Mini-boss wave - spawn a cluster of large asteroids
-        const bossLevel = this.survivalBossCount;
-        const numAsteroids = Math.min(3 + bossLevel, 8);
-        const side = Math.floor(Math.random() * 4);
-        
-        for (let i = 0; i < numAsteroids; i++) {
-            let x, y;
-            const offset = (i - numAsteroids / 2) * 40;
-            
-            switch(side) {
-                case 0: x = CANVAS_WIDTH / 2 + offset; y = -50; break;
-                case 1: x = CANVAS_WIDTH + 50; y = CANVAS_HEIGHT / 2 + offset; break;
-                case 2: x = CANVAS_WIDTH / 2 + offset; y = CANVAS_HEIGHT + 50; break;
-                case 3: x = -50; y = CANVAS_HEIGHT / 2 + offset; break;
-            }
-            
-            this.asteroids.push(new Asteroid(x, y, 3, this));
-        }
-        
-        // Also spawn UFOs during boss wave
-        if (bossLevel >= 2 && this.ufos.length < 2) {
-            this.spawnUfo();
-        }
-        
-        // Visual feedback
-        this.triggerFlash('#ff00ff', 0.3);
-        this.screenShake.trigger(10);
-        soundManager.playLevelComplete();
-    }
-    
-    getSurvivalTimeFormatted() {
-        const totalSeconds = Math.floor(this.survivalTime / 60);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    }
 
     nextLevel() {
-        // Show upgrade shop before advancing
-        this.showingUpgradeShop = true;
-        this.upgradeShopSelection = 0;
-        this.pendingLevelUp = true;
-        soundManager.playLevelComplete();
-    }
-    
-    proceedToNextLevel() {
-        this.showingUpgradeShop = false;
-        this.pendingLevelUp = false;
         this.level++;
-        
-        // Auto-repair check
-        const regenInterval = shipUpgradeManager.getRegenInterval();
-        if (regenInterval > 0 && this.level % regenInterval === 0 && this.lives < 5) {
-            this.lives++;
-            soundManager.playPowerUp();
-        }
-        
         this.spawnAsteroids(3 + this.level);
         this.updateUI();
-        achievementManager.trackLevel(this.level);
         this.triggerFlash('#00ff00', 0.2);
-        this.transitionManager.startLevelComplete();
-        this.transitionManager.startLevelAnnouncement(this.level);
+        
+        // Play level complete fanfare
+        soundManager.playLevelComplete();
     }
 
     updateUI() {
-        // In survival mode, show time instead of scrap
-        if (this.gameMode === 'survival') {
-            document.getElementById('score').textContent = this.score;
-        } else {
-            document.getElementById('score').textContent = this.score + ' | Scrap: ' + shipUpgradeManager.scrap;
-        }
+        document.getElementById('score').textContent = this.score;
         document.getElementById('lives').textContent = this.lives;
-        // In survival mode, show wave count instead of level
-        if (this.gameMode === 'survival') {
-            document.getElementById('level').textContent = `W${this.survivalBossCount}`;
-        } else {
-            document.getElementById('level').textContent = this.level;
-        }
+        document.getElementById('level').textContent = this.level;
     }
 
     gameOver() {
-        if (this.gameMode === 'oneLife' && challengeScoreManager.isOneLifeRecord(this.score)) {
-            this.isNewChallengeRecord = true;
-            this.challengeEndTime = Date.now();
-            this.state = 'challengeComplete';
-            return;
-        }
         this.state = 'gameover';
         this.triggerFlash('#ff0000', 0.5);
+        statsManager.endSession(this.score, this.level);
+        statsManager.recordDeath();
         
         // Stop engine sound if playing
         soundManager.stopEngine();
         
         // Play game over sound
         soundManager.playGameOver();
-        
-        // Start game over transition
-        this.transitionManager.startGameOverTransition();
-        
-        // Check for survival high score
-        if (this.gameMode === 'survival') {
-            const timeSeconds = Math.floor(this.survivalTime / 60);
-            if (survivalHighScores.isHighScore(timeSeconds, this.score)) {
-                this.survivalEnteringInitials = true;
-                this.survivalInitials = '';
-            }
-        }
     }
 
     loseLife() {
@@ -3918,15 +1536,10 @@ class Game {
         this.updateUI();
         this.screenShake.trigger(20);
         this.triggerFlash('#ff0000', 0.3);
+        statsManager.recordLifeLost();
         
         // Stop engine sound
         soundManager.stopEngine();
-        
-        // Start death transition with slow-mo
-        this.transitionManager.startDeathTransition(
-            this.ship ? this.ship.x : CANVAS_WIDTH / 2,
-            this.ship ? this.ship.y : CANVAS_HEIGHT / 2
-        );
 
         if (this.lives <= 0) {
             this.gameOver();
@@ -3936,12 +1549,8 @@ class Game {
     }
 
     addScore(points) {
-        if (this.gameMode === 'timeAttack' && points >= 20) this.challengeAsteroidsDestroyed++;
-        const finalPoints = points * this.scoreMultiplier;
-        this.score += finalPoints;
-        shipUpgradeManager.addScrap(finalPoints * SCRAP_PER_SCORE);
+        this.score += points * this.scoreMultiplier;
         this.updateUI();
-        achievementManager.trackScore(this.score);
     }
 
     spawnPowerUp(x, y) {
@@ -3992,10 +1601,6 @@ class Game {
             this.inventory.push(item.type);
             this.updateInventoryUI();
             soundManager.playItemCollect();
-            // Check if inventory is now full
-            if (this.inventory.length >= MAX_INVENTORY_SLOTS) {
-                achievementManager.trackInventoryFull();
-            }
             return true;
         }
         return false;
@@ -4017,8 +1622,6 @@ class Game {
                 break;
 
             case 'BOMB':
-                // Track asteroid count for achievement
-                const bombKillCount = this.asteroids.length;
                 // Destroy all asteroids
                 this.asteroids.forEach(asteroid => {
                     this.createExplosion(asteroid.x, asteroid.y, asteroid.size * 8);
@@ -4035,7 +1638,6 @@ class Game {
                 this.screenShake.trigger(30);
                 this.triggerFlash('#ff8c00', 0.5);
                 soundManager.playBomb();
-                achievementManager.trackBombKill(bombKillCount);
                 used = true;
                 break;
 
@@ -4193,138 +1795,15 @@ class Game {
         
         this.particles.push(new ShockwaveParticle(x, y, 60));
     }
-    
-    // Ice asteroid effect - freeze nearby asteroids temporarily
-    triggerIceExplosion(x, y, radius) {
-        const freezeDuration = 180;
-        this.asteroids.forEach(asteroid => {
-            const dx = asteroid.x - x;
-            const dy = asteroid.y - y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            
-            if (dist < radius && dist > 0) {
-                asteroid.frozenVx = asteroid.vx;
-                asteroid.frozenVy = asteroid.vy;
-                asteroid.frozenRotSpeed = asteroid.rotationSpeed;
-                asteroid.vx = 0;
-                asteroid.vy = 0;
-                asteroid.rotationSpeed = 0;
-                asteroid.iceFreezeDuration = freezeDuration;
-                
-                for (let i = 0; i < 5; i++) {
-                    this.explosionParticles.push(new ExplosionParticle(asteroid.x, asteroid.y, '#00ffff', true));
-                }
-            }
-        });
-        
-        this.ufos.forEach(ufo => {
-            const dx = ufo.x - x;
-            const dy = ufo.y - y;
-            if (Math.sqrt(dx * dx + dy * dy) < radius) {
-                ufo.frozen = true;
-                ufo.frozenVx = ufo.vx;
-                ufo.frozenVy = ufo.vy;
-                ufo.iceFreezeDuration = freezeDuration;
-            }
-        });
-        
-        soundManager.playFreeze();
-        this.triggerFlash('#00ffff', 0.3);
-    }
-    
-    // Explosive asteroid effect - damage nearby asteroids
-    triggerChainExplosion(x, y, radius, sourceAsteroid) {
-        const toDestroy = [];
-        
-        this.asteroids.forEach(asteroid => {
-            if (asteroid === sourceAsteroid) return;
-            
-            const dx = asteroid.x - x;
-            const dy = asteroid.y - y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            
-            if (dist < radius) {
-                const damage = dist < radius * 0.5 ? 2 : 1;
-                asteroid.hitsRemaining -= damage;
-                
-                if (asteroid.hitsRemaining <= 0) {
-                    toDestroy.push(asteroid);
-                } else {
-                    asteroid.hitFlashTimer = 15;
-                }
-            }
-        });
-        
-        toDestroy.forEach(asteroid => {
-            this.createExplosion(asteroid.x, asteroid.y, asteroid.size * 6);
-            this.addScore((4 - asteroid.size) * 20 * asteroid.typeInfo.pointMultiplier);
-            
-            if (asteroid.size > 1 && asteroid.asteroidType !== 'EXPLOSIVE') {
-                for (let k = 0; k < 2; k++) {
-                    this.asteroids.push(
-                        new Asteroid(asteroid.x, asteroid.y, asteroid.size - 1, this, 'NORMAL')
-                    );
-                }
-            }
-            
-            const idx = this.asteroids.indexOf(asteroid);
-            if (idx > -1) this.asteroids.splice(idx, 1);
-            achievementManager.trackAsteroidDestroyed();
-        });
-        
-        this.screenShake.trigger(25);
-        this.triggerFlash('#ff4400', 0.4);
-        soundManager.playBomb();
-    }
-    
-    // Update ice-frozen asteroids
-    updateIceFrozenAsteroids() {
-        this.asteroids.forEach(asteroid => {
-            if (asteroid.iceFreezeDuration && asteroid.iceFreezeDuration > 0) {
-                asteroid.iceFreezeDuration--;
-                if (asteroid.iceFreezeDuration <= 0) {
-                    if (asteroid.frozenVx !== undefined) {
-                        asteroid.vx = asteroid.frozenVx;
-                        asteroid.vy = asteroid.frozenVy;
-                        asteroid.rotationSpeed = asteroid.frozenRotSpeed;
-                        delete asteroid.frozenVx;
-                        delete asteroid.frozenVy;
-                        delete asteroid.frozenRotSpeed;
-                    }
-                }
-            }
-        });
-        
-        this.ufos.forEach(ufo => {
-            if (ufo.iceFreezeDuration && ufo.iceFreezeDuration > 0) {
-                ufo.iceFreezeDuration--;
-                if (ufo.iceFreezeDuration <= 0 && ufo.frozen) {
-                    ufo.frozen = false;
-                    ufo.vx = ufo.frozenVx;
-                    ufo.vy = ufo.frozenVy;
-                }
-            }
-        });
-    }
-
 
     update() {
         this.time++;
         this.titlePulse += 0.05;
         
-        // Update transitions
-        this.transitionManager.update();
-        
-        // Update achievement toasts
-        achievementManager.update();
-        
-        // Get slow-mo factor from transitions
-        const slowMo = this.transitionManager.getSlowMoFactor();
-        
         // Update starfield with parallax
         const shipVx = this.ship ? this.ship.vx : 0;
         const shipVy = this.ship ? this.ship.vy : 0;
-        this.starField.update(shipVx * slowMo, shipVy * slowMo);
+        this.starField.update(shipVx, shipVy);
         
         // Update screen shake
         this.screenShake.update();
@@ -4336,62 +1815,18 @@ class Game {
         }
 
         if (this.state !== 'playing') return;
-        
-        if (this.gameMode === 'timeAttack' && this.challengeAsteroidsDestroyed >= 50) {
-            this.completeChallengeMode();
-            return;
-        }
-        if (this.gameMode === 'pacifist' && Date.now() - this.challengeStartTime >= 120000) {
-            this.completeChallengeMode();
-            return;
-        }
-        
-        // Skip gameplay updates during certain transitions
-        if (this.transitionManager.shouldPauseGameplay()) return;
 
         this.updateItemEffects();
-        this.updateIceFrozenAsteroids();
         
-        // ===== SURVIVAL MODE LOGIC =====
-        if (this.gameMode === 'survival') {
-            this.survivalTime++;
-            
-            // Increase difficulty over time
-            const minutesSurvived = Math.floor(this.survivalTime / 3600);
-            this.survivalSpawnRate = Math.max(
-                SURVIVAL_MIN_SPAWN_RATE, 
-                SURVIVAL_INITIAL_SPAWN_RATE - (minutesSurvived * SURVIVAL_SPAWN_RATE_DECREASE * 60)
-            );
-            
-            // Continuous asteroid spawning
-            this.survivalSpawnTimer--;
-            if (this.survivalSpawnTimer <= 0 && this.asteroids.length < SURVIVAL_MAX_ASTEROIDS) {
-                this.spawnSurvivalAsteroid();
-                this.survivalSpawnTimer = this.survivalSpawnRate;
-            }
-            
-            // Boss spawning every 90 seconds
-            this.survivalBossTimer--;
-            if (this.survivalBossTimer <= 0) {
-                this.survivalBossCount++;
-                this.spawnSurvivalBoss();
-                this.survivalBossTimer = SURVIVAL_BOSS_INTERVAL;
-                this.updateUI(); // Update wave display
-            }
-        }
-        
-        // UFO spawning (more frequent in survival mode)
+        // UFO spawning
         this.ufoSpawnTimer--;
-        const maxUfos = this.gameMode === 'survival' ? 3 : 2;
-        if (this.ufoSpawnTimer <= 0 && this.ufos.length < maxUfos) {
+        if (this.ufoSpawnTimer <= 0 && this.ufos.length < 2) {
             this.spawnUfo();
-            const spawnMultiplier = this.gameMode === 'survival' ? SURVIVAL_UFO_MULTIPLIER : 1;
-            this.ufoSpawnTimer = this.getRandomUfoSpawnTime() * spawnMultiplier;
+            this.ufoSpawnTimer = this.getRandomUfoSpawnTime();
         }
 
         if (this.ship) {
             this.ship.update(this.keys);
-            this.ship.updateBeam(); // Update laser beam if active
             
             // Handle engine sound
             const isThrusting = this.keys['ArrowUp'] || this.keys['w'] || this.keys['W'];
@@ -4415,9 +1850,6 @@ class Game {
         
         // Update UFOs
         this.ufos.forEach(ufo => ufo.update());
-        
-        // Update environmental hazards
-        this.hazardsManager.update();
         
         // Update enemy bullets
         this.enemyBullets = this.enemyBullets.filter(bullet => {
@@ -4460,8 +1892,7 @@ class Game {
 
         this.checkCollisions();
 
-        // Level progression only in classic mode
-        if (this.asteroids.length === 0 && this.gameMode === 'classic') {
+        if (this.asteroids.length === 0) {
             this.nextLevel();
         }
     }
@@ -4477,46 +1908,21 @@ class Game {
                     this.bullets.splice(i, 1);
 
                     const asteroid = this.asteroids[j];
-                    
-                    // Check if asteroid is destroyed (handles armored asteroids)
-                    const destroyed = asteroid.takeDamage();
-                    
-                    if (destroyed) {
-                        this.createExplosion(asteroid.x, asteroid.y, asteroid.size * 6);
-                        
-                        // Type-specific death effects
-                        if (asteroid.asteroidType === 'ICE' && asteroid.typeInfo.freezeRadius) {
-                            this.triggerIceExplosion(asteroid.x, asteroid.y, asteroid.typeInfo.freezeRadius);
-                        }
-                        if (asteroid.asteroidType === 'EXPLOSIVE' && asteroid.typeInfo.explosionRadius) {
-                            this.triggerChainExplosion(asteroid.x, asteroid.y, asteroid.typeInfo.explosionRadius, asteroid);
-                        }
-                        if (asteroid.asteroidType === 'GOLDEN') {
-                            this.triggerFlash('#ffd700', 0.3);
-                            // Extra sparkle particles for gold
-                            for (let p = 0; p < 15; p++) {
-                                this.explosionParticles.push(new ExplosionParticle(asteroid.x, asteroid.y, '#ffd700', true));
-                            }
-                        }
+                    this.createExplosion(asteroid.x, asteroid.y, asteroid.size * 6);
+                    statsManager.recordAsteroidDestroyed(asteroid.size);
 
-                        if (asteroid.size > 1) {
-                            // Child asteroids inherit type or become normal (50/50 for special types)
-                            const childType = asteroid.asteroidType === 'NORMAL' ? null : 
-                                (Math.random() > 0.5 ? asteroid.asteroidType : 'NORMAL');
-                            for (let k = 0; k < 2; k++) {
-                                this.asteroids.push(
-                                    new Asteroid(asteroid.x, asteroid.y, asteroid.size - 1, this, childType)
-                                );
-                            }
+                    if (asteroid.size > 1) {
+                        for (let k = 0; k < 2; k++) {
+                            this.asteroids.push(
+                                new Asteroid(asteroid.x, asteroid.y, asteroid.size - 1, this)
+                            );
                         }
-
-                        // Apply point multiplier for special types
-                        this.addScore((4 - asteroid.size) * 20 * asteroid.typeInfo.pointMultiplier);
-                        this.spawnPowerUp(asteroid.x, asteroid.y);
-                        this.spawnItem(asteroid.x, asteroid.y, asteroid.size);
-                        this.asteroids.splice(j, 1);
-                        achievementManager.trackAsteroidDestroyed();
                     }
+
+                    this.addScore((4 - asteroid.size) * 20);
+                    this.spawnPowerUp(asteroid.x, asteroid.y);
+                    this.spawnItem(asteroid.x, asteroid.y, asteroid.size);
+                    this.asteroids.splice(j, 1);
                     break;
                 }
             }
@@ -4534,10 +1940,10 @@ class Game {
                     const ufo = this.ufos[j];
                     this.createUfoExplosion(ufo.x, ufo.y);
                     this.addScore(UFO_POINTS);
+                    statsManager.recordUfoDestroyed();
                     this.spawnUfoLoot(ufo.x, ufo.y);
                     this.ufos.splice(j, 1);
                     this.triggerFlash(COLORS.ufoPrimary, 0.2);
-                    achievementManager.trackUfoDestroyed();
                     break;
                 }
             }
@@ -4558,6 +1964,7 @@ class Game {
                     } else {
                         const asteroid = this.asteroids[i];
                         this.createExplosion(asteroid.x, asteroid.y, asteroid.size * 6);
+                    statsManager.recordAsteroidDestroyed(asteroid.size);
                         
                         // Play shield hit sound
                         soundManager.playShieldHit();
@@ -4632,7 +2039,6 @@ class Game {
                     this.ship.activatePowerUp(this.powerUps[i].type);
                     this.triggerFlash(POWERUP_TYPES[this.powerUps[i].type].color, 0.2);
                     soundManager.playPowerUp();
-                    achievementManager.trackPowerUpCollected();
                     this.powerUps.splice(i, 1);
                 }
             }
@@ -4684,8 +2090,8 @@ class Game {
             return;
         }
 
-        if (this.state === 'modeSelect') {
-            this.drawModeSelectScreen(ctx);
+        if (this.state === 'stats') {
+            this.drawStatsScreen(ctx);
             ctx.restore();
             return;
         }
@@ -4696,18 +2102,10 @@ class Game {
             return;
         }
 
-        // Draw survival mode HUD
-        if (this.gameMode === 'survival' && this.state === 'playing') {
-            this.drawSurvivalHUD(ctx);
-        }
-
         // Draw game objects in order (back to front)
         this.trailParticles.forEach(particle => particle.draw(ctx));
         this.explosionParticles.forEach(particle => particle.draw(ctx));
         this.particles.forEach(particle => particle.draw(ctx));
-        
-        // Draw environmental hazards
-        this.hazardsManager.draw(ctx);
         this.items.forEach(item => item.draw(ctx));
         this.powerUps.forEach(powerUp => powerUp.draw(ctx));
         this.asteroids.forEach(asteroid => asteroid.draw(ctx));
@@ -4717,13 +2115,10 @@ class Game {
         
         if (this.ship) {
             this.ship.draw(ctx);
-            this.ship.drawBeam(ctx); // Draw laser beam
             this.ship.drawPowerUpIndicators(ctx);
         }
 
         this.drawItemEffectIndicators(ctx);
-        this.drawChallengeHUD(ctx);
-        this.drawWeaponIndicator(ctx);
         
         // Draw flash overlay
         if (this.flashAlpha > 0) {
@@ -4732,12 +2127,6 @@ class Game {
             ctx.fillRect(-20, -20, CANVAS_WIDTH + 40, CANVAS_HEIGHT + 40);
             ctx.globalAlpha = 1;
         }
-        
-        // Draw transition overlays
-        this.transitionManager.draw(ctx);
-        
-        // Draw achievement toasts
-        achievementManager.draw(ctx);
         
         // Vignette effect
         const vignette = ctx.createRadialGradient(
@@ -4748,124 +2137,6 @@ class Game {
         vignette.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
         ctx.fillStyle = vignette;
         ctx.fillRect(-20, -20, CANVAS_WIDTH + 40, CANVAS_HEIGHT + 40);
-        
-        ctx.restore();
-    }
-
-    
-    
-    drawUpgradeShop(ctx) {
-        // Darken background
-        ctx.fillStyle = 'rgba(0, 0, 20, 0.85)';
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        
-        const centerX = CANVAS_WIDTH / 2;
-        const startY = 60;
-        
-        // Title
-        ctx.save();
-        ctx.textAlign = 'center';
-        ctx.shadowColor = '#00ffff';
-        ctx.shadowBlur = 20;
-        ctx.fillStyle = '#00ffff';
-        ctx.font = 'bold 36px monospace';
-        ctx.fillText('UPGRADE SHOP', centerX, startY);
-        
-        // Scrap display
-        ctx.shadowColor = '#ffcc00';
-        ctx.fillStyle = '#ffcc00';
-        ctx.font = 'bold 24px monospace';
-        ctx.fillText('SCRAP: ' + shipUpgradeManager.scrap, centerX, startY + 40);
-        ctx.shadowBlur = 0;
-        
-        // Upgrade options
-        const keys = Object.keys(SHIP_UPGRADES);
-        const itemHeight = 55;
-        const listStartY = startY + 80;
-        
-        keys.forEach((key, i) => {
-            const upgrade = SHIP_UPGRADES[key];
-            const level = shipUpgradeManager.upgrades[key];
-            const cost = shipUpgradeManager.getUpgradeCost(key);
-            const isSelected = i === this.upgradeShopSelection;
-            const canAfford = shipUpgradeManager.canUpgrade(key);
-            const isMaxed = level >= upgrade.maxLevel;
-            
-            const y = listStartY + i * itemHeight;
-            
-            // Selection highlight
-            if (isSelected) {
-                ctx.fillStyle = 'rgba(0, 255, 255, 0.15)';
-                ctx.fillRect(100, y - 25, CANVAS_WIDTH - 200, itemHeight - 5);
-                ctx.strokeStyle = '#00ffff';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(100, y - 25, CANVAS_WIDTH - 200, itemHeight - 5);
-            }
-            
-            // Icon
-            ctx.fillStyle = upgrade.color;
-            ctx.font = 'bold 20px monospace';
-            ctx.textAlign = 'left';
-            ctx.fillText(upgrade.icon, 120, y);
-            
-            // Name
-            ctx.fillStyle = isSelected ? '#ffffff' : '#aaaaaa';
-            ctx.font = '18px monospace';
-            ctx.fillText(upgrade.name, 170, y - 5);
-            
-            // Description
-            ctx.fillStyle = '#666666';
-            ctx.font = '12px monospace';
-            ctx.fillText(upgrade.description, 170, y + 12);
-            
-            // Level pips
-            ctx.textAlign = 'center';
-            for (let j = 0; j < upgrade.maxLevel; j++) {
-                ctx.fillStyle = j < level ? upgrade.color : '#333333';
-                ctx.fillRect(480 + j * 20, y - 8, 15, 15);
-                if (j < level) {
-                    ctx.strokeStyle = upgrade.color;
-                    ctx.shadowColor = upgrade.color;
-                    ctx.shadowBlur = 5;
-                    ctx.strokeRect(480 + j * 20, y - 8, 15, 15);
-                    ctx.shadowBlur = 0;
-                }
-            }
-            
-            // Cost
-            ctx.textAlign = 'right';
-            if (isMaxed) {
-                ctx.fillStyle = '#00ff00';
-                ctx.font = 'bold 16px monospace';
-                ctx.fillText('MAX', 680, y);
-            } else {
-                ctx.fillStyle = canAfford ? '#ffcc00' : '#ff4444';
-                ctx.font = '16px monospace';
-                ctx.fillText(cost + ' scrap', 680, y);
-            }
-        });
-        
-        // Continue option
-        const continueY = listStartY + keys.length * itemHeight + 20;
-        const continueSelected = this.upgradeShopSelection === keys.length;
-        
-        if (continueSelected) {
-            ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
-            ctx.fillRect(250, continueY - 20, 300, 40);
-            ctx.strokeStyle = '#00ff00';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(250, continueY - 20, 300, 40);
-        }
-        
-        ctx.textAlign = 'center';
-        ctx.fillStyle = continueSelected ? '#00ff00' : '#888888';
-        ctx.font = 'bold 20px monospace';
-        ctx.fillText('>>> CONTINUE TO LEVEL ' + (this.level + 1) + ' >>>', centerX, continueY + 5);
-        
-        // Controls hint
-        ctx.fillStyle = '#444444';
-        ctx.font = '14px monospace';
-        ctx.fillText('UP/DOWN to select | ENTER to buy/continue | ESC to skip', centerX, CANVAS_HEIGHT - 30);
         
         ctx.restore();
     }
@@ -4906,7 +2177,7 @@ class Game {
         ctx.fillStyle = '#666666';
         ctx.font = '14px "Courier New", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('Press M to toggle sound', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
+        ctx.fillText('M - Sound  |  S - Statistics', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
         
         // Draw decorative asteroids in background
         ctx.save();
@@ -4924,213 +2195,32 @@ class Game {
     }
 
     drawGameOverScreen(ctx) {
-        // Game over with mode-appropriate glow
-        const glowColor = this.gameMode === 'survival' ? '#ff00ff' : '#ff0000';
+        // Game over with red glow
         ctx.save();
-        ctx.shadowColor = glowColor;
+        ctx.shadowColor = '#ff0000';
         ctx.shadowBlur = 30;
-        ctx.fillStyle = glowColor;
+        ctx.fillStyle = '#ff0000';
         ctx.font = 'bold 48px "Courier New", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80);
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50);
         ctx.restore();
         
-        // Mode-specific stats
+        // Score
         ctx.save();
         ctx.shadowColor = COLORS.shipPrimary;
         ctx.shadowBlur = 15;
         ctx.fillStyle = '#ffffff';
         ctx.font = '24px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        
-        if (this.gameMode === 'survival') {
-            ctx.fillText(`Time Survived: ${this.getSurvivalTimeFormatted()}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
-            ctx.fillText(`Final Score: ${this.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 15);
-            ctx.fillText(`Boss Waves: ${this.survivalBossCount}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
-        } else {
-            ctx.fillText(`Final Score: ${this.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
-        }
+        ctx.fillText(`Final Score: ${this.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
         ctx.restore();
         
-        // High score entry for survival mode
-        if (this.survivalEnteringInitials) {
-            this.drawSurvivalHighScoreEntry(ctx);
-        } else {
-            // Restart prompt
-            if (Math.floor(this.time / 30) % 2 === 0) {
-                ctx.fillStyle = '#aaaaaa';
-                ctx.font = '20px "Courier New", monospace';
-                ctx.textAlign = 'center';
-                ctx.fillText('Press ENTER to Continue', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 110);
-            }
-        }
-    }
-    
-    drawSurvivalHighScoreEntry(ctx) {
-        const y = CANVAS_HEIGHT / 2 + 100;
-        
-        ctx.save();
-        ctx.shadowColor = '#ffd700';
-        ctx.shadowBlur = 15;
-        ctx.fillStyle = '#ffd700';
-        ctx.font = 'bold 20px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('NEW HIGH SCORE!', CANVAS_WIDTH / 2, y);
-        ctx.restore();
-        
-        // Draw initials boxes
-        const boxWidth = 40;
-        const boxHeight = 50;
-        const startX = CANVAS_WIDTH / 2 - (boxWidth * 1.5 + 10);
-        
-        for (let i = 0; i < 3; i++) {
-            const x = startX + i * (boxWidth + 10);
-            const isCurrent = i === this.survivalInitials.length && this.survivalInitials.length < 3;
-            
-            ctx.save();
-            ctx.strokeStyle = isCurrent ? '#ffffff' : '#666666';
-            ctx.lineWidth = 2;
-            ctx.shadowColor = isCurrent ? '#ffffff' : '#333333';
-            ctx.shadowBlur = isCurrent ? 10 : 5;
-            ctx.strokeRect(x, y + 20, boxWidth, boxHeight);
-            
-            if (i < this.survivalInitials.length) {
-                ctx.fillStyle = '#00ffff';
-                ctx.shadowColor = '#00ffff';
-                ctx.font = 'bold 32px "Courier New", monospace';
-                ctx.textAlign = 'center';
-                ctx.fillText(this.survivalInitials[i], x + boxWidth / 2, y + 55);
-            } else if (isCurrent && Math.floor(this.time / 20) % 2 === 0) {
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(x + boxWidth / 2 - 2, y + 30, 4, 30);
-            }
-            ctx.restore();
-        }
-        
-        ctx.fillStyle = '#888888';
-        ctx.font = '14px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('Enter your initials', CANVAS_WIDTH / 2, y + 95);
-    }
-    
-    drawModeSelectScreen(ctx) {
-        // Title
-        const pulse = Math.sin(this.titlePulse) * 0.1 + 1;
-        ctx.save();
-        ctx.shadowColor = COLORS.shipPrimary;
-        ctx.shadowBlur = 20;
-        ctx.fillStyle = COLORS.shipPrimary;
-        ctx.font = `bold ${36 * pulse}px 'Courier New', monospace`;
-        ctx.textAlign = 'center';
-        ctx.fillText('SELECT MODE', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 120);
-        ctx.restore();
-        
-        // Mode options
-        const modes = [
-            { name: 'CLASSIC', desc: 'Level-based progression with upgrades', color: '#00ffff' },
-            { name: 'SURVIVAL', desc: 'Endless waves - How long can you last?', color: '#ff00ff' }
-        ];
-        
-        modes.forEach((mode, index) => {
-            const y = CANVAS_HEIGHT / 2 - 30 + index * 80;
-            const isSelected = index === this.modeSelectIndex;
-            const hoverPulse = isSelected ? Math.sin(this.time * 0.1) * 3 : 0;
-            
-            ctx.save();
-            
-            if (isSelected) {
-                ctx.strokeStyle = mode.color;
-                ctx.lineWidth = 2;
-                ctx.shadowColor = mode.color;
-                ctx.shadowBlur = 15;
-                ctx.strokeRect(CANVAS_WIDTH / 2 - 180 + hoverPulse, y - 25, 360 - hoverPulse * 2, 60);
-            }
-            
-            ctx.fillStyle = isSelected ? mode.color : '#666666';
-            ctx.shadowColor = isSelected ? mode.color : 'transparent';
-            ctx.shadowBlur = isSelected ? 10 : 0;
-            ctx.font = `bold 28px 'Courier New', monospace`;
+        // Restart prompt
+        if (Math.floor(this.time / 30) % 2 === 0) {
+            ctx.fillStyle = '#aaaaaa';
+            ctx.font = '20px "Courier New", monospace';
             ctx.textAlign = 'center';
-            ctx.fillText(mode.name, CANVAS_WIDTH / 2, y);
-            
-            ctx.fillStyle = isSelected ? '#ffffff' : '#444444';
-            ctx.shadowBlur = 0;
-            ctx.font = '14px "Courier New", monospace';
-            ctx.fillText(mode.desc, CANVAS_WIDTH / 2, y + 22);
-            
-            ctx.restore();
-        });
-        
-        ctx.fillStyle = '#666666';
-        ctx.font = '14px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('UP/DOWN to select | ENTER to start | ESC to go back', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 150);
-        
-        // Draw survival high scores if in survival selection
-        if (this.modeSelectIndex === 1) {
-            this.drawSurvivalHighScores(ctx);
+            ctx.fillText('Press ENTER to Restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
         }
-    }
-    
-    drawSurvivalHighScores(ctx) {
-        const scores = survivalHighScores.getTopScores(5);
-        if (scores.length === 0) return;
-        
-        const startY = CANVAS_HEIGHT / 2 + 180;
-        
-        ctx.save();
-        ctx.fillStyle = '#ff00ff';
-        ctx.shadowColor = '#ff00ff';
-        ctx.shadowBlur = 5;
-        ctx.font = 'bold 14px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('SURVIVAL RECORDS', CANVAS_WIDTH / 2, startY);
-        ctx.restore();
-        
-        scores.forEach((score, index) => {
-            const y = startY + 20 + index * 18;
-            const medal = index === 0 ? '#ffd700' : (index === 1 ? '#c0c0c0' : (index === 2 ? '#cd7f32' : '#666666'));
-            
-            ctx.fillStyle = medal;
-            ctx.font = '12px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText(
-                `${index + 1}. ${score.initials} - ${survivalHighScores.formatTime(score.time)} (${score.score} pts)`,
-                CANVAS_WIDTH / 2,
-                y
-            );
-        });
-    }
-    
-    drawSurvivalHUD(ctx) {
-        // Survival timer in top center
-        ctx.save();
-        ctx.shadowColor = '#ff00ff';
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = '#ff00ff';
-        ctx.font = 'bold 24px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(this.getSurvivalTimeFormatted(), CANVAS_WIDTH / 2, 30);
-        
-        // Wave indicator
-        if (this.survivalBossCount > 0) {
-            ctx.font = '14px "Courier New", monospace';
-            ctx.fillStyle = '#ff88ff';
-            ctx.fillText(`Wave ${this.survivalBossCount}`, CANVAS_WIDTH / 2, 50);
-        }
-        
-        // Next boss timer (show when < 30 seconds away)
-        const bossSecondsLeft = Math.ceil(this.survivalBossTimer / 60);
-        if (bossSecondsLeft <= 30) {
-            const urgency = bossSecondsLeft <= 10 ? '#ff0000' : '#ff8800';
-            const pulse = bossSecondsLeft <= 10 ? (Math.sin(this.time * 0.3) * 0.3 + 0.7) : 1;
-            ctx.globalAlpha = pulse;
-            ctx.fillStyle = urgency;
-            ctx.font = 'bold 14px "Courier New", monospace';
-            ctx.fillText(`BOSS WAVE IN ${bossSecondsLeft}s`, CANVAS_WIDTH / 2, 70);
-        }
-        
-        ctx.restore();
     }
 
     drawItemEffectIndicators(ctx) {
@@ -5160,264 +2250,127 @@ class Game {
             ctx.restore();
         });
     }
-    
-    drawWeaponIndicator(ctx) {
-        if (!this.ship || this.state !== 'playing') return;
-        
-        const weaponType = this.ship.getCurrentWeaponType();
-        const weaponInfo = this.ship.getCurrentWeaponInfo();
-        
-        const x = CANVAS_WIDTH / 2;
-        const y = CANVAS_HEIGHT - 30;
-        
-        ctx.save();
-        
-        // Draw weapon slots
-        const slotWidth = 60;
-        const totalWidth = WEAPON_ORDER.length * slotWidth;
-        const startX = x - totalWidth / 2;
-        
-        WEAPON_ORDER.forEach((wType, index) => {
-            const wInfo = WEAPON_TYPES[wType];
-            const slotX = startX + index * slotWidth + slotWidth / 2;
-            const isSelected = index === this.ship.currentWeapon;
-            
-            // Slot background
-            ctx.fillStyle = isSelected ? wInfo.color + '40' : '#00000060';
-            ctx.strokeStyle = isSelected ? wInfo.color : '#333333';
-            ctx.lineWidth = isSelected ? 2 : 1;
-            
-            ctx.beginPath();
-            ctx.roundRect(slotX - 25, y - 15, 50, 30, 5);
-            ctx.fill();
-            ctx.stroke();
-            
-            // Weapon icon/name
-            ctx.fillStyle = isSelected ? wInfo.color : '#666666';
-            ctx.font = isSelected ? 'bold 10px "Courier New", monospace' : '9px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            
-            if (isSelected) {
-                ctx.shadowColor = wInfo.color;
-                ctx.shadowBlur = 10;
-            }
-            
-            // Show short name
-            const shortNames = { BLASTER: 'BLT', SPREAD: 'SPR', BEAM: 'BEM', MISSILES: 'MSL', WAVE: 'WAV' };
-            ctx.fillText(shortNames[wType], slotX, y);
-            
-            // Key hint
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#444444';
-            ctx.font = '8px "Courier New", monospace';
-            ctx.fillText(index + 1, slotX, y + 18);
-        });
-        
-        // Current weapon name above
-        ctx.shadowColor = weaponInfo.color;
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = weaponInfo.color;
-        ctx.font = 'bold 12px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(weaponInfo.name.toUpperCase(), x, y - 28);
-        
-        // Controls hint
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#444444';
-        ctx.font = '10px "Courier New", monospace';
-        ctx.fillText('Q/E to switch weapons', x, y + 30);
-        
-        ctx.restore();
-    }
 
-
-    drawModeSelectScreen(ctx) {
-        ctx.save();
-        ctx.shadowColor = COLORS.shipPrimary;
-        ctx.shadowBlur = 20;
-        ctx.fillStyle = COLORS.shipPrimary;
-        ctx.font = 'bold 36px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('SELECT MODE', CANVAS_WIDTH / 2, 80);
-        ctx.restore();
-        
-        const modes = [
-            { key: 'classic', name: 'CLASSIC', desc: 'Standard arcade mode', color: '#00ffff' },
-            { key: 'timeAttack', name: 'TIME ATTACK', desc: 'Destroy 50 asteroids FAST!', color: '#ffaa00' },
-            { key: 'pacifist', name: 'PACIFIST', desc: 'Survive 2 min - NO shooting!', color: '#00ff88' },
-            { key: 'oneLife', name: 'ONE LIFE', desc: 'Single life - no continues', color: '#ff4466' }
-        ];
-        
-        modes.forEach((mode, i) => {
-            const y = 160 + i * 80;
-            const isSelected = i === this.modeSelectIndex;
-            ctx.save();
-            if (isSelected) {
-                ctx.shadowColor = mode.color;
-                ctx.shadowBlur = 15;
-                ctx.fillStyle = mode.color;
-                ctx.fillRect(150, y - 25, 500, 60);
-                ctx.fillStyle = '#000';
-            } else {
-                ctx.strokeStyle = mode.color + '60';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(150, y - 25, 500, 60);
-                ctx.fillStyle = mode.color;
-            }
-            ctx.font = 'bold 24px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText(mode.name, CANVAS_WIDTH / 2, y);
-            ctx.font = '14px "Courier New", monospace';
-            ctx.fillText(mode.desc, CANVAS_WIDTH / 2, y + 22);
-            ctx.restore();
-        });
-        
-        ctx.fillStyle = '#666';
-        ctx.font = '16px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('UP/DOWN to select, ENTER to start', CANVAS_WIDTH / 2, 520);
-        this.drawChallengeLeaderboard(ctx, modes[this.modeSelectIndex].key);
-    }
-    
-    drawChallengeLeaderboard(ctx, modeKey) {
-        if (modeKey === 'classic') return;
-        const scores = challengeScoreManager.scores[modeKey] || [];
-        if (scores.length === 0) return;
-        ctx.save();
-        ctx.fillStyle = '#888';
-        ctx.font = '12px "Courier New", monospace';
-        ctx.textAlign = 'right';
-        ctx.fillText('TOP SCORES:', CANVAS_WIDTH - 30, 100);
-        scores.slice(0, 3).forEach((score, i) => {
-            const colors = ['#ffd700', '#c0c0c0', '#cd7f32'];
-            ctx.fillStyle = colors[i];
-            let text = modeKey === 'oneLife' 
-                ? `${i+1}. ${score.initials} - ${score.score} (L${score.level})`
-                : `${i+1}. ${score.initials} - ${challengeScoreManager.formatTime(score.time)}`;
-            ctx.fillText(text, CANVAS_WIDTH - 30, 120 + i * 18);
-        });
-        ctx.restore();
-    }
-    
-    drawChallengeCompleteScreen(ctx) {
-        ctx.save();
-        ctx.shadowColor = '#00ff00';
-        ctx.shadowBlur = 30;
-        ctx.fillStyle = '#00ff00';
-        ctx.font = 'bold 48px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('CHALLENGE COMPLETE!', CANVAS_WIDTH / 2, 150);
-        ctx.restore();
-        
-        const timeStr = challengeScoreManager.formatTime(this.challengeEndTime - this.challengeStartTime);
-        ctx.fillStyle = '#fff';
-        ctx.font = '28px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        
-        if (this.gameMode === 'timeAttack') {
-            ctx.fillText('TIME: ' + timeStr, CANVAS_WIDTH / 2, 230);
-            ctx.fillText('50 asteroids destroyed!', CANVAS_WIDTH / 2, 270);
-        } else if (this.gameMode === 'pacifist') {
-            ctx.fillText('SURVIVED 2 MINUTES!', CANVAS_WIDTH / 2, 230);
-            ctx.fillText('Score: ' + this.score, CANVAS_WIDTH / 2, 270);
-        } else if (this.gameMode === 'oneLife') {
-            ctx.fillText('Score: ' + this.score, CANVAS_WIDTH / 2, 230);
-            ctx.fillText('Level: ' + this.level, CANVAS_WIDTH / 2, 270);
-        }
-        
-        if (this.isNewChallengeRecord) {
-            const pulse = Math.sin(this.time * 0.1) * 0.3 + 1;
-            ctx.save();
-            ctx.shadowColor = '#ffd700';
-            ctx.shadowBlur = 20 * pulse;
-            ctx.fillStyle = '#ffd700';
-            ctx.font = 'bold ' + (32 * pulse) + 'px "Courier New", monospace';
-            ctx.fillText('NEW RECORD!', CANVAS_WIDTH / 2, 340);
-            ctx.restore();
-        }
-        
-        if (Math.floor(this.time / 30) % 2 === 0) {
-            ctx.fillStyle = '#aaa';
-            ctx.font = '20px "Courier New", monospace';
-            ctx.fillText('Press ENTER to save score', CANVAS_WIDTH / 2, 450);
-        }
-    }
-    
-    drawChallengeInitialsScreen(ctx) {
-        ctx.save();
-        ctx.shadowColor = '#ffd700';
-        ctx.shadowBlur = 20;
-        ctx.fillStyle = '#ffd700';
-        ctx.font = 'bold 36px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('ENTER YOUR INITIALS', CANVAS_WIDTH / 2, 150);
-        ctx.restore();
-        
-        for (let i = 0; i < 3; i++) {
-            const x = CANVAS_WIDTH / 2 - 90 + i * 60;
-            const isSelected = i === this.challengeInitialIndex;
-            ctx.save();
-            ctx.strokeStyle = isSelected ? '#00ffff' : '#666';
-            if (isSelected) { ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 15; }
-            ctx.lineWidth = 3;
-            ctx.strokeRect(x, 200, 50, 70);
-            ctx.fillStyle = isSelected ? '#00ffff' : '#fff';
-            ctx.font = 'bold 48px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText(this.challengeInitials[i], x + 25, 255);
-            ctx.restore();
-        }
-        
-        ctx.fillStyle = '#888';
-        ctx.font = '16px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('UP/DOWN to change, LEFT/RIGHT to move', CANVAS_WIDTH / 2, 320);
-        ctx.fillText('ENTER to confirm', CANVAS_WIDTH / 2, 345);
-    }
-    
-    drawChallengeHUD(ctx) {
-        if (this.gameMode === 'classic') return;
-        ctx.save();
-        
-        if (this.gameMode === 'timeAttack') {
-            const timeStr = challengeScoreManager.formatTime(Date.now() - this.challengeStartTime);
-            ctx.shadowColor = '#ffaa00';
-            ctx.shadowBlur = 10;
-            ctx.fillStyle = '#ffaa00';
-            ctx.font = 'bold 24px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText(timeStr, CANVAS_WIDTH / 2, 30);
-            ctx.font = '16px "Courier New", monospace';
-            ctx.fillText(this.challengeAsteroidsDestroyed + ' / 50 ASTEROIDS', CANVAS_WIDTH / 2, 52);
-        } else if (this.gameMode === 'pacifist') {
-            const remaining = Math.max(0, 120000 - (Date.now() - this.challengeStartTime));
-            const timeStr = challengeScoreManager.formatTime(remaining);
-            ctx.shadowColor = remaining < 30000 ? '#ff0000' : '#00ff88';
-            ctx.shadowBlur = 10;
-            ctx.fillStyle = remaining < 30000 ? '#ff0000' : '#00ff88';
-            ctx.font = 'bold 28px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText(timeStr, CANVAS_WIDTH / 2, 35);
-            ctx.font = '14px "Courier New", monospace';
-            ctx.fillText('NO SHOOTING!', CANVAS_WIDTH / 2, 55);
-        } else if (this.gameMode === 'oneLife') {
-            ctx.shadowColor = '#ff4466';
-            ctx.shadowBlur = 10;
-            ctx.fillStyle = '#ff4466';
-            ctx.font = 'bold 18px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('ONE LIFE MODE', CANVAS_WIDTH / 2, 25);
-        }
-        
-        ctx.restore();
-    }
     gameLoop() {
         this.update();
         this.draw();
         requestAnimationFrame(() => this.gameLoop());
     }
 }
+
+    // ============== STATS SCREEN ==============
+    drawStatsScreen(ctx) {
+        const s = statsManager.stats;
+        
+        // Title with golden glow
+        ctx.save();
+        ctx.shadowColor = '#ffd700';
+        ctx.shadowBlur = 25;
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 40px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('STATISTICS', CANVAS_WIDTH / 2, 55);
+        ctx.restore();
+        
+        ctx.font = '14px "Courier New", monospace';
+        ctx.textAlign = 'left';
+        
+        const leftX = 50;
+        const rightX = CANVAS_WIDTH / 2 + 30;
+        let leftY = 100;
+        let rightY = 100;
+        const lineHeight = 22;
+        
+        const drawStatLine = (label, value, x, y, labelColor = '#888888', valueColor = '#ffffff') => {
+            ctx.fillStyle = labelColor;
+            ctx.fillText(label, x, y);
+            ctx.fillStyle = valueColor;
+            ctx.textAlign = 'right';
+            ctx.fillText(String(value), x + 230, y);
+            ctx.textAlign = 'left';
+        };
+        
+        const drawHeader = (text, x, y, color) => {
+            ctx.save();
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = color;
+            ctx.font = 'bold 16px "Courier New", monospace';
+            ctx.fillText(text, x, y);
+            ctx.font = '14px "Courier New", monospace';
+            ctx.restore();
+        };
+        
+        // Left column
+        drawHeader('GENERAL', leftX, leftY, '#00ffff');
+        leftY += lineHeight + 4;
+        drawStatLine('Games Played', s.gamesPlayed, leftX, leftY, '#888', '#00ff00');
+        leftY += lineHeight;
+        drawStatLine('Total Playtime', statsManager.formatPlaytime(s.totalPlaytime), leftX, leftY, '#888', '#00ff00');
+        leftY += lineHeight;
+        drawStatLine('Total Score', s.totalScore.toLocaleString(), leftX, leftY, '#888', '#ffd700');
+        leftY += lineHeight;
+        drawStatLine('Highest Score', s.highestScore.toLocaleString(), leftX, leftY, '#888', '#ffd700');
+        leftY += lineHeight;
+        drawStatLine('Highest Level', s.highestLevel, leftX, leftY, '#888', '#ffd700');
+        leftY += lineHeight * 1.3;
+        
+        drawHeader('COMBAT', leftX, leftY, '#ff6600');
+        leftY += lineHeight + 4;
+        drawStatLine('Asteroids (Total)', s.asteroidsDestroyed.total.toLocaleString(), leftX, leftY, '#888', '#ff6600');
+        leftY += lineHeight;
+        drawStatLine('  Large', s.asteroidsDestroyed.large.toLocaleString(), leftX, leftY);
+        leftY += lineHeight;
+        drawStatLine('  Medium', s.asteroidsDestroyed.medium.toLocaleString(), leftX, leftY);
+        leftY += lineHeight;
+        drawStatLine('  Small', s.asteroidsDestroyed.small.toLocaleString(), leftX, leftY);
+        leftY += lineHeight;
+        drawStatLine('UFOs Destroyed', s.ufosDestroyed.toLocaleString(), leftX, leftY, '#888', '#00ff00');
+        leftY += lineHeight;
+        drawStatLine('Bosses Defeated', s.bossesDefeated, leftX, leftY, '#888', '#ff00ff');
+        
+        // Right column
+        drawHeader('SHOOTING', rightX, rightY, '#ff00ff');
+        rightY += lineHeight + 4;
+        drawStatLine('Shots Fired', s.shotsFired.toLocaleString(), rightX, rightY, '#888', '#ff00ff');
+        rightY += lineHeight;
+        drawStatLine('Shots Hit', s.shotsHit.toLocaleString(), rightX, rightY, '#888', '#ff00ff');
+        rightY += lineHeight;
+        const acc = statsManager.getAccuracy();
+        drawStatLine('Accuracy', acc + '%', rightX, rightY, '#888', acc >= 50 ? '#00ff00' : '#ff6666');
+        rightY += lineHeight * 1.3;
+        
+        drawHeader('SURVIVAL', rightX, rightY, '#ff0000');
+        rightY += lineHeight + 4;
+        drawStatLine('Deaths', s.deaths, rightX, rightY, '#888', '#ff0000');
+        rightY += lineHeight;
+        drawStatLine('Lives Lost', s.livesLost, rightX, rightY, '#888', '#ff6666');
+        rightY += lineHeight * 1.3;
+        
+        drawHeader('COLLECTION', rightX, rightY, '#00ffff');
+        rightY += lineHeight + 4;
+        drawStatLine('Power-Ups', s.powerUpsCollected.total.toLocaleString(), rightX, rightY, '#888', '#00ffff');
+        rightY += lineHeight;
+        drawStatLine('Items Collected', s.itemsCollected.total.toLocaleString(), rightX, rightY, '#888', '#da70d6');
+        rightY += lineHeight;
+        drawStatLine('Items Used', s.itemsUsed.toLocaleString(), rightX, rightY, '#888', '#da70d6');
+        rightY += lineHeight;
+        drawStatLine('Highest Combo', s.highestCombo + 'x', rightX, rightY, '#888', s.highestCombo >= 10 ? '#ffd700' : '#ffffff');
+        
+        // Footer
+        ctx.fillStyle = '#666666';
+        ctx.font = '16px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        if (Math.floor(this.time / 40) % 2 === 0) {
+            ctx.fillText('Press ENTER or ESC to return', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 40);
+        }
+        
+        if (s.firstPlayDate) {
+            ctx.fillStyle = '#444444';
+            ctx.font = '12px "Courier New", monospace';
+            ctx.fillText('Playing since: ' + new Date(s.firstPlayDate).toLocaleDateString(), CANVAS_WIDTH / 2, CANVAS_HEIGHT - 15);
+        }
+    }
 
 // ============== SHOCKWAVE PARTICLE CLASS ==============
 class ShockwaveParticle {
@@ -5724,33 +2677,10 @@ class Ship {
         this.hasSpeedBoost = false;
         this.powerUpTimers = { shield: 0, rapidFire: 0, tripleShot: 0, speedBoost: 0 };
         
-        // Weapon system
-        this.currentWeapon = 0; // Index into WEAPON_ORDER
-        this.laserBeam = null; // Active beam weapon
-        this.beamFiring = false;
-        
         // Invulnerability on spawn
         this.invulnerable = true;
         this.invulnerableTimer = 120;
         this.spawnAnimation = 0;
-    }
-    
-    cycleWeapon(direction) {
-        this.currentWeapon = (this.currentWeapon + direction + WEAPON_ORDER.length) % WEAPON_ORDER.length;
-        // Stop beam if switching away from it
-        if (this.laserBeam) {
-            this.laserBeam.deactivate();
-            this.laserBeam = null;
-        }
-        soundManager.playItemCollect();
-    }
-    
-    getCurrentWeaponType() {
-        return WEAPON_ORDER[this.currentWeapon];
-    }
-    
-    getCurrentWeaponInfo() {
-        return WEAPON_TYPES[this.getCurrentWeaponType()];
     }
 
     update(keys) {
@@ -5769,20 +2699,18 @@ class Ship {
         const speedMultiplier = this.hasSpeedBoost ? 2 : 1;
         const turnSpeedMultiplier = this.hasSpeedBoost ? 1.5 : 1;
 
-        const upgradesTurn = shipUpgradeManager.getTurnMultiplier();
         if (keys['ArrowLeft'] || keys['a'] || keys['A']) {
-            this.angle -= SHIP_TURN_SPEED * turnSpeedMultiplier * upgradesTurn;
+            this.angle -= SHIP_TURN_SPEED * turnSpeedMultiplier;
         }
         if (keys['ArrowRight'] || keys['d'] || keys['D']) {
-            this.angle += SHIP_TURN_SPEED * turnSpeedMultiplier * upgradesTurn;
+            this.angle += SHIP_TURN_SPEED * turnSpeedMultiplier;
         }
 
         // Thrust with trail particles
         const isThrusting = keys['ArrowUp'] || keys['w'] || keys['W'];
-        const upgradesThrust = shipUpgradeManager.getThrustMultiplier();
         if (isThrusting) {
-            this.vx += Math.cos(this.angle) * SHIP_THRUST * speedMultiplier * upgradesThrust;
-            this.vy += Math.sin(this.angle) * SHIP_THRUST * speedMultiplier * upgradesThrust;
+            this.vx += Math.cos(this.angle) * SHIP_THRUST * speedMultiplier;
+            this.vy += Math.sin(this.angle) * SHIP_THRUST * speedMultiplier;
             this.thrustAmount = Math.min(1, this.thrustAmount + 0.1);
             
             // Spawn engine trail particles
@@ -5822,194 +2750,25 @@ class Ship {
     }
 
     shoot() {
-        const weaponType = this.getCurrentWeaponType();
-        const weaponInfo = this.getCurrentWeaponInfo();
-        
-        // Beam weapon is continuous - handled separately
-        if (weaponType === 'BEAM') {
-            return; // Beam is handled in startBeam/stopBeam
-        }
-        
         if (this.shootCooldown > 0) return;
-        
-        const baseFireRate = weaponInfo.fireRate;
-        const fireRateMultiplier = this.hasRapidFire ? 0.5 : 1;
-        
-        switch(weaponType) {
-            case 'BLASTER':
-                // Standard blaster with optional triple shot
-                const angles = this.hasTripleShot ? [-0.2, 0, 0.2] : [0];
-                angles.forEach(angleOffset => {
-                    const bullet = new Bullet(
-                        this.x + Math.cos(this.angle + angleOffset) * SHIP_SIZE,
-                        this.y + Math.sin(this.angle + angleOffset) * SHIP_SIZE,
-                        this.angle + angleOffset,
-                        this.game
-                    );
-                    this.game.bullets.push(bullet);
-                });
-                soundManager.playLaser();
-                break;
-                
-            case 'SPREAD':
-                // 5-shot spread pattern
-                const spreadAngles = [-0.4, -0.2, 0, 0.2, 0.4];
-                spreadAngles.forEach(angleOffset => {
-                    const bullet = new SpreadBullet(
-                        this.x + Math.cos(this.angle + angleOffset) * SHIP_SIZE,
-                        this.y + Math.sin(this.angle + angleOffset) * SHIP_SIZE,
-                        this.angle + angleOffset,
-                        this.game
-                    );
-                    this.game.bullets.push(bullet);
-                });
-                this.playSpreadSound();
-                break;
-                
-            case 'MISSILES':
-                // Single homing missile
-                const missile = new HomingMissile(
-                    this.x + Math.cos(this.angle) * SHIP_SIZE,
-                    this.y + Math.sin(this.angle) * SHIP_SIZE,
-                    this.angle,
-                    this.game
-                );
-                this.game.bullets.push(missile);
-                this.playMissileSound();
-                break;
-                
-            case 'WAVE':
-                // Sine wave projectile
-                const wave = new WaveBullet(
-                    this.x + Math.cos(this.angle) * SHIP_SIZE,
-                    this.y + Math.sin(this.angle) * SHIP_SIZE,
-                    this.angle,
-                    this.game
-                );
-                this.game.bullets.push(wave);
-                this.playWaveSound();
-                break;
-        }
 
-        this.shootCooldown = Math.floor(baseFireRate * fireRateMultiplier);
-    }
-    
-    startBeam() {
-        if (this.getCurrentWeaponType() !== 'BEAM') return;
-        if (!this.laserBeam) {
-            this.laserBeam = new LaserBeam(this, this.game);
-            this.beamFiring = true;
-            this.playBeamSound();
-        }
-    }
-    
-    stopBeam() {
-        if (this.laserBeam) {
-            this.laserBeam.deactivate();
-            this.laserBeam = null;
-            this.beamFiring = false;
-        }
-    }
-    
-    updateBeam() {
-        if (this.laserBeam && this.laserBeam.active) {
-            this.laserBeam.update();
-        }
-    }
-    
-    drawBeam(ctx) {
-        if (this.laserBeam && this.laserBeam.active) {
-            this.laserBeam.draw(ctx);
-        }
-    }
-    
-    // Weapon-specific sounds
-    playSpreadSound() {
-        if (!soundManager.initialized) return;
-        soundManager.resume();
-        const now = soundManager.audioContext.currentTime;
+        const angles = this.hasTripleShot ? [-0.2, 0, 0.2] : [0];
         
-        const osc = soundManager.audioContext.createOscillator();
-        const gain = soundManager.audioContext.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(600, now);
-        osc.frequency.exponentialRampToValueAtTime(200, now + 0.1);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-        osc.connect(gain);
-        gain.connect(soundManager.masterGain);
-        osc.start(now);
-        osc.stop(now + 0.1);
-    }
-    
-    playMissileSound() {
-        if (!soundManager.initialized) return;
-        soundManager.resume();
-        const now = soundManager.audioContext.currentTime;
+        angles.forEach(angleOffset => {
+            const bullet = new Bullet(
+                this.x + Math.cos(this.angle + angleOffset) * SHIP_SIZE,
+                this.y + Math.sin(this.angle + angleOffset) * SHIP_SIZE,
+                this.angle + angleOffset,
+                this.game
+            );
+            this.game.bullets.push(bullet);
+        });
+
+        this.shootCooldown = this.hasRapidFire ? 3 : 10;
+        statsManager.recordShotFired(angles.length);
         
-        const osc = soundManager.audioContext.createOscillator();
-        const gain = soundManager.audioContext.createGain();
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(150, now);
-        osc.frequency.exponentialRampToValueAtTime(80, now + 0.2);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-        
-        const noise = soundManager.audioContext.createOscillator();
-        const noiseGain = soundManager.audioContext.createGain();
-        noise.type = 'sawtooth';
-        noise.frequency.value = 100;
-        noiseGain.gain.setValueAtTime(0.1, now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-        
-        osc.connect(gain);
-        gain.connect(soundManager.masterGain);
-        noise.connect(noiseGain);
-        noiseGain.connect(soundManager.masterGain);
-        
-        osc.start(now);
-        osc.stop(now + 0.2);
-        noise.start(now);
-        noise.stop(now + 0.15);
-    }
-    
-    playWaveSound() {
-        if (!soundManager.initialized) return;
-        soundManager.resume();
-        const now = soundManager.audioContext.currentTime;
-        
-        const osc = soundManager.audioContext.createOscillator();
-        const gain = soundManager.audioContext.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(400, now);
-        osc.frequency.setValueAtTime(600, now + 0.05);
-        osc.frequency.setValueAtTime(400, now + 0.1);
-        osc.frequency.setValueAtTime(600, now + 0.15);
-        gain.gain.setValueAtTime(0.15, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-        osc.connect(gain);
-        gain.connect(soundManager.masterGain);
-        osc.start(now);
-        osc.stop(now + 0.2);
-    }
-    
-    playBeamSound() {
-        if (!soundManager.initialized) return;
-        soundManager.resume();
-        const now = soundManager.audioContext.currentTime;
-        
-        const osc = soundManager.audioContext.createOscillator();
-        const gain = soundManager.audioContext.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(200, now);
-        osc.frequency.linearRampToValueAtTime(400, now + 0.3);
-        gain.gain.setValueAtTime(0.1, now);
-        gain.gain.setValueAtTime(0.1, now + 0.25);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-        osc.connect(gain);
-        gain.connect(soundManager.masterGain);
-        osc.start(now);
-        osc.stop(now + 0.3);
+        // Play laser sound
+        soundManager.playLaser();
     }
 
     draw(ctx) {
@@ -6304,20 +3063,12 @@ class Ship {
 
 // ============== ASTEROID CLASS ==============
 class Asteroid {
-    constructor(x, y, size, game, asteroidType = null) {
+    constructor(x, y, size, game) {
         this.x = x;
         this.y = y;
         this.size = size;
         this.game = game;
         this.radius = size * 15;
-        
-        // Set asteroid type - inherit from parent or pick random for new spawns
-        this.asteroidType = asteroidType || getRandomAsteroidType();
-        this.typeInfo = ASTEROID_TYPES[this.asteroidType];
-        
-        // Hits tracking for armored asteroids
-        this.hitsRemaining = this.typeInfo.hitsRequired;
-        this.hitFlashTimer = 0;
 
         const angle = Math.random() * Math.PI * 2;
         const speed = ASTEROID_SPEED / size + Math.random() * 0.5;
@@ -6340,28 +3091,8 @@ class Asteroid {
             });
         }
         
-        // Visual properties based on type
-        this.hue = this.typeInfo.fillHue + Math.random() * 15;
-        
-        // Special visual elements for types
-        this.sparklePhase = Math.random() * Math.PI * 2;
-        this.innerGlowPhase = 0;
-    }
-    
-    // Take damage - returns true if destroyed
-    takeDamage() {
-        this.hitsRemaining--;
-        this.hitFlashTimer = 15;
-        
-        if (this.hitsRemaining <= 0) {
-            return true;
-        }
-        
-        if (this.asteroidType === 'ARMORED') {
-            soundManager.playShieldHit();
-        }
-        
-        return false;
+        // Color variation
+        this.hue = 20 + Math.random() * 20; // Orange-ish
     }
 
     update() {
@@ -6369,11 +3100,8 @@ class Asteroid {
         this.y += this.vy;
         this.rotation += this.rotationSpeed;
         this.pulsePhase += 0.05;
-        this.sparklePhase += 0.1;
-        this.innerGlowPhase += 0.08;
-        
-        if (this.hitFlashTimer > 0) this.hitFlashTimer--;
 
+        // Wrap
         if (this.x < -this.radius) this.x = CANVAS_WIDTH + this.radius;
         if (this.x > CANVAS_WIDTH + this.radius) this.x = -this.radius;
         if (this.y < -this.radius) this.y = CANVAS_HEIGHT + this.radius;
@@ -6382,41 +3110,35 @@ class Asteroid {
 
     updateFrozenVisuals() {
         this.pulsePhase += 0.02;
-        this.sparklePhase += 0.05;
-        this.innerGlowPhase += 0.04;
     }
 
     draw(ctx) {
         const pulse = 1 + Math.sin(this.pulsePhase) * 0.05;
-        const frozen = this.game.freezeActive || (this.iceFreezeDuration && this.iceFreezeDuration > 0);
-        const typeInfo = this.typeInfo;
+        const frozen = this.game.freezeActive;
         
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.rotation);
         ctx.scale(pulse, pulse);
 
-        const flashIntensity = this.hitFlashTimer / 15;
-
-        const glowColor = frozen ? '#87ceeb' : typeInfo.glowColor;
+        // Outer glow
+        const glowColor = frozen ? '#87ceeb' : COLORS.asteroidGlow;
         ctx.shadowColor = glowColor;
-        ctx.shadowBlur = 15 + (this.asteroidType === 'GOLDEN' ? Math.sin(this.sparklePhase) * 8 : 0);
+        ctx.shadowBlur = 15;
 
+        // Fill with gradient
         const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.radius);
         if (frozen) {
             gradient.addColorStop(0, '#1a3344');
             gradient.addColorStop(1, '#0a1a22');
-        } else if (flashIntensity > 0) {
-            gradient.addColorStop(0, 'rgba(255, 255, 255, ' + flashIntensity + ')');
-            gradient.addColorStop(1, 'hsl(' + this.hue + ', 80%, ' + (15 + flashIntensity * 40) + '%)');
         } else {
-            gradient.addColorStop(0, 'hsl(' + this.hue + ', 70%, 15%)');
-            gradient.addColorStop(1, 'hsl(' + this.hue + ', 80%, 5%)');
+            gradient.addColorStop(0, `hsl(${this.hue}, 70%, 15%)`);
+            gradient.addColorStop(1, `hsl(${this.hue}, 80%, 5%)`);
         }
         
         ctx.fillStyle = gradient;
-        ctx.strokeStyle = frozen ? '#87ceeb' : (flashIntensity > 0 ? '#ffffff' : typeInfo.strokeColor);
-        ctx.lineWidth = this.asteroidType === 'ARMORED' ? 3 : 2;
+        ctx.strokeStyle = frozen ? '#87ceeb' : COLORS.asteroidStroke;
+        ctx.lineWidth = 2;
 
         ctx.beginPath();
         for (let i = 0; i < this.vertices.length; i++) {
@@ -6428,660 +3150,18 @@ class Asteroid {
         ctx.fill();
         ctx.stroke();
 
-        if (!frozen) {
-            this.drawTypeEffects(ctx);
-        }
-
-        ctx.strokeStyle = frozen ? '#aaddee40' : 'hsl(' + this.hue + ', 60%, 30%)';
+        // Inner crack details
+        ctx.strokeStyle = frozen ? '#aaddee40' : `hsl(${this.hue}, 60%, 30%)`;
         ctx.lineWidth = 1;
         for (let i = 0; i < 3; i++) {
-            const startIdx = Math.floor(i * this.vertices.length / 3);
+            const startIdx = Math.floor(Math.random() * this.vertices.length);
             ctx.beginPath();
             ctx.moveTo(0, 0);
             ctx.lineTo(this.vertices[startIdx].x * 0.7, this.vertices[startIdx].y * 0.7);
             ctx.stroke();
         }
-        
-        if (this.asteroidType === 'ARMORED' && this.hitsRemaining > 0) {
-            this.drawArmorIndicator(ctx);
-        }
 
         ctx.restore();
-    }
-    
-    drawTypeEffects(ctx) {
-        switch(this.asteroidType) {
-            case 'ICE':
-                ctx.fillStyle = '#ffffff';
-                ctx.shadowColor = '#00ffff';
-                ctx.shadowBlur = 8;
-                for (let i = 0; i < 4; i++) {
-                    const sparkleAngle = this.sparklePhase + (i * Math.PI / 2);
-                    const sparkleR = this.radius * 0.5 + Math.sin(sparkleAngle * 2) * 5;
-                    const sx = Math.cos(sparkleAngle) * sparkleR;
-                    const sy = Math.sin(sparkleAngle) * sparkleR;
-                    const sparkleSize = 2 + Math.sin(sparkleAngle * 3) * 1;
-                    
-                    ctx.beginPath();
-                    ctx.arc(sx, sy, sparkleSize, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-                break;
-                
-            case 'EXPLOSIVE':
-                const glowAlpha = 0.3 + Math.sin(this.innerGlowPhase * 2) * 0.2;
-                const innerGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.radius * 0.8);
-                innerGradient.addColorStop(0, 'rgba(255, 100, 0, ' + glowAlpha + ')');
-                innerGradient.addColorStop(0.5, 'rgba(255, 50, 0, ' + (glowAlpha * 0.5) + ')');
-                innerGradient.addColorStop(1, 'transparent');
-                ctx.fillStyle = innerGradient;
-                ctx.beginPath();
-                ctx.arc(0, 0, this.radius * 0.8, 0, Math.PI * 2);
-                ctx.fill();
-                
-                ctx.fillStyle = '#ff4400';
-                ctx.font = 'bold ' + (this.radius * 0.4) + 'px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('!', 0, 0);
-                break;
-                
-            case 'GOLDEN':
-                ctx.fillStyle = '#ffffff';
-                ctx.shadowColor = '#ffd700';
-                ctx.shadowBlur = 12;
-                for (let i = 0; i < 6; i++) {
-                    const sparkleAngle = this.sparklePhase * 0.5 + (i * Math.PI / 3);
-                    const sparkleR = this.radius * (0.3 + Math.sin(sparkleAngle * 3 + i) * 0.3);
-                    const sx = Math.cos(sparkleAngle) * sparkleR;
-                    const sy = Math.sin(sparkleAngle) * sparkleR;
-                    
-                    ctx.beginPath();
-                    ctx.moveTo(sx, sy - 3);
-                    ctx.lineTo(sx + 1, sy - 1);
-                    ctx.lineTo(sx + 3, sy);
-                    ctx.lineTo(sx + 1, sy + 1);
-                    ctx.lineTo(sx, sy + 3);
-                    ctx.lineTo(sx - 1, sy + 1);
-                    ctx.lineTo(sx - 3, sy);
-                    ctx.lineTo(sx - 1, sy - 1);
-                    ctx.closePath();
-                    ctx.fill();
-                }
-                
-                ctx.fillStyle = '#ffee00';
-                ctx.font = 'bold ' + (this.radius * 0.5) + 'px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('$', 0, 0);
-                break;
-                
-            case 'ARMORED':
-                ctx.strokeStyle = '#ccccdd';
-                ctx.lineWidth = 1;
-                ctx.shadowBlur = 0;
-                for (let i = 0; i < 3; i++) {
-                    const lineAngle = this.rotation * -1 + (i * Math.PI / 3);
-                    ctx.beginPath();
-                    ctx.moveTo(Math.cos(lineAngle) * this.radius * 0.3, Math.sin(lineAngle) * this.radius * 0.3);
-                    ctx.lineTo(Math.cos(lineAngle) * this.radius * 0.8, Math.sin(lineAngle) * this.radius * 0.8);
-                    ctx.stroke();
-                }
-                break;
-        }
-    }
-    
-    drawArmorIndicator(ctx) {
-        const indicatorRadius = this.radius + 8;
-        ctx.strokeStyle = '#ffffff80';
-        ctx.lineWidth = 2;
-        
-        for (let i = 0; i < this.typeInfo.hitsRequired; i++) {
-            const angle = -Math.PI / 2 + (i / this.typeInfo.hitsRequired) * Math.PI * 0.5;
-            const filled = i < this.hitsRemaining;
-            
-            ctx.beginPath();
-            ctx.arc(
-                Math.cos(angle) * indicatorRadius,
-                Math.sin(angle) * indicatorRadius,
-                3, 0, Math.PI * 2
-            );
-            
-            if (filled) {
-                ctx.fillStyle = '#aaaacc';
-                ctx.fill();
-            }
-            ctx.stroke();
-        }
-    }
-}
-
-// ============== WEAPON SYSTEM ==============
-// Five distinct weapon types with unique behaviors
-
-const WEAPON_TYPES = {
-    BLASTER: { 
-        name: 'Blaster', 
-        color: '#ff00ff', 
-        coreColor: '#ffffff',
-        fireRate: 10, 
-        description: 'Standard energy weapon'
-    },
-    SPREAD: { 
-        name: 'Spread Shot', 
-        color: '#ffff00', 
-        coreColor: '#ffffff',
-        fireRate: 20, 
-        description: '5-shot cone pattern'
-    },
-    BEAM: { 
-        name: 'Laser Beam', 
-        color: '#00ffff', 
-        coreColor: '#ffffff',
-        fireRate: 1, 
-        description: 'Continuous piercing laser'
-    },
-    MISSILES: { 
-        name: 'Missiles', 
-        color: '#ff8800', 
-        coreColor: '#ffff00',
-        fireRate: 30, 
-        description: 'Homing projectiles'
-    },
-    WAVE: { 
-        name: 'Wave Cannon', 
-        color: '#00ff88', 
-        coreColor: '#aaffaa',
-        fireRate: 15, 
-        description: 'Piercing sine wave'
-    }
-};
-
-const WEAPON_ORDER = ['BLASTER', 'SPREAD', 'BEAM', 'MISSILES', 'WAVE'];
-
-// ============== HOMING MISSILE CLASS ==============
-class HomingMissile {
-    constructor(x, y, angle, game) {
-        this.x = x;
-        this.y = y;
-        this.game = game;
-        this.angle = angle;
-        this.speed = 4;
-        this.vx = Math.cos(angle) * this.speed;
-        this.vy = Math.sin(angle) * this.speed;
-        this.lifetime = 180;
-        this.turnRate = 0.06;
-        this.target = null;
-        this.trailCounter = 0;
-        this.pulsePhase = Math.random() * Math.PI * 2;
-        this.acquireTarget();
-    }
-    
-    acquireTarget() {
-        let closestDist = 400;
-        let closest = null;
-        
-        this.game.asteroids.forEach(asteroid => {
-            const dx = asteroid.x - this.x;
-            const dy = asteroid.y - this.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < closestDist) {
-                closestDist = dist;
-                closest = asteroid;
-            }
-        });
-        
-        this.game.ufos.forEach(ufo => {
-            const dx = ufo.x - this.x;
-            const dy = ufo.y - this.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < closestDist + 100) {
-                closestDist = dist;
-                closest = ufo;
-            }
-        });
-        
-        this.target = closest;
-    }
-    
-    update() {
-        this.lifetime--;
-        this.pulsePhase += 0.2;
-        this.trailCounter++;
-        
-        if (!this.target || this.lifetime % 30 === 0) {
-            this.acquireTarget();
-        }
-        
-        if (this.target) {
-            const dx = this.target.x - this.x;
-            const dy = this.target.y - this.y;
-            const targetAngle = Math.atan2(dy, dx);
-            
-            let angleDiff = targetAngle - this.angle;
-            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-            
-            if (Math.abs(angleDiff) < this.turnRate) {
-                this.angle = targetAngle;
-            } else {
-                this.angle += Math.sign(angleDiff) * this.turnRate;
-            }
-        }
-        
-        this.vx = Math.cos(this.angle) * this.speed;
-        this.vy = Math.sin(this.angle) * this.speed;
-        this.x += this.vx;
-        this.y += this.vy;
-        
-        if (this.trailCounter % 3 === 0) {
-            this.game.trailParticles.push(new TrailParticle(
-                this.x - this.vx * 0.5, this.y - this.vy * 0.5,
-                '#ff6600', 3 + Math.random() * 2, 15,
-                -this.vx * 0.1 + (Math.random() - 0.5),
-                -this.vy * 0.1 + (Math.random() - 0.5)
-            ));
-        }
-        
-        if (this.x < 0) this.x = CANVAS_WIDTH;
-        if (this.x > CANVAS_WIDTH) this.x = 0;
-        if (this.y < 0) this.y = CANVAS_HEIGHT;
-        if (this.y > CANVAS_HEIGHT) this.y = 0;
-    }
-    
-    draw(ctx) {
-        const pulse = 1 + Math.sin(this.pulsePhase) * 0.1;
-        
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.angle);
-        
-        ctx.shadowColor = WEAPON_TYPES.MISSILES.color;
-        ctx.shadowBlur = 12;
-        
-        ctx.fillStyle = '#aa4400';
-        ctx.strokeStyle = WEAPON_TYPES.MISSILES.color;
-        ctx.lineWidth = 1;
-        
-        ctx.beginPath();
-        ctx.moveTo(8 * pulse, 0);
-        ctx.lineTo(3, -3 * pulse);
-        ctx.lineTo(-6, -3 * pulse);
-        ctx.lineTo(-8, 0);
-        ctx.lineTo(-6, 3 * pulse);
-        ctx.lineTo(3, 3 * pulse);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        
-        ctx.fillStyle = WEAPON_TYPES.MISSILES.color;
-        ctx.beginPath();
-        ctx.moveTo(12 * pulse, 0);
-        ctx.lineTo(8 * pulse, -2);
-        ctx.lineTo(8 * pulse, 2);
-        ctx.closePath();
-        ctx.fill();
-        
-        ctx.fillStyle = '#663300';
-        ctx.beginPath();
-        ctx.moveTo(-6, -3);
-        ctx.lineTo(-10, -6);
-        ctx.lineTo(-8, -3);
-        ctx.closePath();
-        ctx.fill();
-        
-        ctx.beginPath();
-        ctx.moveTo(-6, 3);
-        ctx.lineTo(-10, 6);
-        ctx.lineTo(-8, 3);
-        ctx.closePath();
-        ctx.fill();
-        
-        const flicker = Math.random() * 0.3;
-        ctx.fillStyle = `rgba(255, 200, 0, ${0.7 + flicker})`;
-        ctx.shadowColor = '#ffaa00';
-        ctx.shadowBlur = 8;
-        ctx.beginPath();
-        ctx.arc(-8, 0, 2, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.restore();
-        
-        if (this.target) {
-            ctx.save();
-            ctx.strokeStyle = '#ff880040';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([4, 4]);
-            ctx.beginPath();
-            ctx.moveTo(this.x, this.y);
-            ctx.lineTo(this.target.x, this.target.y);
-            ctx.stroke();
-            ctx.restore();
-        }
-    }
-}
-
-// ============== WAVE BULLET CLASS ==============
-class WaveBullet {
-    constructor(x, y, angle, game) {
-        this.x = x;
-        this.y = y;
-        this.startX = x;
-        this.startY = y;
-        this.game = game;
-        this.angle = angle;
-        this.speed = 6;
-        this.baseVx = Math.cos(angle) * this.speed;
-        this.baseVy = Math.sin(angle) * this.speed;
-        this.lifetime = 80;
-        this.phase = 0;
-        this.waveAmplitude = 25;
-        this.waveFrequency = 0.15;
-        this.piercing = true;
-        this.hitEntities = new Set();
-        this.trailCounter = 0;
-    }
-    
-    update() {
-        this.lifetime--;
-        this.phase += this.waveFrequency;
-        this.trailCounter++;
-        
-        const baseX = this.startX + this.baseVx * (80 - this.lifetime);
-        const baseY = this.startY + this.baseVy * (80 - this.lifetime);
-        
-        const perpX = -Math.sin(this.angle);
-        const perpY = Math.cos(this.angle);
-        const waveOffset = Math.sin(this.phase * Math.PI * 2) * this.waveAmplitude;
-        
-        this.x = baseX + perpX * waveOffset;
-        this.y = baseY + perpY * waveOffset;
-        
-        if (this.trailCounter % 2 === 0) {
-            this.game.trailParticles.push(new TrailParticle(
-                this.x, this.y, WEAPON_TYPES.WAVE.color, 3, 12,
-                (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.5
-            ));
-        }
-        
-        if (this.x < -50 || this.x > CANVAS_WIDTH + 50 ||
-            this.y < -50 || this.y > CANVAS_HEIGHT + 50) {
-            this.lifetime = 0;
-        }
-    }
-    
-    draw(ctx) {
-        ctx.save();
-        
-        ctx.shadowColor = WEAPON_TYPES.WAVE.color;
-        ctx.shadowBlur = 20;
-        
-        const perpAngle = this.angle + Math.PI / 2;
-        const waveWidth = 15 + Math.sin(this.phase * Math.PI * 4) * 5;
-        
-        ctx.strokeStyle = WEAPON_TYPES.WAVE.color;
-        ctx.lineWidth = 4;
-        ctx.lineCap = 'round';
-        
-        ctx.beginPath();
-        ctx.moveTo(
-            this.x - Math.cos(perpAngle) * waveWidth,
-            this.y - Math.sin(perpAngle) * waveWidth
-        );
-        ctx.lineTo(
-            this.x + Math.cos(perpAngle) * waveWidth,
-            this.y + Math.sin(perpAngle) * waveWidth
-        );
-        ctx.stroke();
-        
-        ctx.strokeStyle = WEAPON_TYPES.WAVE.coreColor;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(
-            this.x - Math.cos(perpAngle) * waveWidth * 0.7,
-            this.y - Math.sin(perpAngle) * waveWidth * 0.7
-        );
-        ctx.lineTo(
-            this.x + Math.cos(perpAngle) * waveWidth * 0.7,
-            this.y + Math.sin(perpAngle) * waveWidth * 0.7
-        );
-        ctx.stroke();
-        
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.restore();
-    }
-}
-
-// ============== SPREAD BULLET CLASS ==============
-class SpreadBullet {
-    constructor(x, y, angle, game) {
-        this.x = x;
-        this.y = y;
-        this.game = game;
-        this.vx = Math.cos(angle) * (BULLET_SPEED * 0.9);
-        this.vy = Math.sin(angle) * (BULLET_SPEED * 0.9);
-        this.lifetime = BULLET_LIFETIME * 0.6;
-        this.maxLifetime = this.lifetime;
-        this.trailCounter = 0;
-        this.size = 3;
-    }
-    
-    update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.lifetime--;
-        this.trailCounter++;
-        this.size = 3 * (this.lifetime / this.maxLifetime);
-        
-        if (this.trailCounter % 3 === 0) {
-            this.game.trailParticles.push(new TrailParticle(
-                this.x, this.y, WEAPON_TYPES.SPREAD.color, 2, 8,
-                -this.vx * 0.05, -this.vy * 0.05
-            ));
-        }
-        
-        if (this.x < 0) this.x = CANVAS_WIDTH;
-        if (this.x > CANVAS_WIDTH) this.x = 0;
-        if (this.y < 0) this.y = CANVAS_HEIGHT;
-        if (this.y > CANVAS_HEIGHT) this.y = 0;
-    }
-    
-    draw(ctx) {
-        ctx.save();
-        ctx.shadowColor = WEAPON_TYPES.SPREAD.color;
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = WEAPON_TYPES.SPREAD.color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, Math.max(1, this.size), 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, Math.max(0.5, this.size * 0.5), 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-    }
-}
-
-// ============== LASER BEAM CLASS ==============
-class LaserBeam {
-    constructor(ship, game) {
-        this.ship = ship;
-        this.game = game;
-        this.active = true;
-        this.length = 0;
-        this.maxLength = 500;
-        this.width = 4;
-        this.pulsePhase = 0;
-        this.damageTimer = 0;
-        this.hitPoints = [];
-    }
-    
-    update() {
-        if (!this.ship || !this.active) return;
-        
-        this.pulsePhase += 0.3;
-        this.damageTimer++;
-        
-        if (this.length < this.maxLength) {
-            this.length += 30;
-        }
-        
-        const startX = this.ship.x + Math.cos(this.ship.angle) * SHIP_SIZE;
-        const startY = this.ship.y + Math.sin(this.ship.angle) * SHIP_SIZE;
-        
-        this.hitPoints = [];
-        
-        for (let idx = this.game.asteroids.length - 1; idx >= 0; idx--) {
-            const asteroid = this.game.asteroids[idx];
-            const hit = this.lineCircleIntersect(
-                startX, startY,
-                startX + Math.cos(this.ship.angle) * this.length,
-                startY + Math.sin(this.ship.angle) * this.length,
-                asteroid.x, asteroid.y, asteroid.radius
-            );
-            
-            if (hit) {
-                this.hitPoints.push({ x: hit.x, y: hit.y, color: WEAPON_TYPES.BEAM.color });
-                
-                if (this.damageTimer % 6 === 0) {
-                    const destroyed = asteroid.takeDamage();
-                    if (destroyed) {
-                        this.game.createExplosion(asteroid.x, asteroid.y, asteroid.size * 6);
-                        
-                        if (asteroid.size > 1) {
-                            const childType = asteroid.asteroidType === 'NORMAL' ? null : 
-                                (Math.random() > 0.5 ? asteroid.asteroidType : 'NORMAL');
-                            for (let k = 0; k < 2; k++) {
-                                this.game.asteroids.push(
-                                    new Asteroid(asteroid.x, asteroid.y, asteroid.size - 1, this.game, childType)
-                                );
-                            }
-                        }
-                        
-                        this.game.addScore((4 - asteroid.size) * 15 * asteroid.typeInfo.pointMultiplier);
-                        this.game.spawnPowerUp(asteroid.x, asteroid.y);
-                        this.game.asteroids.splice(idx, 1);
-                        achievementManager.trackAsteroidDestroyed();
-                    }
-                }
-            }
-        }
-        
-        for (let idx = this.game.ufos.length - 1; idx >= 0; idx--) {
-            const ufo = this.game.ufos[idx];
-            const hit = this.lineCircleIntersect(
-                startX, startY,
-                startX + Math.cos(this.ship.angle) * this.length,
-                startY + Math.sin(this.ship.angle) * this.length,
-                ufo.x, ufo.y, UFO_SIZE
-            );
-            
-            if (hit) {
-                this.hitPoints.push({ x: hit.x, y: hit.y, color: '#00ff00' });
-                
-                if (this.damageTimer % 10 === 0) {
-                    this.game.createUfoExplosion(ufo.x, ufo.y);
-                    this.game.addScore(UFO_POINTS);
-                    this.game.spawnUfoLoot(ufo.x, ufo.y);
-                    this.game.ufos.splice(idx, 1);
-                    achievementManager.trackUfoDestroyed();
-                }
-            }
-        }
-    }
-    
-    lineCircleIntersect(x1, y1, x2, y2, cx, cy, r) {
-        const dx = x2 - x1;
-        const dy = y2 - y1;
-        const fx = x1 - cx;
-        const fy = y1 - cy;
-        
-        const a = dx * dx + dy * dy;
-        const b = 2 * (fx * dx + fy * dy);
-        const c = fx * fx + fy * fy - r * r;
-        
-        let discriminant = b * b - 4 * a * c;
-        if (discriminant < 0) return null;
-        
-        discriminant = Math.sqrt(discriminant);
-        const t1 = (-b - discriminant) / (2 * a);
-        const t2 = (-b + discriminant) / (2 * a);
-        
-        if (t1 >= 0 && t1 <= 1) {
-            return { x: x1 + t1 * dx, y: y1 + t1 * dy };
-        }
-        if (t2 >= 0 && t2 <= 1) {
-            return { x: x1 + t2 * dx, y: y1 + t2 * dy };
-        }
-        return null;
-    }
-    
-    draw(ctx) {
-        if (!this.ship || !this.active || this.length <= 0) return;
-        
-        const startX = this.ship.x + Math.cos(this.ship.angle) * SHIP_SIZE;
-        const startY = this.ship.y + Math.sin(this.ship.angle) * SHIP_SIZE;
-        const endX = startX + Math.cos(this.ship.angle) * this.length;
-        const endY = startY + Math.sin(this.ship.angle) * this.length;
-        
-        const pulse = 1 + Math.sin(this.pulsePhase) * 0.3;
-        
-        ctx.save();
-        
-        ctx.shadowColor = WEAPON_TYPES.BEAM.color;
-        ctx.shadowBlur = 25;
-        ctx.strokeStyle = WEAPON_TYPES.BEAM.color + '60';
-        ctx.lineWidth = this.width * 3 * pulse;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        ctx.lineTo(endX, endY);
-        ctx.stroke();
-        
-        ctx.shadowBlur = 15;
-        ctx.strokeStyle = WEAPON_TYPES.BEAM.color;
-        ctx.lineWidth = this.width * pulse;
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        ctx.lineTo(endX, endY);
-        ctx.stroke();
-        
-        ctx.shadowBlur = 5;
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = this.width * 0.5 * pulse;
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        ctx.lineTo(endX, endY);
-        ctx.stroke();
-        
-        this.hitPoints.forEach(hit => {
-            ctx.fillStyle = '#ffffff';
-            ctx.shadowColor = hit.color;
-            ctx.shadowBlur = 15;
-            
-            for (let i = 0; i < 3; i++) {
-                const sparkAngle = Math.random() * Math.PI * 2;
-                const sparkDist = Math.random() * 10;
-                ctx.beginPath();
-                ctx.arc(
-                    hit.x + Math.cos(sparkAngle) * sparkDist,
-                    hit.y + Math.sin(sparkAngle) * sparkDist,
-                    2 + Math.random() * 2, 0, Math.PI * 2
-                );
-                ctx.fill();
-            }
-        });
-        
-        ctx.restore();
-    }
-    
-    deactivate() {
-        this.active = false;
     }
 }
 
@@ -7091,11 +3171,9 @@ class Bullet {
         this.x = x;
         this.y = y;
         this.game = game;
-        const bulletSpeedMult = shipUpgradeManager.getBulletSpeedMultiplier();
-        const bulletLifeMult = shipUpgradeManager.getBulletLifetimeMultiplier();
-        this.vx = Math.cos(angle) * BULLET_SPEED * bulletSpeedMult;
-        this.vy = Math.sin(angle) * BULLET_SPEED * bulletSpeedMult;
-        this.lifetime = Math.floor(BULLET_LIFETIME * bulletLifeMult);
+        this.vx = Math.cos(angle) * BULLET_SPEED;
+        this.vy = Math.sin(angle) * BULLET_SPEED;
+        this.lifetime = BULLET_LIFETIME;
         this.trailCounter = 0;
     }
 
@@ -7327,11 +3405,3 @@ class Item {
 window.addEventListener('DOMContentLoaded', () => {
     new Game();
 });
-
-
-
-
-
-
-
-
