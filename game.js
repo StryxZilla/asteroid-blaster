@@ -1,4 +1,4 @@
-﻿// Game constants
+// Game constants
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const FPS = 60;
@@ -2328,11 +2328,8 @@ const musicManager = new MusicManager();
 
 
 // ============== STARFIELD CLASS ==============
-// Dynamic nebula background with gameplay-responsive effects
-
 class StarField {
     constructor() {
-        // Star layers (parallax)
         this.layers = [];
         for (let i = 0; i < STAR_LAYERS; i++) {
             const stars = [];
@@ -2350,170 +2347,20 @@ class StarField {
             this.layers.push({ stars, speed: STAR_SPEEDS[i] });
         }
         
-        // ============== ENHANCED DYNAMIC NEBULA SYSTEM ==============
-        // Multi-layer nebula clouds with color shifting and gameplay responsiveness
-        
-        // Nebula intensity system (0.0 - 1.0)
-        this.nebulaIntensity = 0.3;          // Current intensity
-        this.targetNebulaIntensity = 0.3;    // Target (smooth transitions)
-        this.pulseIntensity = 0;              // Temporary pulse from events
-        this.pulseDecay = 0.95;               // How fast pulse fades
-        
-        // Global time for animations
-        this.time = 0;
-        
-        // Color hue offset for dynamic shifting
-        this.hueOffset = 0;
-        this.targetHueOffset = 0;
-        
-        // Base nebula colors (HSL for easy manipulation)
-        this.nebulaBaseColors = [
-            { h: 270, s: 80, l: 25 },  // Deep purple
-            { h: 220, s: 70, l: 20 },  // Deep blue
-            { h: 320, s: 60, l: 25 },  // Magenta
-            { h: 180, s: 50, l: 20 },  // Cyan-teal
-            { h: 350, s: 70, l: 20 },  // Deep red/crimson
-        ];
-        
-        // Create multi-layered nebulae
+        // Nebula clouds for atmosphere
         this.nebulae = [];
-        
-        // Background layer - large, slow, subtle
-        for (let i = 0; i < 4; i++) {
-            this.nebulae.push(this.createNebula('background', i));
-        }
-        
-        // Mid layer - medium size, color variety
         for (let i = 0; i < 5; i++) {
-            this.nebulae.push(this.createNebula('mid', i));
+            this.nebulae.push({
+                x: Math.random() * CANVAS_WIDTH,
+                y: Math.random() * CANVAS_HEIGHT,
+                radius: 100 + Math.random() * 200,
+                color: Math.random() > 0.5 ? COLORS.nebula1 : COLORS.nebula2,
+                phase: Math.random() * Math.PI * 2
+            });
         }
-        
-        // Foreground layer - smaller, more vibrant, faster
-        for (let i = 0; i < 4; i++) {
-            this.nebulae.push(this.createNebula('foreground', i));
-        }
-        
-        // Event flash nebulae (spawned on explosions/kills)
-        this.eventNebulae = [];
     }
-    
-    // Create a nebula with layer-specific properties
-    createNebula(layer, index) {
-        const layerConfig = {
-            background: { 
-                radiusMin: 200, radiusMax: 400, 
-                alphaBase: 0.08, driftSpeed: 0.15,
-                pulseSpeed: 0.003, colorIndex: index % 2
-            },
-            mid: { 
-                radiusMin: 100, radiusMax: 250, 
-                alphaBase: 0.12, driftSpeed: 0.25,
-                pulseSpeed: 0.005, colorIndex: index % 5
-            },
-            foreground: { 
-                radiusMin: 60, radiusMax: 150, 
-                alphaBase: 0.15, driftSpeed: 0.4,
-                pulseSpeed: 0.008, colorIndex: (index + 2) % 5
-            }
-        };
-        
-        const config = layerConfig[layer];
-        const baseColor = this.nebulaBaseColors[config.colorIndex];
-        
-        return {
-            x: Math.random() * CANVAS_WIDTH,
-            y: Math.random() * CANVAS_HEIGHT,
-            radius: config.radiusMin + Math.random() * (config.radiusMax - config.radiusMin),
-            layer: layer,
-            baseHue: baseColor.h,
-            baseSat: baseColor.s,
-            baseLight: baseColor.l,
-            alphaBase: config.alphaBase,
-            phase: Math.random() * Math.PI * 2,
-            phaseSpeed: config.pulseSpeed + Math.random() * 0.002,
-            driftX: (Math.random() - 0.5) * config.driftSpeed,
-            driftY: (Math.random() - 0.5) * config.driftSpeed,
-            // Organic shape variation
-            wobblePhase: Math.random() * Math.PI * 2,
-            wobbleSpeed: 0.01 + Math.random() * 0.01,
-            // Individual color variation
-            hueVariation: (Math.random() - 0.5) * 30,
-            // Brightness variation over time
-            brightnessPhase: Math.random() * Math.PI * 2
-        };
-    }
-    
-    // Spawn a temporary event nebula (called on big explosions)
-    spawnEventNebula(x, y, color, size = 1) {
-        const hsl = this.hexToHsl(color) || { h: 30, s: 100, l: 50 };
-        this.eventNebulae.push({
-            x: x,
-            y: y,
-            radius: 80 * size,
-            maxRadius: 200 * size,
-            alpha: 0.4,
-            baseHue: hsl.h,
-            baseSat: hsl.s,
-            baseLight: hsl.l,
-            life: 1.0,
-            decay: 0.015
-        });
-        // Also trigger a pulse
-        this.pulseIntensity = Math.min(1, this.pulseIntensity + 0.3 * size);
-    }
-    
-    // Convert hex color to HSL
-    hexToHsl(hex) {
-        if (!hex || hex[0] !== '#') return null;
-        const r = parseInt(hex.slice(1, 3), 16) / 255;
-        const g = parseInt(hex.slice(3, 5), 16) / 255;
-        const b = parseInt(hex.slice(5, 7), 16) / 255;
-        
-        const max = Math.max(r, g, b), min = Math.min(r, g, b);
-        let h, s, l = (max + min) / 2;
-        
-        if (max === min) {
-            h = s = 0;
-        } else {
-            const d = max - min;
-            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-            switch (max) {
-                case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
-                case g: h = ((b - r) / d + 2) / 6; break;
-                case b: h = ((r - g) / d + 4) / 6; break;
-            }
-        }
-        return { h: h * 360, s: s * 100, l: l * 100 };
-    }
-    
-    // Set intensity (0-1) for gameplay responsiveness
-    setNebulaIntensity(value) {
-        this.targetNebulaIntensity = Math.max(0, Math.min(1, value));
-    }
-    
-    // Shift overall hue (for boss fights, special events)
-    setHueShift(degrees) {
-        this.targetHueOffset = degrees;
-    }
-    
-    // Convenience methods for game states
-    setCalm() { this.setNebulaIntensity(0.25); this.setHueShift(0); }
-    setNormal() { this.setNebulaIntensity(0.4); this.setHueShift(0); }
-    setIntense() { this.setNebulaIntensity(0.7); this.setHueShift(15); }
-    setBossFight() { this.setNebulaIntensity(0.9); this.setHueShift(-30); } // Red shift for danger
 
     update(shipVx = 0, shipVy = 0) {
-        this.time += 1;
-        
-        // Smooth intensity transitions
-        this.nebulaIntensity += (this.targetNebulaIntensity - this.nebulaIntensity) * 0.02;
-        
-        // Decay pulse intensity
-        this.pulseIntensity *= this.pulseDecay;
-        
-        // Smooth hue shift
-        this.hueOffset += (this.targetHueOffset - this.hueOffset) * 0.01;
-        
         // Move stars based on parallax and ship movement
         this.layers.forEach((layer, layerIndex) => {
             layer.stars.forEach(star => {
@@ -2535,53 +2382,28 @@ class StarField {
             });
         });
         
-        // Update nebulae
+        // Animate nebulae
         this.nebulae.forEach(nebula => {
-            // Animate phases
-            nebula.phase += nebula.phaseSpeed;
-            nebula.wobblePhase += nebula.wobbleSpeed;
-            nebula.brightnessPhase += 0.003;
-            
-            // Calculate layer-specific drift multiplier
-            const driftMult = nebula.layer === 'background' ? 0.3 : 
-                             nebula.layer === 'mid' ? 0.5 : 0.8;
-            
-            // Drift movement (affected by intensity)
-            const intensityBoost = 0.5 + this.nebulaIntensity * 0.5;
-            nebula.x += nebula.driftX * intensityBoost - shipVx * 0.1 * driftMult;
-            nebula.y += nebula.driftY * intensityBoost - shipVy * 0.1 * driftMult;
-            
-            // Wrap around with padding
-            const pad = nebula.radius;
-            if (nebula.x < -pad) nebula.x += CANVAS_WIDTH + pad * 2;
-            if (nebula.x > CANVAS_WIDTH + pad) nebula.x -= CANVAS_WIDTH + pad * 2;
-            if (nebula.y < -pad) nebula.y += CANVAS_HEIGHT + pad * 2;
-            if (nebula.y > CANVAS_HEIGHT + pad) nebula.y -= CANVAS_HEIGHT + pad * 2;
-        });
-        
-        // Update and cleanup event nebulae
-        this.eventNebulae = this.eventNebulae.filter(en => {
-            en.life -= en.decay;
-            en.radius += (en.maxRadius - en.radius) * 0.1;
-            en.alpha = en.life * 0.4;
-            return en.life > 0;
+            nebula.phase += 0.005;
         });
     }
 
     draw(ctx) {
-        // Calculate effective intensity (base + pulse)
-        const effectiveIntensity = Math.min(1, this.nebulaIntensity + this.pulseIntensity * 0.5);
-        
-        // Draw nebula layers (back to front)
-        ['background', 'mid', 'foreground'].forEach(layerName => {
-            this.nebulae.filter(n => n.layer === layerName).forEach(nebula => {
-                this.drawNebula(ctx, nebula, effectiveIntensity);
-            });
-        });
-        
-        // Draw event nebulae (on top of regular nebulae)
-        this.eventNebulae.forEach(en => {
-            this.drawEventNebula(ctx, en);
+        // Draw nebula clouds first
+        this.nebulae.forEach(nebula => {
+            const pulseFactor = 0.8 + Math.sin(nebula.phase) * 0.2;
+            const gradient = ctx.createRadialGradient(
+                nebula.x, nebula.y, 0,
+                nebula.x, nebula.y, nebula.radius * pulseFactor
+            );
+            gradient.addColorStop(0, nebula.color + '30');
+            gradient.addColorStop(0.5, nebula.color + '15');
+            gradient.addColorStop(1, 'transparent');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(nebula.x, nebula.y, nebula.radius * pulseFactor, 0, Math.PI * 2);
+            ctx.fill();
         });
         
         // Draw star layers (back to front)
@@ -2621,82 +2443,7 @@ class StarField {
             });
         });
     }
-    
-    // Draw a single nebula cloud with all its effects
-    drawNebula(ctx, nebula, intensity) {
-        // Calculate animated values
-        const pulseFactor = 0.85 + Math.sin(nebula.phase) * 0.15;
-        const wobbleFactor = 1 + Math.sin(nebula.wobblePhase) * 0.1;
-        const brightnessMod = 0.8 + Math.sin(nebula.brightnessPhase) * 0.2;
-        
-        // Calculate color with hue shift
-        const hue = (nebula.baseHue + this.hueOffset + nebula.hueVariation + 
-                    Math.sin(this.time * 0.002 + nebula.phase) * 10) % 360;
-        const sat = nebula.baseSat + intensity * 20;
-        const light = nebula.baseLight + intensity * 10;
-        
-        // Calculate alpha based on intensity
-        const baseAlpha = nebula.alphaBase * (0.5 + intensity * 0.5) * brightnessMod;
-        const radius = nebula.radius * pulseFactor * wobbleFactor;
-        
-        // Create gradient
-        const gradient = ctx.createRadialGradient(
-            nebula.x, nebula.y, 0,
-            nebula.x, nebula.y, radius
-        );
-        
-        // Inner glow (brighter)
-        gradient.addColorStop(0, `hsla(${hue}, ${sat}%, ${light + 15}%, ${baseAlpha * 1.5})`);
-        // Middle transition
-        gradient.addColorStop(0.3, `hsla(${hue}, ${sat}%, ${light}%, ${baseAlpha})`);
-        // Outer edge (fades out)
-        gradient.addColorStop(0.7, `hsla(${hue}, ${sat - 10}%, ${light - 5}%, ${baseAlpha * 0.4})`);
-        gradient.addColorStop(1, 'transparent');
-        
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(nebula.x, nebula.y, radius, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Add a subtle inner glow for more depth (foreground nebulae only)
-        if (nebula.layer === 'foreground' && intensity > 0.5) {
-            const innerGradient = ctx.createRadialGradient(
-                nebula.x, nebula.y, 0,
-                nebula.x, nebula.y, radius * 0.4
-            );
-            const brightHue = (hue + 30) % 360;
-            innerGradient.addColorStop(0, `hsla(${brightHue}, ${sat + 20}%, ${light + 30}%, ${baseAlpha * 0.5})`);
-            innerGradient.addColorStop(1, 'transparent');
-            
-            ctx.fillStyle = innerGradient;
-            ctx.beginPath();
-            ctx.arc(nebula.x, nebula.y, radius * 0.4, 0, Math.PI * 2);
-            ctx.fill();
-        }
-    }
-    
-    // Draw an event nebula (explosion flash)
-    drawEventNebula(ctx, en) {
-        const gradient = ctx.createRadialGradient(
-            en.x, en.y, 0,
-            en.x, en.y, en.radius
-        );
-        
-        const hue = en.baseHue;
-        const sat = en.baseSat;
-        const light = en.baseLight;
-        
-        gradient.addColorStop(0, `hsla(${hue}, ${sat}%, ${light + 30}%, ${en.alpha})`);
-        gradient.addColorStop(0.4, `hsla(${hue}, ${sat}%, ${light}%, ${en.alpha * 0.6})`);
-        gradient.addColorStop(1, 'transparent');
-        
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(en.x, en.y, en.radius, 0, Math.PI * 2);
-        ctx.fill();
-    }
 }
-
 
 // ============== TRAIL PARTICLE CLASS ==============
 class TrailParticle {
@@ -3370,13 +3117,6 @@ class Game {
         musicManager.init();
         musicManager.start();
         musicManager.setNormal();
-        
-        // === DYNAMIC NEBULA: GAME START ===
-        // Initialize nebula to calm/normal state
-        if (this.starField) {
-            this.starField.setNormal();
-            this.starField.setHueShift(0);
-        }
     }
 
     triggerFlash(color, alpha) {
@@ -3448,22 +3188,12 @@ class Game {
             this.bossLevel = true;
             this.boss = new Boss(this);
             this.triggerFlash('#ff0066', 0.4);
-            // === DYNAMIC NEBULA: BOSS MODE ===
-            // Activate dramatic red-shifted nebula for boss fight
-            if (this.starField) {
-                this.starField.setBossFight();
-            }
             // Don't play normal level complete - boss appear sound plays instead
         } else {
             this.bossLevel = false;
             this.spawnAsteroids(3 + this.level);
             this.triggerFlash('#00ff00', 0.2);
             soundManager.playLevelComplete();
-            // === DYNAMIC NEBULA: NORMAL MODE ===
-            // Return to normal nebula intensity
-            if (this.starField) {
-                this.starField.setNormal();
-            }
         }
     }
 
@@ -3789,14 +3519,6 @@ class Game {
         // Play explosion sound with size-based intensity
         soundManager.playExplosion(intensity / 15);
         
-        // === DYNAMIC NEBULA EVENT ===
-        // Spawn background nebula flash for larger explosions
-        if (intensity >= 10 && this.starField) {
-            const nebulaSize = intensity / 30; // Scale 0.33 - 1.0+
-            const explosionColor = COLORS.explosion[Math.floor(Math.random() * COLORS.explosion.length)];
-            this.starField.spawnEventNebula(x, y, explosionColor, nebulaSize);
-        }
-        
         // Core explosion particles (bright)
         for (let i = 0; i < intensity * 0.5; i++) {
             const color = COLORS.explosion[Math.floor(Math.random() * COLORS.explosion.length)];
@@ -3817,12 +3539,6 @@ class Game {
     createUfoExplosion(x, y) {
         this.screenShake.trigger(15);
         soundManager.playUfoDestroyed();
-        
-        // === DYNAMIC NEBULA EVENT ===
-        // Green nebula burst for UFO destruction
-        if (this.starField) {
-            this.starField.spawnEventNebula(x, y, COLORS.ufoPrimary, 0.8);
-        }
         
         // Green core particles
         for (let i = 0; i < 15; i++) {
@@ -3956,26 +3672,9 @@ class Game {
             if (this.boss.isFinished()) {
                 this.boss = null;
                 this.bossLevel = false;
-                // === DYNAMIC NEBULA: BOSS DEFEATED ===
-                // Dramatic victory pulse before level transition
-                if (this.starField) {
-                    this.starField.spawnEventNebula(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, '#ff00ff', 2.5);
-                    this.starField.setNormal();
-                }
                 // After boss defeat, continue to next level
                 this.nextLevel();
                 return;
-            }
-        }
-        
-        // === DYNAMIC NEBULA: COMBO INTENSITY ===
-        // Increase nebula intensity during kill streaks
-        if (this.starField && !this.bossLevel) {
-            const comboIntensity = Math.min(1, this.comboCount / 20); // Max at 20 kills
-            if (comboIntensity > 0.3) {
-                this.starField.setNebulaIntensity(0.4 + comboIntensity * 0.4);
-            } else if (this.comboTimer <= 0) {
-                this.starField.setNormal();
             }
         }
 
@@ -5515,7 +5214,10 @@ class Bullet {
     }
 }
 
-// ============== POWERUP CLASS ==============
+// ============== POWERUP CLASS - AAA VISUAL OVERHAUL ==============
+// Geometry Wars-inspired powerup visuals with particle auras, 
+// unique shapes per type, orbital particles, and dynamic animations
+
 class PowerUp {
     constructor(x, y, type, game) {
         this.x = x;
@@ -5525,10 +5227,45 @@ class PowerUp {
         this.lifetime = POWERUP_LIFETIME;
         this.pulsePhase = 0;
         this.rotationPhase = 0;
+        this.spawnTime = 0;
 
         const angle = Math.random() * Math.PI * 2;
         this.vx = Math.cos(angle) * 0.3;
         this.vy = Math.sin(angle) * 0.3;
+        
+        // === AAA VISUAL ENHANCEMENTS ===
+        // Orbital particles - small particles that orbit the powerup
+        this.orbitals = [];
+        this.initOrbitals();
+        
+        // Aura particles - emanate outward periodically
+        this.auraParticles = [];
+        this.auraTimer = 0;
+        
+        // Type-specific animation phases
+        this.typePhase = Math.random() * Math.PI * 2;
+        this.sparklePhase = 0;
+        
+        // Entrance animation
+        this.spawnScale = 0;
+        this.isSpawning = true;
+    }
+    
+    initOrbitals() {
+        // Create 3-6 orbital particles based on powerup type
+        const orbitalCount = this.type === 'SHIELD' ? 6 : 
+                            this.type === 'TRIPLE_SHOT' ? 3 : 
+                            this.type === 'RAPID_FIRE' ? 5 : 4;
+        
+        for (let i = 0; i < orbitalCount; i++) {
+            this.orbitals.push({
+                angle: (i / orbitalCount) * Math.PI * 2,
+                distance: POWERUP_SIZE + 8,
+                speed: 0.03 + Math.random() * 0.02,
+                size: 2 + Math.random() * 2,
+                phase: Math.random() * Math.PI * 2
+            });
+        }
     }
 
     update() {
@@ -5536,65 +5273,441 @@ class PowerUp {
         this.y += this.vy;
         this.lifetime--;
         this.pulsePhase += 0.1;
-        this.rotationPhase += 0.02;
+        this.rotationPhase += 0.03;
+        this.typePhase += 0.08;
+        this.sparklePhase += 0.15;
+        this.spawnTime++;
+        
+        // Spawn animation
+        if (this.isSpawning) {
+            this.spawnScale = Math.min(1, this.spawnScale + 0.08);
+            if (this.spawnScale >= 1) this.isSpawning = false;
+        }
+        
+        // Update orbital particles
+        this.orbitals.forEach(orbital => {
+            orbital.angle += orbital.speed;
+            orbital.phase += 0.1;
+        });
+        
+        // Spawn aura particles periodically
+        this.auraTimer++;
+        if (this.auraTimer >= 8) {
+            this.auraTimer = 0;
+            this.spawnAuraParticle();
+        }
+        
+        // Update aura particles
+        this.auraParticles = this.auraParticles.filter(p => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life--;
+            p.alpha = p.life / p.maxLife;
+            p.size *= 0.97;
+            return p.life > 0;
+        });
 
+        // Screen wrap
         if (this.x < 0) this.x = CANVAS_WIDTH;
         if (this.x > CANVAS_WIDTH) this.x = 0;
         if (this.y < 0) this.y = CANVAS_HEIGHT;
         if (this.y > CANVAS_HEIGHT) this.y = 0;
     }
+    
+    spawnAuraParticle() {
+        const powerUpInfo = POWERUP_TYPES[this.type];
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 0.5 + Math.random() * 1;
+        
+        this.auraParticles.push({
+            x: this.x,
+            y: this.y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            size: 3 + Math.random() * 3,
+            color: powerUpInfo.color,
+            life: 30 + Math.random() * 20,
+            maxLife: 50,
+            alpha: 1
+        });
+    }
 
     draw(ctx) {
         const powerUpInfo = POWERUP_TYPES[this.type];
-        const pulse = Math.sin(this.pulsePhase) * 3 + POWERUP_SIZE;
-
+        const basePulse = Math.sin(this.pulsePhase) * 3 + POWERUP_SIZE;
+        const pulse = basePulse * this.spawnScale;
+        
         ctx.save();
+        
+        // Draw aura particles behind main powerup
+        this.auraParticles.forEach(p => {
+            ctx.save();
+            ctx.globalAlpha = p.alpha * 0.6;
+            ctx.fillStyle = p.color;
+            ctx.shadowColor = p.color;
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        });
+        
         ctx.translate(this.x, this.y);
+        
+        // Scale for spawn animation
+        ctx.scale(this.spawnScale, this.spawnScale);
+        
+        // === OUTER ROTATING EFFECTS ===
+        this.drawOuterEffects(ctx, powerUpInfo, pulse);
+        
+        // === ORBITAL PARTICLES ===
+        this.drawOrbitals(ctx, powerUpInfo);
+        
+        // === TYPE-SPECIFIC INNER SHAPE ===
+        ctx.save();
         ctx.rotate(this.rotationPhase);
-
-        // Outer ring glow
-        ctx.shadowColor = powerUpInfo.color;
-        ctx.shadowBlur = 20;
-        ctx.strokeStyle = powerUpInfo.color;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(0, 0, pulse + 3, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Inner filled circle
-        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, pulse);
-        gradient.addColorStop(0, powerUpInfo.color);
-        gradient.addColorStop(1, powerUpInfo.color + '40');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(0, 0, pulse - 2, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Symbol
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#000';
-        ctx.font = 'bold 14px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(powerUpInfo.symbol, 0, 1);
-
+        this.drawTypeShape(ctx, powerUpInfo, pulse);
+        ctx.restore();
+        
+        // === CENTRAL CORE ===
+        this.drawCore(ctx, powerUpInfo, pulse);
+        
+        // === SPARKLE HIGHLIGHTS ===
+        this.drawSparkles(ctx, powerUpInfo);
+        
         ctx.restore();
 
         // Warning flicker when expiring
         if (this.lifetime < 120) {
-            const flicker = Math.sin(this.lifetime * 0.3) > 0;
+            const flicker = Math.sin(this.lifetime * 0.5) > 0;
             if (flicker) {
                 ctx.save();
-                ctx.strokeStyle = powerUpInfo.color + '60';
-                ctx.lineWidth = 1;
+                ctx.strokeStyle = powerUpInfo.color;
+                ctx.globalAlpha = 0.3 + Math.sin(this.lifetime * 0.3) * 0.2;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, POWERUP_SIZE + 10, 0, Math.PI * 2);
+                ctx.arc(this.x, this.y, POWERUP_SIZE + 15, 0, Math.PI * 2);
                 ctx.stroke();
                 ctx.restore();
             }
         }
     }
+    
+    drawOuterEffects(ctx, powerUpInfo, pulse) {
+        // Rotating dashed outer ring
+        ctx.save();
+        ctx.rotate(this.rotationPhase * 2);
+        ctx.strokeStyle = powerUpInfo.color + '60';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 6]);
+        ctx.beginPath();
+        ctx.arc(0, 0, pulse + 10, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+        
+        // Pulsing secondary ring
+        const ringPulse = 1 + Math.sin(this.pulsePhase * 1.5) * 0.3;
+        ctx.save();
+        ctx.rotate(-this.rotationPhase);
+        ctx.strokeStyle = powerUpInfo.color + '40';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 8]);
+        ctx.beginPath();
+        ctx.arc(0, 0, (pulse + 6) * ringPulse, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    }
+    
+    drawOrbitals(ctx, powerUpInfo) {
+        this.orbitals.forEach((orbital, i) => {
+            const ox = Math.cos(orbital.angle) * orbital.distance;
+            const oy = Math.sin(orbital.angle) * orbital.distance;
+            const sizePulse = orbital.size * (1 + Math.sin(orbital.phase) * 0.3);
+            
+            ctx.save();
+            ctx.shadowColor = powerUpInfo.color;
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = powerUpInfo.color;
+            ctx.beginPath();
+            ctx.arc(ox, oy, sizePulse, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Orbital trail
+            ctx.globalAlpha = 0.3;
+            const trailAngle = orbital.angle - orbital.speed * 8;
+            for (let t = 0; t < 3; t++) {
+                const ta = orbital.angle - orbital.speed * (t + 1) * 3;
+                const tx = Math.cos(ta) * orbital.distance;
+                const ty = Math.sin(ta) * orbital.distance;
+                ctx.globalAlpha = 0.2 - t * 0.06;
+                ctx.beginPath();
+                ctx.arc(tx, ty, sizePulse * (0.8 - t * 0.2), 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        });
+    }
+    
+    drawTypeShape(ctx, powerUpInfo, pulse) {
+        ctx.shadowColor = powerUpInfo.color;
+        ctx.shadowBlur = 20;
+        
+        switch(this.type) {
+            case 'SHIELD':
+                // Hexagonal shield pattern
+                this.drawHexagonShield(ctx, powerUpInfo, pulse);
+                break;
+            case 'RAPID_FIRE':
+                // Bullet burst pattern
+                this.drawRapidFireBurst(ctx, powerUpInfo, pulse);
+                break;
+            case 'TRIPLE_SHOT':
+                // Three-way split pattern
+                this.drawTripleShotPattern(ctx, powerUpInfo, pulse);
+                break;
+            case 'SPEED_BOOST':
+                // Speed lines/chevrons
+                this.drawSpeedChevrons(ctx, powerUpInfo, pulse);
+                break;
+            case 'EXTRA_LIFE':
+                // Heart/plus pattern
+                this.drawExtraLifeHeart(ctx, powerUpInfo, pulse);
+                break;
+        }
+    }
+    
+    drawHexagonShield(ctx, powerUpInfo, pulse) {
+        // Layered hexagons
+        for (let layer = 0; layer < 2; layer++) {
+            const size = pulse - layer * 4;
+            ctx.save();
+            ctx.rotate(layer * 0.5);
+            ctx.strokeStyle = layer === 0 ? powerUpInfo.color : powerUpInfo.color + '80';
+            ctx.lineWidth = 2 - layer * 0.5;
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+                const x = Math.cos(angle) * size;
+                const y = Math.sin(angle) * size;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.stroke();
+            ctx.restore();
+        }
+        
+        // Inner shield glow
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, pulse);
+        gradient.addColorStop(0, powerUpInfo.color + '60');
+        gradient.addColorStop(0.7, powerUpInfo.color + '20');
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, pulse, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    drawRapidFireBurst(ctx, powerUpInfo, pulse) {
+        // Radiating bullet shapes
+        const bulletCount = 8;
+        for (let i = 0; i < bulletCount; i++) {
+            const angle = (i / bulletCount) * Math.PI * 2;
+            const burstPhase = (this.typePhase + i * 0.5) % (Math.PI * 2);
+            const burstDist = 3 + Math.sin(burstPhase) * 3;
+            
+            ctx.save();
+            ctx.rotate(angle);
+            ctx.translate(burstDist, 0);
+            
+            // Bullet shape
+            ctx.fillStyle = powerUpInfo.color;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 4, 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+        
+        // Center circle
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, pulse * 0.6);
+        gradient.addColorStop(0, powerUpInfo.color);
+        gradient.addColorStop(1, powerUpInfo.color + '40');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, pulse * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    drawTripleShotPattern(ctx, powerUpInfo, pulse) {
+        // Three diverging lines
+        ctx.strokeStyle = powerUpInfo.color;
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        
+        for (let i = 0; i < 3; i++) {
+            const baseAngle = -Math.PI / 2;
+            const spreadAngle = (i - 1) * 0.4; // -0.4, 0, 0.4 spread
+            const angle = baseAngle + spreadAngle;
+            
+            const animOffset = Math.sin(this.typePhase + i) * 2;
+            
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(
+                Math.cos(angle) * (pulse + animOffset),
+                Math.sin(angle) * (pulse + animOffset)
+            );
+            ctx.stroke();
+            
+            // Arrowhead
+            const tipX = Math.cos(angle) * (pulse + animOffset);
+            const tipY = Math.sin(angle) * (pulse + animOffset);
+            ctx.fillStyle = powerUpInfo.color;
+            ctx.beginPath();
+            ctx.arc(tipX, tipY, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+        
+        // Center dot
+        ctx.fillStyle = powerUpInfo.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, 4, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    drawSpeedChevrons(ctx, powerUpInfo, pulse) {
+        // Animated chevrons indicating speed
+        ctx.strokeStyle = powerUpInfo.color;
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        for (let i = 0; i < 3; i++) {
+            const offset = ((this.typePhase * 3 + i * 3) % 12) - 6;
+            const alpha = 1 - Math.abs(offset) / 8;
+            
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, alpha);
+            ctx.translate(offset, 0);
+            
+            // Chevron shape pointing right
+            ctx.beginPath();
+            ctx.moveTo(-4, -6);
+            ctx.lineTo(4, 0);
+            ctx.lineTo(-4, 6);
+            ctx.stroke();
+            ctx.restore();
+        }
+        
+        // Circular border
+        ctx.globalAlpha = 0.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, pulse, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+    
+    drawExtraLifeHeart(ctx, powerUpInfo, pulse) {
+        // Pulsing heart shape
+        const heartPulse = 1 + Math.sin(this.typePhase * 2) * 0.15;
+        const size = pulse * 0.7 * heartPulse;
+        
+        ctx.save();
+        ctx.scale(size / 10, size / 10);
+        
+        // Heart path
+        ctx.fillStyle = powerUpInfo.color;
+        ctx.beginPath();
+        ctx.moveTo(0, 3);
+        ctx.bezierCurveTo(-8, -3, -8, -8, 0, -8);
+        ctx.bezierCurveTo(8, -8, 8, -3, 0, 3);
+        ctx.fill();
+        
+        // Inner highlight
+        ctx.fillStyle = '#ffffff40';
+        ctx.beginPath();
+        ctx.ellipse(-3, -5, 2, 1.5, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+        
+        // Plus signs around heart
+        const plusCount = 4;
+        for (let i = 0; i < plusCount; i++) {
+            const angle = (i / plusCount) * Math.PI * 2 + this.typePhase * 0.5;
+            const dist = pulse + 5;
+            const px = Math.cos(angle) * dist;
+            const py = Math.sin(angle) * dist;
+            
+            ctx.save();
+            ctx.translate(px, py);
+            ctx.strokeStyle = powerUpInfo.color + '80';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(-3, 0); ctx.lineTo(3, 0);
+            ctx.moveTo(0, -3); ctx.lineTo(0, 3);
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+    
+    drawCore(ctx, powerUpInfo, pulse) {
+        // Bright central core
+        const coreSize = pulse * 0.4;
+        const coreGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, coreSize);
+        coreGradient.addColorStop(0, '#ffffff');
+        coreGradient.addColorStop(0.3, powerUpInfo.color);
+        coreGradient.addColorStop(1, powerUpInfo.color + '00');
+        
+        ctx.fillStyle = coreGradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, coreSize, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    drawSparkles(ctx, powerUpInfo) {
+        // Random sparkle highlights
+        const sparkleCount = 4;
+        for (let i = 0; i < sparkleCount; i++) {
+            const sparkleAngle = (i / sparkleCount) * Math.PI * 2 + this.sparklePhase;
+            const sparkleDist = POWERUP_SIZE * (0.6 + Math.sin(this.sparklePhase * 2 + i) * 0.3);
+            const sparkleAlpha = (Math.sin(this.sparklePhase * 3 + i * 1.5) + 1) / 2;
+            
+            if (sparkleAlpha > 0.5) {
+                const sx = Math.cos(sparkleAngle) * sparkleDist;
+                const sy = Math.sin(sparkleAngle) * sparkleDist;
+                
+                ctx.save();
+                ctx.translate(sx, sy);
+                ctx.globalAlpha = (sparkleAlpha - 0.5) * 2;
+                ctx.fillStyle = '#ffffff';
+                
+                // 4-pointed star sparkle
+                ctx.beginPath();
+                const sparkleSize = 3;
+                ctx.moveTo(0, -sparkleSize);
+                ctx.lineTo(sparkleSize * 0.3, 0);
+                ctx.lineTo(0, sparkleSize);
+                ctx.lineTo(-sparkleSize * 0.3, 0);
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.moveTo(-sparkleSize, 0);
+                ctx.lineTo(0, sparkleSize * 0.3);
+                ctx.lineTo(sparkleSize, 0);
+                ctx.lineTo(0, -sparkleSize * 0.3);
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.restore();
+            }
+        }
+    }
 }
+
 
 // ============== ITEM CLASS ==============
 class Item {
@@ -6413,5 +6526,3 @@ SoundManager.prototype.playLoadSound = function() {
 window.addEventListener('DOMContentLoaded', () => {
     new Game();
 });
-
-
