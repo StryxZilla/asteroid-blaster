@@ -54,6 +54,61 @@ const COLORS = {
     ufoGlow: '#00ff44',
     ufoBullet: '#88ff00'
 };
+// Asteroid variant types - visual diversity for Geometry Wars-style variety
+const ASTEROID_VARIANTS = {
+    ROCK: {
+        name: 'Rock',
+        weight: 40,
+        strokeColor: '#ff6600',
+        glowColor: '#ff4400',
+        hueRange: [20, 40],
+        fillGradient: (hue) => [`hsl(${hue}, 70%, 15%)`, `hsl(${hue}, 80%, 5%)`],
+        innerStroke: (hue) => `hsl(${hue}, 60%, 30%)`,
+        specialEffect: null
+    },
+    CRYSTAL: {
+        name: 'Crystal',
+        weight: 20,
+        strokeColor: '#00ffff',
+        glowColor: '#00aaff',
+        hueRange: [180, 220],
+        fillGradient: (hue) => [`hsla(${hue}, 80%, 40%, 0.3)`, `hsla(${hue}, 90%, 20%, 0.5)`],
+        innerStroke: (hue) => `hsla(${hue}, 100%, 70%, 0.6)`,
+        specialEffect: 'sparkle'
+    },
+    METALLIC: {
+        name: 'Metallic',
+        weight: 20,
+        strokeColor: '#ffcc00',
+        glowColor: '#ffaa00',
+        hueRange: [40, 60],
+        fillGradient: (hue) => [`hsl(${hue}, 30%, 50%)`, `hsl(${hue}, 20%, 20%)`],
+        innerStroke: (hue) => `hsl(${hue}, 40%, 70%)`,
+        specialEffect: 'shine'
+    },
+    ORGANIC: {
+        name: 'Organic',
+        weight: 20,
+        strokeColor: '#00ff66',
+        glowColor: '#00ff44',
+        hueRange: [100, 140],
+        fillGradient: (hue) => [`hsl(${hue}, 70%, 25%)`, `hsl(${hue}, 80%, 8%)`],
+        innerStroke: (hue) => `hsl(${hue}, 90%, 50%)`,
+        specialEffect: 'pulse'
+    }
+};
+
+// Select random asteroid variant based on weights
+function selectAsteroidVariant() {
+    const totalWeight = Object.values(ASTEROID_VARIANTS).reduce((sum, v) => sum + v.weight, 0);
+    let roll = Math.random() * totalWeight;
+    for (const [key, variant] of Object.entries(ASTEROID_VARIANTS)) {
+        roll -= variant.weight;
+        if (roll <= 0) return key;
+    }
+    return 'ROCK';
+}
+
 
 // Power-up types
 const POWERUP_TYPES = {
@@ -2027,7 +2082,7 @@ class Game {
                     if (asteroid.size > 1) {
                         for (let k = 0; k < 2; k++) {
                             this.asteroids.push(
-                                new Asteroid(asteroid.x, asteroid.y, asteroid.size - 1, this)
+                                new Asteroid(asteroid.x, asteroid.y, asteroid.size - 1, this, asteroid.variant)
                             );
                         }
                     }
@@ -2085,7 +2140,7 @@ class Game {
                         if (asteroid.size > 1) {
                             for (let k = 0; k < 2; k++) {
                                 this.asteroids.push(
-                                    new Asteroid(asteroid.x, asteroid.y, asteroid.size - 1, this)
+                                    new Asteroid(asteroid.x, asteroid.y, asteroid.size - 1, this, asteroid.variant)
                                 );
                             }
                         }
@@ -3277,7 +3332,7 @@ class Ship {
 
 // ============== ASTEROID CLASS ==============
 class Asteroid {
-    constructor(x, y, size, game) {
+    constructor(x, y, size, game, inheritVariant = null) {
         this.x = x;
         this.y = y;
         this.size = size;
@@ -3292,21 +3347,67 @@ class Asteroid {
         this.rotation = 0;
         this.rotationSpeed = (Math.random() - 0.5) * 0.04;
         this.pulsePhase = Math.random() * Math.PI * 2;
+        this.sparklePhase = Math.random() * Math.PI * 2;
 
-        // Generate jagged vertices
-        this.vertices = [];
-        const vertexCount = ASTEROID_VERTICES + Math.floor(Math.random() * 3);
-        for (let i = 0; i < vertexCount; i++) {
-            const vertAngle = (i / vertexCount) * Math.PI * 2;
-            const distance = this.radius * (0.6 + Math.random() * 0.4);
-            this.vertices.push({
-                x: Math.cos(vertAngle) * distance,
-                y: Math.sin(vertAngle) * distance
-            });
-        }
+        // Assign variant (child asteroids inherit parent's variant)
+        this.variant = inheritVariant || selectAsteroidVariant();
+        const variantData = ASTEROID_VARIANTS[this.variant];
         
-        // Color variation
-        this.hue = 20 + Math.random() * 20; // Orange-ish
+        // Color variation based on variant
+        this.hue = variantData.hueRange[0] + Math.random() * (variantData.hueRange[1] - variantData.hueRange[0]);
+
+        // Generate variant-specific vertices
+        this.vertices = [];
+        
+        if (this.variant === 'CRYSTAL') {
+            // Crystal: sharp angular faceted shape like a gem
+            const crystalCount = 6 + Math.floor(Math.random() * 3);
+            for (let i = 0; i < crystalCount; i++) {
+                const vertAngle = (i / crystalCount) * Math.PI * 2;
+                const isPoint = i % 2 === 0;
+                const distance = this.radius * (isPoint ? 1.0 : 0.5);
+                this.vertices.push({
+                    x: Math.cos(vertAngle) * distance,
+                    y: Math.sin(vertAngle) * distance
+                });
+            }
+        } else if (this.variant === 'ORGANIC') {
+            // Organic: bulbous smooth alien blob shape
+            const organicCount = 10 + Math.floor(Math.random() * 4);
+            for (let i = 0; i < organicCount; i++) {
+                const vertAngle = (i / organicCount) * Math.PI * 2;
+                const bulge = 0.7 + 0.3 * Math.sin(vertAngle * 3 + this.pulsePhase);
+                const distance = this.radius * bulge;
+                this.vertices.push({
+                    x: Math.cos(vertAngle) * distance,
+                    y: Math.sin(vertAngle) * distance
+                });
+            }
+            this.coreRadius = this.radius * 0.4;
+        } else if (this.variant === 'METALLIC') {
+            // Metallic: more regular hexagonal shape like space debris
+            const metalCount = 6;
+            for (let i = 0; i < metalCount; i++) {
+                const vertAngle = (i / metalCount) * Math.PI * 2;
+                const distance = this.radius * (0.85 + Math.random() * 0.15);
+                this.vertices.push({
+                    x: Math.cos(vertAngle) * distance,
+                    y: Math.sin(vertAngle) * distance
+                });
+            }
+            this.highlightAngle = Math.random() * Math.PI * 2;
+        } else {
+            // Rock: standard jagged asteroids
+            const vertexCount = ASTEROID_VERTICES + Math.floor(Math.random() * 3);
+            for (let i = 0; i < vertexCount; i++) {
+                const vertAngle = (i / vertexCount) * Math.PI * 2;
+                const distance = this.radius * (0.6 + Math.random() * 0.4);
+                this.vertices.push({
+                    x: Math.cos(vertAngle) * distance,
+                    y: Math.sin(vertAngle) * distance
+                });
+            }
+        }
         
         // Trail particle counter for comet effect
         this.trailCounter = 0;
@@ -3317,24 +3418,21 @@ class Asteroid {
         this.y += this.vy;
         this.rotation += this.rotationSpeed;
         this.pulsePhase += 0.05;
+        this.sparklePhase += 0.15;
         this.trailCounter++;
         
         // Spawn comet-like trail particles behind asteroids
-        // Larger asteroids spawn more frequent/visible trails
         const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-        const trailRate = Math.max(3, 8 - this.size * 2); // Size 3=rate 2, size 1=rate 6
+        const trailRate = Math.max(3, 8 - this.size * 2);
         
         if (this.trailCounter % trailRate === 0 && speed > 0.3 && !this.game.freezeActive) {
-            // Trail spawns from back of asteroid (opposite movement direction)
             const trailAngle = Math.atan2(-this.vy, -this.vx);
             const offsetDist = this.radius * 0.6;
             const spawnX = this.x + Math.cos(trailAngle) * offsetDist;
             const spawnY = this.y + Math.sin(trailAngle) * offsetDist;
             
-            // Spawn 1-3 particles based on size
             const particleCount = Math.min(3, this.size);
             for (let i = 0; i < particleCount; i++) {
-                // Colors: orange/red for normal, or based on asteroid hue
                 const hueVariation = this.hue + (Math.random() - 0.5) * 15;
                 const lightness = 40 + Math.random() * 20;
                 const trailColor = `hsl(${hueVariation}, 80%, ${lightness}%)`;
@@ -3343,8 +3441,8 @@ class Asteroid {
                     spawnX + (Math.random() - 0.5) * this.radius * 0.4,
                     spawnY + (Math.random() - 0.5) * this.radius * 0.4,
                     trailColor,
-                    1 + Math.random() * this.size, // Size scales with asteroid
-                    12 + Math.random() * 8,        // Lifetime
+                    1 + Math.random() * this.size,
+                    12 + Math.random() * 8,
                     -this.vx * 0.15 + (Math.random() - 0.5) * 0.5,
                     -this.vy * 0.15 + (Math.random() - 0.5) * 0.5
                 ));
@@ -3360,35 +3458,38 @@ class Asteroid {
 
     updateFrozenVisuals() {
         this.pulsePhase += 0.02;
+        this.sparklePhase += 0.05;
     }
 
     draw(ctx) {
         const pulse = 1 + Math.sin(this.pulsePhase) * 0.05;
         const frozen = this.game.freezeActive;
+        const variantData = ASTEROID_VARIANTS[this.variant];
         
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.rotation);
         ctx.scale(pulse, pulse);
 
-        // Outer glow
-        const glowColor = frozen ? '#87ceeb' : COLORS.asteroidGlow;
+        // Outer glow - variant specific color
+        const glowColor = frozen ? '#87ceeb' : variantData.glowColor;
         ctx.shadowColor = glowColor;
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = this.variant === 'CRYSTAL' ? 20 : 15;
 
-        // Fill with gradient
+        // Fill with gradient - variant specific
         const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.radius);
         if (frozen) {
             gradient.addColorStop(0, '#1a3344');
             gradient.addColorStop(1, '#0a1a22');
         } else {
-            gradient.addColorStop(0, `hsl(${this.hue}, 70%, 15%)`);
-            gradient.addColorStop(1, `hsl(${this.hue}, 80%, 5%)`);
+            const [color1, color2] = variantData.fillGradient(this.hue);
+            gradient.addColorStop(0, color1);
+            gradient.addColorStop(1, color2);
         }
         
         ctx.fillStyle = gradient;
-        ctx.strokeStyle = frozen ? '#87ceeb' : COLORS.asteroidStroke;
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = frozen ? '#87ceeb' : variantData.strokeColor;
+        ctx.lineWidth = this.variant === 'METALLIC' ? 3 : 2;
 
         ctx.beginPath();
         for (let i = 0; i < this.vertices.length; i++) {
@@ -3400,18 +3501,124 @@ class Asteroid {
         ctx.fill();
         ctx.stroke();
 
-        // Inner crack details
-        ctx.strokeStyle = frozen ? '#aaddee40' : `hsl(${this.hue}, 60%, 30%)`;
+        // Draw variant-specific effects
+        if (!frozen) {
+            this.drawVariantEffects(ctx, variantData);
+        }
+
+        // Inner detail lines - variant specific
+        ctx.strokeStyle = frozen ? '#aaddee40' : variantData.innerStroke(this.hue);
         ctx.lineWidth = 1;
-        for (let i = 0; i < 3; i++) {
-            const startIdx = Math.floor(Math.random() * this.vertices.length);
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(this.vertices[startIdx].x * 0.7, this.vertices[startIdx].y * 0.7);
-            ctx.stroke();
+        
+        if (this.variant === 'CRYSTAL') {
+            // Crystal facet lines from center to points
+            for (let i = 0; i < this.vertices.length; i += 2) {
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(this.vertices[i].x * 0.85, this.vertices[i].y * 0.85);
+                ctx.stroke();
+            }
+        } else if (this.variant === 'METALLIC') {
+            // Metallic panel seams
+            for (let i = 0; i < this.vertices.length; i++) {
+                const next = (i + 1) % this.vertices.length;
+                const midX = (this.vertices[i].x + this.vertices[next].x) * 0.5 * 0.7;
+                const midY = (this.vertices[i].y + this.vertices[next].y) * 0.5 * 0.7;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(midX, midY);
+                ctx.stroke();
+            }
+        } else if (this.variant === 'ORGANIC') {
+            // Organic vein patterns curving from core
+            ctx.strokeStyle = `hsla(${this.hue}, 70%, 50%, 0.5)`;
+            for (let i = 0; i < 5; i++) {
+                const idx = Math.floor(i * this.vertices.length / 5);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                const cp1x = this.vertices[idx].x * 0.35;
+                const cp1y = this.vertices[idx].y * 0.35;
+                ctx.quadraticCurveTo(cp1x + (Math.random()-0.5)*10, cp1y + (Math.random()-0.5)*10, 
+                    this.vertices[idx].x * 0.75, this.vertices[idx].y * 0.75);
+                ctx.stroke();
+            }
+        } else {
+            // Rock: random crack lines
+            for (let i = 0; i < 3; i++) {
+                const startIdx = Math.floor(Math.random() * this.vertices.length);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(this.vertices[startIdx].x * 0.7, this.vertices[startIdx].y * 0.7);
+                ctx.stroke();
+            }
         }
 
         ctx.restore();
+    }
+
+    drawVariantEffects(ctx, variantData) {
+        if (variantData.specialEffect === 'sparkle') {
+            // Crystal sparkle: animated bright points on facets
+            const sparkleCount = 2 + this.size;
+            ctx.fillStyle = '#ffffff';
+            for (let i = 0; i < sparkleCount; i++) {
+                const sparkleAngle = (i / sparkleCount) * Math.PI * 2 + this.sparklePhase;
+                const sparkleR = this.radius * (0.3 + 0.4 * Math.abs(Math.sin(this.sparklePhase * 2 + i)));
+                const sx = Math.cos(sparkleAngle) * sparkleR;
+                const sy = Math.sin(sparkleAngle) * sparkleR;
+                const sparkleSize = 1.5 + Math.sin(this.sparklePhase * 3 + i * 2) * 1.5;
+                if (sparkleSize > 1) {
+                    ctx.globalAlpha = 0.4 + Math.sin(this.sparklePhase * 3 + i) * 0.4;
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, sparkleSize, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Add tiny cross sparkle for extra bling on larger sparkles
+                    if (sparkleSize > 2) {
+                        ctx.beginPath();
+                        ctx.moveTo(sx - sparkleSize*1.5, sy);
+                        ctx.lineTo(sx + sparkleSize*1.5, sy);
+                        ctx.moveTo(sx, sy - sparkleSize*1.5);
+                        ctx.lineTo(sx, sy + sparkleSize*1.5);
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = 0.5;
+                        ctx.stroke();
+                    }
+                }
+            }
+            ctx.globalAlpha = 1;
+        } else if (variantData.specialEffect === 'shine') {
+            // Metallic specular highlight - simulates reflective surface
+            const shineX = Math.cos(this.highlightAngle) * this.radius * 0.35;
+            const shineY = Math.sin(this.highlightAngle) * this.radius * 0.35;
+            const shineGrad = ctx.createRadialGradient(shineX, shineY, 0, shineX, shineY, this.radius * 0.6);
+            shineGrad.addColorStop(0, 'rgba(255, 255, 255, 0.5)');
+            shineGrad.addColorStop(0.2, 'rgba(255, 255, 200, 0.2)');
+            shineGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = shineGrad;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Add edge highlight for extra metallic feel
+            const edgeAngle = this.highlightAngle + Math.PI * 0.3;
+            ctx.strokeStyle = 'rgba(255, 255, 200, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius * 0.9, edgeAngle - 0.5, edgeAngle + 0.5);
+            ctx.stroke();
+        } else if (variantData.specialEffect === 'pulse') {
+            // Organic pulsing bio-luminescent core - alien feel
+            const corePulse = 0.7 + Math.sin(this.pulsePhase * 2) * 0.3;
+            const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.coreRadius * corePulse * 1.8);
+            coreGrad.addColorStop(0, `hsla(${this.hue}, 100%, 70%, ${0.5 + corePulse * 0.3})`);
+            coreGrad.addColorStop(0.4, `hsla(${this.hue}, 80%, 45%, ${0.3 * corePulse})`);
+            coreGrad.addColorStop(1, `hsla(${this.hue}, 60%, 20%, 0)`);
+            ctx.fillStyle = coreGrad;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.coreRadius * corePulse * 1.8, 0, Math.PI * 2);
+            ctx.fill();
+        }
     }
 }
 
@@ -3660,4 +3867,5 @@ class Item {
 window.addEventListener('DOMContentLoaded', () => {
     new Game();
 });
+
 
