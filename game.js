@@ -97,313 +97,6 @@ const ITEM_SPAWN_CHANCE = 0.25;
 const ITEM_SIZE = 10;
 const ITEM_LIFETIME = 480;
 
-// ============== SHIP SKINS ==============
-// Unlockable ship visual customizations
-const SHIP_SKINS = {
-    CLASSIC: {
-        name: 'Classic Neon',
-        description: 'The original cyan starfighter',
-        primary: '#00ffff',
-        secondary: '#0088ff',
-        engine: '#ff4400',
-        engineCore: '#ffff00',
-        cockpit: ['#4AF5FF', '#0088AA', '#003344'],
-        glow: '#00ffff',
-        unlockCondition: 'default',
-        unlockDesc: 'Default ship'
-    },
-    CRIMSON: {
-        name: 'Crimson Fury',
-        description: 'Aggressive red combat variant',
-        primary: '#ff3366',
-        secondary: '#ff0044',
-        engine: '#ffaa00',
-        engineCore: '#ffffff',
-        cockpit: ['#ff6688', '#aa2244', '#440011'],
-        glow: '#ff3366',
-        unlockCondition: 'kills_100',
-        unlockDesc: 'Destroy 100 asteroids'
-    },
-    PHANTOM: {
-        name: 'Phantom',
-        description: 'Stealth purple interceptor',
-        primary: '#aa66ff',
-        secondary: '#6622cc',
-        engine: '#ff66ff',
-        engineCore: '#ffffff',
-        cockpit: ['#cc88ff', '#7744aa', '#220044'],
-        glow: '#aa66ff',
-        unlockCondition: 'level_10',
-        unlockDesc: 'Reach level 10'
-    },
-    SOLAR: {
-        name: 'Solar Flare',
-        description: 'Burns with the power of a star',
-        primary: '#ffcc00',
-        secondary: '#ff8800',
-        engine: '#ff4400',
-        engineCore: '#ffffff',
-        cockpit: ['#ffee66', '#cc8800', '#442200'],
-        glow: '#ffcc00',
-        unlockCondition: 'score_50000',
-        unlockDesc: 'Score 50,000 points'
-    },
-    VENOM: {
-        name: 'Venom',
-        description: 'Toxic green assault craft',
-        primary: '#00ff66',
-        secondary: '#00cc44',
-        engine: '#88ff00',
-        engineCore: '#ffffff',
-        cockpit: ['#66ff88', '#22aa44', '#003311'],
-        glow: '#00ff66',
-        unlockCondition: 'ufo_10',
-        unlockDesc: 'Destroy 10 UFOs'
-    },
-    ARCTIC: {
-        name: 'Arctic Storm',
-        description: 'Ice-cold precision fighter',
-        primary: '#88ddff',
-        secondary: '#4488cc',
-        engine: '#aaeeff',
-        engineCore: '#ffffff',
-        cockpit: ['#bbffff', '#6699bb', '#223344'],
-        glow: '#88ddff',
-        unlockCondition: 'combo_15',
-        unlockDesc: 'Achieve 15x combo'
-    },
-    INFERNO: {
-        name: 'Inferno',
-        description: 'Forged in hellfire',
-        primary: '#ff6600',
-        secondary: '#cc3300',
-        engine: '#ff0000',
-        engineCore: '#ffff00',
-        cockpit: ['#ff8844', '#882200', '#330000'],
-        glow: '#ff6600',
-        unlockCondition: 'boss_3',
-        unlockDesc: 'Defeat 3 bosses'
-    },
-    NEBULA: {
-        name: 'Nebula Drifter',
-        description: 'Born from cosmic dust',
-        primary: '#ff88cc',
-        secondary: '#cc44aa',
-        engine: '#88ffff',
-        engineCore: '#ffffff',
-        cockpit: ['#ffaadd', '#aa5588', '#331122'],
-        glow: '#ff88cc',
-        unlockCondition: 'level_25',
-        unlockDesc: 'Reach level 25'
-    },
-    OBSIDIAN: {
-        name: 'Obsidian',
-        description: 'Dark as the void itself',
-        primary: '#666688',
-        secondary: '#444466',
-        engine: '#8888ff',
-        engineCore: '#ffffff',
-        cockpit: ['#7777aa', '#444466', '#111122'],
-        glow: '#8888ff',
-        unlockCondition: 'score_250000',
-        unlockDesc: 'Score 250,000 points'
-    },
-    RAINBOW: {
-        name: 'Prismatic',
-        description: 'Cycles through all colors',
-        primary: 'rainbow',  // Special: cycles hue
-        secondary: 'rainbow',
-        engine: '#ffffff',
-        engineCore: '#ffffff',
-        cockpit: ['#ffffff', '#888888', '#333333'],
-        glow: 'rainbow',
-        unlockCondition: 'all_skins',
-        unlockDesc: 'Unlock all other skins'
-    }
-};
-
-// ============== SHIP CUSTOMIZATION MANAGER ==============
-class ShipCustomization {
-    constructor() {
-        this.storageKey = 'asteroids_ship_customization';
-        this.unlockedSkins = ['CLASSIC'];  // Default always unlocked
-        this.currentSkin = 'CLASSIC';
-        this.stats = {
-            totalKills: 0,
-            totalUFOKills: 0,
-            totalBossKills: 0,
-            highestLevel: 0,
-            highestScore: 0,
-            highestCombo: 0
-        };
-        this.load();
-    }
-    
-    save() {
-        try {
-            localStorage.setItem(this.storageKey, JSON.stringify({
-                unlockedSkins: this.unlockedSkins,
-                currentSkin: this.currentSkin,
-                stats: this.stats
-            }));
-        } catch (e) { console.warn('Could not save ship customization:', e); }
-    }
-    
-    load() {
-        try {
-            const saved = localStorage.getItem(this.storageKey);
-            if (saved) {
-                const data = JSON.parse(saved);
-                this.unlockedSkins = data.unlockedSkins || ['CLASSIC'];
-                this.currentSkin = data.currentSkin || 'CLASSIC';
-                this.stats = { ...this.stats, ...data.stats };
-            }
-        } catch (e) { console.warn('Could not load ship customization:', e); }
-    }
-    
-    getCurrentSkin() {
-        return SHIP_SKINS[this.currentSkin] || SHIP_SKINS.CLASSIC;
-    }
-    
-    getSkinColors(time = 0) {
-        const skin = this.getCurrentSkin();
-        
-        // Handle rainbow skin special case
-        if (skin.primary === 'rainbow') {
-            const hue = (time * 2) % 360;
-            return {
-                primary: `hsl(${hue}, 100%, 60%)`,
-                secondary: `hsl(${(hue + 30) % 360}, 100%, 40%)`,
-                engine: skin.engine,
-                engineCore: skin.engineCore,
-                cockpit: skin.cockpit,
-                glow: `hsl(${hue}, 100%, 60%)`
-            };
-        }
-        
-        return {
-            primary: skin.primary,
-            secondary: skin.secondary,
-            engine: skin.engine,
-            engineCore: skin.engineCore,
-            cockpit: skin.cockpit,
-            glow: skin.glow
-        };
-    }
-    
-    selectSkin(skinId) {
-        if (this.unlockedSkins.includes(skinId) && SHIP_SKINS[skinId]) {
-            this.currentSkin = skinId;
-            this.save();
-            return true;
-        }
-        return false;
-    }
-    
-    cycleSkin(direction = 1) {
-        const skinIds = Object.keys(SHIP_SKINS);
-        const unlockedIds = skinIds.filter(id => this.unlockedSkins.includes(id));
-        const currentIndex = unlockedIds.indexOf(this.currentSkin);
-        const newIndex = (currentIndex + direction + unlockedIds.length) % unlockedIds.length;
-        this.currentSkin = unlockedIds[newIndex];
-        this.save();
-        return this.getCurrentSkin();
-    }
-    
-    updateStats(stats) {
-        let newUnlocks = [];
-        
-        // Update stats
-        if (stats.kills) this.stats.totalKills += stats.kills;
-        if (stats.ufoKills) this.stats.totalUFOKills += stats.ufoKills;
-        if (stats.bossKills) this.stats.totalBossKills += stats.bossKills;
-        if (stats.level && stats.level > this.stats.highestLevel) this.stats.highestLevel = stats.level;
-        if (stats.score && stats.score > this.stats.highestScore) this.stats.highestScore = stats.score;
-        if (stats.combo && stats.combo > this.stats.highestCombo) this.stats.highestCombo = stats.combo;
-        
-        // Check unlock conditions
-        Object.keys(SHIP_SKINS).forEach(skinId => {
-            if (this.unlockedSkins.includes(skinId)) return;
-            
-            const skin = SHIP_SKINS[skinId];
-            let unlocked = false;
-            
-            switch (skin.unlockCondition) {
-                case 'kills_100':
-                    unlocked = this.stats.totalKills >= 100;
-                    break;
-                case 'level_10':
-                    unlocked = this.stats.highestLevel >= 10;
-                    break;
-                case 'level_25':
-                    unlocked = this.stats.highestLevel >= 25;
-                    break;
-                case 'score_50000':
-                    unlocked = this.stats.highestScore >= 50000;
-                    break;
-                case 'score_250000':
-                    unlocked = this.stats.highestScore >= 250000;
-                    break;
-                case 'ufo_10':
-                    unlocked = this.stats.totalUFOKills >= 10;
-                    break;
-                case 'combo_15':
-                    unlocked = this.stats.highestCombo >= 15;
-                    break;
-                case 'boss_3':
-                    unlocked = this.stats.totalBossKills >= 3;
-                    break;
-                case 'all_skins':
-                    // Check if all other skins are unlocked
-                    const otherSkins = Object.keys(SHIP_SKINS).filter(id => id !== 'RAINBOW');
-                    unlocked = otherSkins.every(id => this.unlockedSkins.includes(id));
-                    break;
-            }
-            
-            if (unlocked) {
-                this.unlockedSkins.push(skinId);
-                newUnlocks.push(skinId);
-            }
-        });
-        
-        this.save();
-        return newUnlocks;
-    }
-    
-    getProgress(skinId) {
-        const skin = SHIP_SKINS[skinId];
-        if (!skin || this.unlockedSkins.includes(skinId)) return 1;
-        
-        switch (skin.unlockCondition) {
-            case 'kills_100': return Math.min(1, this.stats.totalKills / 100);
-            case 'level_10': return Math.min(1, this.stats.highestLevel / 10);
-            case 'level_25': return Math.min(1, this.stats.highestLevel / 25);
-            case 'score_50000': return Math.min(1, this.stats.highestScore / 50000);
-            case 'score_250000': return Math.min(1, this.stats.highestScore / 250000);
-            case 'ufo_10': return Math.min(1, this.stats.totalUFOKills / 10);
-            case 'combo_15': return Math.min(1, this.stats.highestCombo / 15);
-            case 'boss_3': return Math.min(1, this.stats.totalBossKills / 3);
-            case 'all_skins':
-                const otherSkins = Object.keys(SHIP_SKINS).filter(id => id !== 'RAINBOW');
-                return this.unlockedSkins.length / otherSkins.length;
-            default: return 0;
-        }
-    }
-    
-    getAllSkins() {
-        return Object.keys(SHIP_SKINS).map(id => ({
-            id,
-            ...SHIP_SKINS[id],
-            unlocked: this.unlockedSkins.includes(id),
-            progress: this.getProgress(id),
-            selected: this.currentSkin === id
-        }));
-    }
-}
-
-// Global ship customization instance
-const shipCustomization = new ShipCustomization();
-
 // ============== HIGH SCORE MANAGER CLASS ==============
 // Persistent leaderboard with localStorage
 
@@ -3169,6 +2862,397 @@ class TouchControlManager {
     }
 }
 
+// ============== WAVE ANNOUNCEMENT SYSTEM ==============
+// Dramatic level/wave announcements with Geometry Wars-style effects
+
+class WaveAnnouncement {
+    constructor(game) {
+        this.game = game;
+        this.active = false;
+        this.timer = 0;
+        this.duration = 180; // 3 seconds at 60fps
+        
+        // Text content
+        this.mainText = '';
+        this.subText = '';
+        this.isBossWave = false;
+        
+        // Animation phases
+        this.phase = 'idle'; // idle, enter, hold, exit
+        this.phaseTimer = 0;
+        
+        // Animation values
+        this.scale = 0;
+        this.alpha = 0;
+        this.glowIntensity = 0;
+        this.letterOffsets = [];
+        
+        // Screen effects
+        this.screenDarken = 0;
+        this.edgeGlow = 0;
+        this.scanlineOffset = 0;
+        
+        // Particle effects
+        this.particles = [];
+    }
+    
+    trigger(level, isBoss = false) {
+        this.active = true;
+        this.timer = 0;
+        this.isBossWave = isBoss;
+        
+        if (isBoss) {
+            this.mainText = 'WARNING';
+            this.subText = `BOSS INCOMING - WAVE ${level}`;
+            this.duration = 210; // Longer for boss
+        } else {
+            this.mainText = `WAVE ${level}`;
+            this.subText = this.getWaveSubtext(level);
+            this.duration = 150;
+        }
+        
+        // Reset animation state
+        this.phase = 'enter';
+        this.phaseTimer = 0;
+        this.scale = 0;
+        this.alpha = 0;
+        this.glowIntensity = 0;
+        this.screenDarken = 0;
+        this.edgeGlow = 0;
+        this.letterOffsets = [];
+        this.particles = [];
+        
+        // Initialize letter offsets for staggered animation
+        for (let i = 0; i < this.mainText.length; i++) {
+            this.letterOffsets.push({
+                y: 50 + Math.random() * 30,
+                rotation: (Math.random() - 0.5) * 0.5,
+                delay: i * 3
+            });
+        }
+        
+        // Play announcement sound
+        if (isBoss) {
+            soundManager.playBossEnrage();
+        }
+    }
+    
+    getWaveSubtext(level) {
+        const subtexts = [
+            'SURVIVE',
+            'DESTROY ALL ASTEROIDS',
+            'SHOW NO MERCY',
+            'CLEAR THE FIELD',
+            'OBLITERATE',
+            'ANNIHILATE',
+            'ERADICATE',
+            'DOMINATE'
+        ];
+        
+        // Special messages for milestone levels
+        if (level === 1) return 'BEGIN';
+        if (level === 5) return 'THINGS ARE HEATING UP';
+        if (level === 10) return 'HALFWAY THERE';
+        if (level === 15) return 'ELITE TERRITORY';
+        if (level === 20) return 'LEGENDARY STATUS';
+        if (level === 25) return 'MASTER CLASS';
+        if (level >= 30) return 'GODLIKE';
+        
+        return subtexts[Math.floor(Math.random() * subtexts.length)];
+    }
+    
+    update() {
+        if (!this.active) return;
+        
+        this.timer++;
+        this.phaseTimer++;
+        this.scanlineOffset = (this.scanlineOffset + 2) % 10;
+        
+        // Phase transitions
+        const enterDuration = 30;
+        const holdDuration = this.duration - 60;
+        const exitDuration = 30;
+        
+        if (this.phase === 'enter') {
+            const progress = Math.min(1, this.phaseTimer / enterDuration);
+            const eased = this.easeOutBack(progress);
+            
+            this.scale = eased;
+            this.alpha = progress;
+            this.screenDarken = progress * (this.isBossWave ? 0.5 : 0.3);
+            this.edgeGlow = progress;
+            this.glowIntensity = progress;
+            
+            // Update letter offsets
+            this.letterOffsets.forEach((offset, i) => {
+                if (this.phaseTimer > offset.delay) {
+                    offset.y *= 0.85;
+                    offset.rotation *= 0.9;
+                }
+            });
+            
+            if (this.phaseTimer >= enterDuration) {
+                this.phase = 'hold';
+                this.phaseTimer = 0;
+            }
+        } else if (this.phase === 'hold') {
+            this.scale = 1 + Math.sin(this.timer * 0.1) * 0.02;
+            this.alpha = 1;
+            this.glowIntensity = 0.8 + Math.sin(this.timer * 0.15) * 0.2;
+            
+            // Spawn particles during hold
+            if (this.timer % 3 === 0) {
+                this.spawnParticle();
+            }
+            
+            if (this.phaseTimer >= holdDuration) {
+                this.phase = 'exit';
+                this.phaseTimer = 0;
+            }
+        } else if (this.phase === 'exit') {
+            const progress = Math.min(1, this.phaseTimer / exitDuration);
+            const eased = this.easeInBack(progress);
+            
+            this.scale = 1 + eased * 0.5;
+            this.alpha = 1 - progress;
+            this.screenDarken = (1 - progress) * (this.isBossWave ? 0.5 : 0.3);
+            this.edgeGlow = 1 - progress;
+            this.glowIntensity = 1 - progress;
+            
+            if (this.phaseTimer >= exitDuration) {
+                this.active = false;
+                this.phase = 'idle';
+            }
+        }
+        
+        // Update particles
+        this.particles = this.particles.filter(p => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.lifetime--;
+            p.alpha = p.lifetime / p.maxLifetime;
+            return p.lifetime > 0;
+        });
+    }
+    
+    spawnParticle() {
+        const centerX = CANVAS_WIDTH / 2;
+        const centerY = CANVAS_HEIGHT / 2;
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 100 + Math.random() * 150;
+        
+        this.particles.push({
+            x: centerX + Math.cos(angle) * distance,
+            y: centerY + Math.sin(angle) * distance,
+            vx: Math.cos(angle) * (2 + Math.random() * 2),
+            vy: Math.sin(angle) * (2 + Math.random() * 2),
+            size: 2 + Math.random() * 3,
+            color: this.isBossWave ? '#ff0066' : '#00ffff',
+            lifetime: 40 + Math.random() * 20,
+            maxLifetime: 60,
+            alpha: 1
+        });
+    }
+    
+    easeOutBack(t) {
+        const c1 = 1.70158;
+        const c3 = c1 + 1;
+        return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+    }
+    
+    easeInBack(t) {
+        const c1 = 1.70158;
+        const c3 = c1 + 1;
+        return c3 * t * t * t - c1 * t * t;
+    }
+    
+    draw(ctx) {
+        if (!this.active) return;
+        
+        ctx.save();
+        
+        // Screen darkening overlay
+        if (this.screenDarken > 0) {
+            ctx.fillStyle = `rgba(0, 0, 0, ${this.screenDarken})`;
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        }
+        
+        // Edge glow effect
+        if (this.edgeGlow > 0) {
+            const glowColor = this.isBossWave ? '#ff0066' : '#00ffff';
+            const gradient = ctx.createRadialGradient(
+                CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_HEIGHT * 0.3,
+                CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_HEIGHT * 0.8
+            );
+            gradient.addColorStop(0, 'transparent');
+            gradient.addColorStop(1, glowColor);
+            ctx.globalAlpha = this.edgeGlow * 0.3;
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            ctx.globalAlpha = 1;
+        }
+        
+        // Scanlines effect for boss
+        if (this.isBossWave && this.alpha > 0) {
+            ctx.globalAlpha = this.alpha * 0.1;
+            ctx.strokeStyle = '#ff0066';
+            ctx.lineWidth = 1;
+            for (let y = this.scanlineOffset; y < CANVAS_HEIGHT; y += 10) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(CANVAS_WIDTH, y);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+        }
+        
+        // Draw particles
+        this.particles.forEach(p => {
+            ctx.globalAlpha = p.alpha;
+            ctx.fillStyle = p.color;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+        
+        // Main text
+        const centerX = CANVAS_WIDTH / 2;
+        const centerY = CANVAS_HEIGHT / 2 - 20;
+        
+        ctx.globalAlpha = this.alpha;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Draw main text with letter animation
+        const mainColor = this.isBossWave ? '#ff0066' : '#00ffff';
+        const fontSize = this.isBossWave ? 72 : 64;
+        ctx.font = `bold ${fontSize}px "Courier New", monospace`;
+        
+        // Glow layers
+        const glowLayers = [40, 30, 20, 10];
+        glowLayers.forEach((blur, i) => {
+            ctx.shadowBlur = blur * this.glowIntensity;
+            ctx.shadowColor = mainColor;
+            ctx.fillStyle = mainColor;
+            
+            // Draw each letter
+            let xOffset = -((this.mainText.length - 1) * fontSize * 0.35);
+            for (let i = 0; i < this.mainText.length; i++) {
+                const letter = this.mainText[i];
+                const offset = this.letterOffsets[i] || { y: 0, rotation: 0 };
+                
+                ctx.save();
+                ctx.translate(centerX + xOffset, centerY + offset.y * this.scale);
+                ctx.rotate(offset.rotation);
+                ctx.scale(this.scale, this.scale);
+                ctx.fillText(letter, 0, 0);
+                ctx.restore();
+                
+                xOffset += fontSize * 0.7;
+            }
+        });
+        
+        // White core text
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#ffffff';
+        let xOffset = -((this.mainText.length - 1) * fontSize * 0.35);
+        for (let i = 0; i < this.mainText.length; i++) {
+            const letter = this.mainText[i];
+            const offset = this.letterOffsets[i] || { y: 0, rotation: 0 };
+            
+            ctx.save();
+            ctx.translate(centerX + xOffset, centerY + offset.y * this.scale);
+            ctx.rotate(offset.rotation);
+            ctx.scale(this.scale, this.scale);
+            ctx.fillText(letter, 0, 0);
+            ctx.restore();
+            
+            xOffset += fontSize * 0.7;
+        }
+        
+        // Subtitle
+        if (this.subText && this.phase !== 'enter') {
+            const subAlpha = this.phase === 'hold' ? 1 : this.alpha;
+            ctx.globalAlpha = subAlpha * 0.9;
+            ctx.font = 'bold 24px "Courier New", monospace';
+            ctx.shadowBlur = 15 * this.glowIntensity;
+            ctx.shadowColor = mainColor;
+            ctx.fillStyle = mainColor;
+            ctx.fillText(this.subText, centerX, centerY + 60);
+            
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#ffffff';
+            ctx.globalAlpha = subAlpha * 0.7;
+            ctx.fillText(this.subText, centerX, centerY + 60);
+        }
+        
+        // Decorative lines
+        if (this.alpha > 0.5) {
+            const lineAlpha = (this.alpha - 0.5) * 2;
+            ctx.globalAlpha = lineAlpha * 0.6;
+            ctx.strokeStyle = mainColor;
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = mainColor;
+            
+            // Left line
+            const lineWidth = 150 * this.scale;
+            ctx.beginPath();
+            ctx.moveTo(centerX - 250 * this.scale, centerY);
+            ctx.lineTo(centerX - 250 * this.scale + lineWidth, centerY);
+            ctx.stroke();
+            
+            // Right line
+            ctx.beginPath();
+            ctx.moveTo(centerX + 250 * this.scale - lineWidth, centerY);
+            ctx.lineTo(centerX + 250 * this.scale, centerY);
+            ctx.stroke();
+            
+            // Corner accents
+            const cornerSize = 15 * this.scale;
+            ctx.lineWidth = 3;
+            
+            // Top-left
+            ctx.beginPath();
+            ctx.moveTo(centerX - 200 * this.scale, centerY - 50 * this.scale);
+            ctx.lineTo(centerX - 200 * this.scale, centerY - 50 * this.scale + cornerSize);
+            ctx.moveTo(centerX - 200 * this.scale, centerY - 50 * this.scale);
+            ctx.lineTo(centerX - 200 * this.scale + cornerSize, centerY - 50 * this.scale);
+            ctx.stroke();
+            
+            // Top-right
+            ctx.beginPath();
+            ctx.moveTo(centerX + 200 * this.scale, centerY - 50 * this.scale);
+            ctx.lineTo(centerX + 200 * this.scale, centerY - 50 * this.scale + cornerSize);
+            ctx.moveTo(centerX + 200 * this.scale, centerY - 50 * this.scale);
+            ctx.lineTo(centerX + 200 * this.scale - cornerSize, centerY - 50 * this.scale);
+            ctx.stroke();
+            
+            // Bottom-left
+            ctx.beginPath();
+            ctx.moveTo(centerX - 200 * this.scale, centerY + 80 * this.scale);
+            ctx.lineTo(centerX - 200 * this.scale, centerY + 80 * this.scale - cornerSize);
+            ctx.moveTo(centerX - 200 * this.scale, centerY + 80 * this.scale);
+            ctx.lineTo(centerX - 200 * this.scale + cornerSize, centerY + 80 * this.scale);
+            ctx.stroke();
+            
+            // Bottom-right
+            ctx.beginPath();
+            ctx.moveTo(centerX + 200 * this.scale, centerY + 80 * this.scale);
+            ctx.lineTo(centerX + 200 * this.scale, centerY + 80 * this.scale - cornerSize);
+            ctx.moveTo(centerX + 200 * this.scale, centerY + 80 * this.scale);
+            ctx.lineTo(centerX + 200 * this.scale - cornerSize, centerY + 80 * this.scale);
+            ctx.stroke();
+        }
+        
+        ctx.restore();
+    }
+}
+
 
 
 class Game {
@@ -3246,35 +3330,14 @@ class Game {
         // Help popup state
         this.showHelp = false;
 
-        // Mobile touch controls
+                // Mobile touch controls
         this.touchControls = new TouchControlManager(this.canvas);
-        
-        // Ship customization tracking
-        this.asteroidsDestroyed = 0;
-        this.ufosDestroyed = 0;
-        this.bossesDefeated = 0;
-        this.highestCombo = 0;
-        this.pendingSkinUnlocks = [];
-        this.skinNotification = null;
-        this.skinNotificationTimer = 0;
+
+        // Wave announcement system
+        this.waveAnnouncement = new WaveAnnouncement(this);
 
         this.setupEventListeners();
         this.gameLoop();
-    }
-    
-    // Show skin change notification
-    showSkinChangeNotification(skinName) {
-        this.skinNotification = { text: skinName, type: 'change' };
-        this.skinNotificationTimer = 120; // 2 seconds
-    }
-    
-    // Show skin unlock notification
-    showSkinUnlockNotification(skinId) {
-        const skin = SHIP_SKINS[skinId];
-        if (skin) {
-            this.skinNotification = { text: skin.name, type: 'unlock' };
-            this.skinNotificationTimer = 180; // 3 seconds
-        }
     }
     
     getRandomUfoSpawnTime() {
@@ -3329,15 +3392,6 @@ class Game {
             // Music toggle with N key
             if (e.key === 'n' || e.key === 'N') {
                 musicManager.toggleMute();
-            }
-            
-            // Cycle ship skins with C key (while playing or on menu)
-            if (e.key === 'c' || e.key === 'C') {
-                if (this.state === 'playing' || this.state === 'start' || this.state === 'gameover') {
-                    const newSkin = shipCustomization.cycleSkin(1);
-                    this.showSkinChangeNotification(newSkin.name);
-                    soundManager.playPowerUp();
-                }
             }
             
             // Skill tree toggle with K key
@@ -3470,17 +3524,13 @@ class Game {
         this.comboTimer = 0;
         this.comboDisplayTimer = 0;
         this.maxCombo = 0;
-        
-        // Reset ship customization tracking for this session
-        this.asteroidsDestroyed = 0;
-        this.ufosDestroyed = 0;
-        this.bossesDefeated = 0;
-        this.highestCombo = 0;
-        this.pendingSkinUnlocks = [];
 
         this.spawnAsteroids(4);
         this.updateUI();
         this.updateInventoryUI();
+        
+        // Trigger wave 1 announcement
+        this.waveAnnouncement.trigger(1, false);
         
         // Flash effect on start
         this.triggerFlash('#00ffff', 0.3);
@@ -3563,9 +3613,13 @@ class Game {
             this.bossLevel = true;
             this.boss = new Boss(this);
             this.triggerFlash('#ff0066', 0.4);
+            // Trigger dramatic boss warning announcement
+            this.waveAnnouncement.trigger(this.level, true);
             // Don't play normal level complete - boss appear sound plays instead
         } else {
             this.bossLevel = false;
+            // Trigger wave announcement
+            this.waveAnnouncement.trigger(this.level, false);
             this.spawnAsteroids(3 + this.level);
             this.triggerFlash('#00ff00', 0.2);
             soundManager.playLevelComplete();
@@ -3605,19 +3659,6 @@ class Game {
         // Stop background music
         musicManager.stop();
         
-        // Update ship customization stats and check for new skin unlocks
-        const newSkins = shipCustomization.updateStats({
-            kills: this.asteroidsDestroyed || 0,
-            ufoKills: this.ufosDestroyed || 0,
-            bossKills: this.bossesDefeated || 0,
-            level: this.level,
-            score: this.score,
-            combo: this.highestCombo || 0
-        });
-        
-        // Queue skin unlock notifications
-        this.pendingSkinUnlocks = newSkins || [];
-        
         // Check for high score
         if (highScoreManager.isHighScore(this.score)) {
             this.isEnteringInitials = true;
@@ -3653,26 +3694,16 @@ class Game {
     }
 
     // Register a kill for combo system
-    registerKill(x, y, isAsteroid = true) {
+    registerKill(x, y) {
         this.comboCount++;
         this.comboTimer = COMBO_TIMEOUT;
         this.comboDisplayTimer = 60; // Show combo for 1 second
         this.lastKillX = x;
         this.lastKillY = y;
         
-        // Track max combo (session)
+        // Track max combo
         if (this.comboCount > this.maxCombo) {
             this.maxCombo = this.comboCount;
-        }
-        
-        // Track highest combo (for ship customization)
-        if (this.comboCount > this.highestCombo) {
-            this.highestCombo = this.comboCount;
-        }
-        
-        // Track asteroid kills
-        if (isAsteroid) {
-            this.asteroidsDestroyed++;
         }
         
         // Check for milestone celebrations
@@ -3749,10 +3780,12 @@ class Game {
                 // Spawn collection particles
                 for (let i = 0; i < 8; i++) {
                     const angle = (i / 8) * Math.PI * 2;
-                    this.particles.push(new Particle(
+                    this.trailParticles.push(new TrailParticle(
                         item.x, item.y,
-                        Math.cos(angle) * 3, Math.sin(angle) * 3,
-                        itemInfo.color, 20
+                        itemInfo.color,
+                        3,  // size
+                        20, // lifetime
+                        Math.cos(angle) * 3, Math.sin(angle) * 3
                     ));
                 }
             }
@@ -3997,17 +4030,15 @@ class Game {
         // Update screen shake
         this.screenShake.update();
         
+        // Update wave announcement (always, even when paused for dramatic effect)
+        if (this.waveAnnouncement) {
+            this.waveAnnouncement.update();
+        }
+        
         // Fade flash effect
         if (this.flashAlpha > 0) {
             this.flashAlpha *= 0.9;
             if (this.flashAlpha < 0.01) this.flashAlpha = 0;
-        }
-        
-        // Process pending skin unlock notifications (works in any state)
-        if (this.pendingSkinUnlocks && this.pendingSkinUnlocks.length > 0 && this.skinNotificationTimer <= 0) {
-            const skinId = this.pendingSkinUnlocks.shift();
-            this.showSkinUnlockNotification(skinId);
-            soundManager.playLevelComplete();  // Celebration sound for unlock
         }
 
         if (this.state !== 'playing' && this.state !== 'paused') return;
@@ -4177,8 +4208,7 @@ class Game {
                     const ufo = this.ufos[j];
                     this.createUfoExplosion(ufo.x, ufo.y);
                     this.addScore(UFO_POINTS);
-                    this.registerKill(ufo.x, ufo.y, false);  // Not an asteroid
-                    this.ufosDestroyed++;  // Track UFO kills for ship skins
+                    this.registerKill(ufo.x, ufo.y);
                     this.spawnUfoLoot(ufo.x, ufo.y);
                     this.ufos.splice(j, 1);
                     this.triggerFlash(COLORS.ufoPrimary, 0.2);
@@ -4417,72 +4447,14 @@ class Game {
         // Draw save/load UI overlay (if visible)
         this.saveLoadUI.draw(ctx);
         
-        // Draw ship skin notification (if active)
-        this.drawSkinNotification(ctx);
-        
         // Draw help popup (if visible)
         if (this.showHelp) {
             this.drawHelpScreen(ctx);
         }
         
-        ctx.restore();
-    }
-    
-    // Draw skin change/unlock notification
-    drawSkinNotification(ctx) {
-        if (this.skinNotificationTimer <= 0 || !this.skinNotification) return;
-        
-        this.skinNotificationTimer--;
-        
-        const isUnlock = this.skinNotification.type === 'unlock';
-        const text = this.skinNotification.text;
-        const label = isUnlock ? 'SKIN UNLOCKED!' : 'SHIP SKIN:';
-        
-        // Slide-in animation
-        const slideProgress = Math.min(1, (180 - this.skinNotificationTimer) / 20);
-        const slideOut = this.skinNotificationTimer < 30 ? (30 - this.skinNotificationTimer) / 30 : 0;
-        const offsetX = (1 - slideProgress + slideOut) * 300;
-        
-        ctx.save();
-        ctx.translate(CANVAS_WIDTH - 10 - offsetX, 80);
-        
-        // Background
-        const bgWidth = 200;
-        const bgHeight = isUnlock ? 60 : 50;
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.strokeStyle = isUnlock ? '#ffcc00' : shipCustomization.getSkinColors(this.time).primary;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.roundRect(-bgWidth, -bgHeight/2, bgWidth, bgHeight, 8);
-        ctx.fill();
-        ctx.stroke();
-        
-        // Glow effect for unlocks
-        if (isUnlock) {
-            ctx.shadowColor = '#ffcc00';
-            ctx.shadowBlur = 15;
-        }
-        
-        // Label
-        ctx.font = 'bold 12px "Courier New", monospace';
-        ctx.fillStyle = isUnlock ? '#ffcc00' : '#888888';
-        ctx.textAlign = 'right';
-        ctx.fillText(label, -10, isUnlock ? -10 : -5);
-        
-        // Skin name with skin color
-        const skinColors = shipCustomization.getSkinColors(this.time);
-        ctx.font = 'bold 16px "Courier New", monospace';
-        ctx.fillStyle = skinColors.primary;
-        ctx.shadowColor = skinColors.glow;
-        ctx.shadowBlur = 10;
-        ctx.fillText(text, -10, isUnlock ? 10 : 12);
-        
-        // Press C hint
-        if (!isUnlock) {
-            ctx.font = '10px "Courier New", monospace';
-            ctx.fillStyle = '#666666';
-            ctx.shadowBlur = 0;
-            ctx.fillText('[C] to cycle', -10, 28);
+        // Draw wave announcement (on top of most elements)
+        if (this.waveAnnouncement) {
+            this.waveAnnouncement.draw(ctx);
         }
         
         ctx.restore();
@@ -4658,20 +4630,6 @@ class Game {
         ctx.fillStyle = '#00ffff';
         ctx.font = '14px "Courier New", monospace';
         ctx.fillText('Press H for Help & Controls', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 145);
-        ctx.restore();
-        
-        // Ship skin indicator
-        const skinColors = shipCustomization.getSkinColors(this.time);
-        const currentSkin = shipCustomization.getCurrentSkin();
-        const unlockedCount = shipCustomization.unlockedSkins.length;
-        const totalCount = Object.keys(SHIP_SKINS).length;
-        ctx.save();
-        ctx.shadowColor = skinColors.glow;
-        ctx.shadowBlur = 8;
-        ctx.fillStyle = skinColors.primary;
-        ctx.font = '12px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(`Ship: ${currentSkin.name} [C to cycle] (${unlockedCount}/${totalCount})`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 195);
         ctx.restore();
         
         // Load game hint (if saves exist)
@@ -5385,11 +5343,8 @@ class Ship {
                 const exhaustX = this.x - Math.cos(this.angle) * SHIP_SIZE;
                 const exhaustY = this.y - Math.sin(this.angle) * SHIP_SIZE;
                 
-                // Get skin colors for engine trail
-                const skinColors = shipCustomization.getSkinColors(this.game.time);
-                
                 for (let i = 0; i < 3; i++) {
-                    const color = Math.random() > 0.3 ? skinColors.engine : skinColors.engineCore;
+                    const color = Math.random() > 0.3 ? COLORS.shipEngine : COLORS.shipEngineCore;
                     this.game.trailParticles.push(new TrailParticle(
                         exhaustX + (Math.random() - 0.5) * 5,
                         exhaustY + (Math.random() - 0.5) * 5,
@@ -5444,14 +5399,6 @@ class Ship {
         ctx.save();
         ctx.translate(this.x, this.y);
         
-        // Get current skin colors (supports rainbow animation)
-        const skinColors = shipCustomization.getSkinColors(this.game.time);
-        const shipPrimary = skinColors.primary;
-        const shipSecondary = skinColors.secondary;
-        const shipEngine = skinColors.engine;
-        const shipEngineCore = skinColors.engineCore;
-        const cockpitColors = skinColors.cockpit;
-        
         // Spawn animation
         if (this.invulnerable) {
             const flicker = Math.sin(this.spawnAnimation * 3) > 0;
@@ -5465,16 +5412,16 @@ class Ship {
         if (this.hasShield) {
             const shieldPulse = Math.sin(this.game.time * 0.1) * 3;
             ctx.save();
-            ctx.shadowColor = shipPrimary;
+            ctx.shadowColor = COLORS.shipPrimary;
             ctx.shadowBlur = 20;
-            ctx.strokeStyle = shipPrimary;
+            ctx.strokeStyle = COLORS.shipPrimary;
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.arc(0, 0, SHIP_SIZE + 8 + shieldPulse, 0, Math.PI * 2);
             ctx.stroke();
             
             // Inner shield glow
-            ctx.strokeStyle = shipPrimary + '40';
+            ctx.strokeStyle = COLORS.shipPrimary + '40';
             ctx.lineWidth = 4;
             ctx.beginPath();
             ctx.arc(0, 0, SHIP_SIZE + 5 + shieldPulse, 0, Math.PI * 2);
@@ -5486,186 +5433,231 @@ class Ship {
 
         const S = SHIP_SIZE;
         
-        // Draw engine flames when thrusting (two engines on wings)
+        // Color palette matching reference image
+        const bodyDark = '#8B4513';      // Dark brown
+        const bodyMid = '#CD853F';       // Peru/copper
+        const bodyLight = '#DEB887';     // Burlywood
+        const wingTip = '#FF8C00';       // Dark orange
+        const wingTipGlow = '#FFD700';   // Gold
+        const crystalDark = '#006666';   // Dark teal
+        const crystalMid = '#00CED1';    // Dark turquoise  
+        const crystalLight = '#7FFFD4';  // Aquamarine
+        const flameOrange = '#FF6600';
+        const flameYellow = '#FFCC00';
+        
+        // === MAIN ENGINE FLAME (center, behind ship) ===
         if (this.thrustAmount > 0) {
-            const flameLength = (12 + this.engineFlicker * 8) * this.thrustAmount;
-            const flameWidth = 3 * this.thrustAmount;
+            const flameLen = (25 + this.engineFlicker * 15) * this.thrustAmount;
+            const flameWid = 8 * this.thrustAmount;
             
-            // Engine positions (on the wing nacelles)
-            const enginePositions = [
-                { x: -S * 0.7, y: -S * 0.55 },
-                { x: -S * 0.7, y: S * 0.55 }
-            ];
+            // Main center flame
+            const flameGrad = ctx.createLinearGradient(-S * 0.6 - flameLen, 0, -S * 0.6, 0);
+            flameGrad.addColorStop(0, 'transparent');
+            flameGrad.addColorStop(0.3, flameOrange + '60');
+            flameGrad.addColorStop(0.6, flameOrange);
+            flameGrad.addColorStop(0.85, flameYellow);
+            flameGrad.addColorStop(1, '#FFFFFF');
             
-            enginePositions.forEach(pos => {
-                const gradient = ctx.createLinearGradient(pos.x - flameLength, pos.y, pos.x, pos.y);
-                gradient.addColorStop(0, 'transparent');
-                gradient.addColorStop(0.3, shipEngine + '60');
-                gradient.addColorStop(0.7, shipEngine);
-                gradient.addColorStop(1, shipEngineCore);
+            ctx.save();
+            ctx.shadowColor = flameOrange;
+            ctx.shadowBlur = 25;
+            ctx.fillStyle = flameGrad;
+            ctx.beginPath();
+            ctx.moveTo(-S * 0.6, -flameWid);
+            ctx.quadraticCurveTo(-S * 0.6 - flameLen * 0.7, 0, -S * 0.6 - flameLen, 0);
+            ctx.quadraticCurveTo(-S * 0.6 - flameLen * 0.7, 0, -S * 0.6, flameWid);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+            
+            // Wing tip flames (smaller)
+            const tipFlameLen = (12 + this.engineFlicker * 8) * this.thrustAmount;
+            const tipFlameWid = 4 * this.thrustAmount;
+            
+            [[-S * 0.75, -S * 0.65], [-S * 0.75, S * 0.65]].forEach(pos => {
+                const tipGrad = ctx.createLinearGradient(pos[0] - tipFlameLen, pos[1], pos[0], pos[1]);
+                tipGrad.addColorStop(0, 'transparent');
+                tipGrad.addColorStop(0.4, flameOrange + '80');
+                tipGrad.addColorStop(1, flameYellow);
                 
                 ctx.save();
-                ctx.shadowColor = shipEngine;
+                ctx.shadowColor = flameOrange;
                 ctx.shadowBlur = 12;
-                ctx.fillStyle = gradient;
+                ctx.fillStyle = tipGrad;
                 ctx.beginPath();
-                ctx.moveTo(pos.x, pos.y - flameWidth);
-                ctx.lineTo(pos.x - flameLength, pos.y);
-                ctx.lineTo(pos.x, pos.y + flameWidth);
+                ctx.moveTo(pos[0], pos[1] - tipFlameWid);
+                ctx.lineTo(pos[0] - tipFlameLen, pos[1]);
+                ctx.lineTo(pos[0], pos[1] + tipFlameWid);
                 ctx.closePath();
                 ctx.fill();
                 ctx.restore();
             });
-            
-            // Center engine (main thruster)
-            const mainFlameLength = (18 + this.engineFlicker * 12) * this.thrustAmount;
-            const mainGradient = ctx.createLinearGradient(-S * 0.5 - mainFlameLength, 0, -S * 0.5, 0);
-            mainGradient.addColorStop(0, 'transparent');
-            mainGradient.addColorStop(0.4, shipEngine + '80');
-            mainGradient.addColorStop(1, shipEngineCore);
-            
-            ctx.save();
-            ctx.shadowColor = shipEngine;
-            ctx.shadowBlur = 20;
-            ctx.fillStyle = mainGradient;
-            ctx.beginPath();
-            ctx.moveTo(-S * 0.5, -4 * this.thrustAmount);
-            ctx.lineTo(-S * 0.5 - mainFlameLength, 0);
-            ctx.lineTo(-S * 0.5, 4 * this.thrustAmount);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
         }
 
-        // === SPACESHIP BODY ===
-        ctx.shadowColor = shipPrimary;
-        ctx.shadowBlur = GLOW_INTENSITY;
+        // === SWEPT WINGS (angular, copper colored) ===
+        ctx.shadowColor = wingTip;
+        ctx.shadowBlur = 8;
         
-        // Main fuselage (elongated body)
-        ctx.fillStyle = shipPrimary + '25';
-        ctx.strokeStyle = shipPrimary;
-        ctx.lineWidth = 2;
+        // Top wing - main body
+        const wingGrad1 = ctx.createLinearGradient(-S * 0.8, -S * 0.8, S * 0.2, 0);
+        wingGrad1.addColorStop(0, bodyDark);
+        wingGrad1.addColorStop(0.5, bodyMid);
+        wingGrad1.addColorStop(1, bodyLight);
         
+        ctx.fillStyle = wingGrad1;
+        ctx.strokeStyle = bodyDark;
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        // Nose cone
-        ctx.moveTo(S * 1.2, 0);
-        // Top of fuselage
-        ctx.lineTo(S * 0.4, -S * 0.15);
-        ctx.lineTo(-S * 0.2, -S * 0.18);
-        ctx.lineTo(-S * 0.5, -S * 0.12);
-        // Back
-        ctx.lineTo(-S * 0.5, S * 0.12);
-        // Bottom of fuselage
-        ctx.lineTo(-S * 0.2, S * 0.18);
-        ctx.lineTo(S * 0.4, S * 0.15);
+        ctx.moveTo(S * 0.1, -S * 0.1);
+        ctx.lineTo(-S * 0.2, -S * 0.25);
+        ctx.lineTo(-S * 0.85, -S * 0.75);  // Wing tip back
+        ctx.lineTo(-S * 0.65, -S * 0.55);
+        ctx.lineTo(-S * 0.5, -S * 0.15);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         
-        // === WINGS ===
-        ctx.fillStyle = shipPrimary + '30';
-        
-        // Top wing
+        // Top wing orange tip
+        ctx.fillStyle = wingTip;
+        ctx.shadowColor = wingTipGlow;
+        ctx.shadowBlur = 10;
         ctx.beginPath();
-        ctx.moveTo(S * 0.2, -S * 0.15);
-        ctx.lineTo(-S * 0.3, -S * 0.2);
-        ctx.lineTo(-S * 0.8, -S * 0.7);  // Wing tip
-        ctx.lineTo(-S * 0.7, -S * 0.45);
-        ctx.lineTo(-S * 0.5, -S * 0.12);
+        ctx.moveTo(-S * 0.7, -S * 0.6);
+        ctx.lineTo(-S * 0.85, -S * 0.75);
+        ctx.lineTo(-S * 0.75, -S * 0.65);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Bottom wing - main body
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = wingGrad1;
+        ctx.strokeStyle = bodyDark;
+        ctx.beginPath();
+        ctx.moveTo(S * 0.1, S * 0.1);
+        ctx.lineTo(-S * 0.2, S * 0.25);
+        ctx.lineTo(-S * 0.85, S * 0.75);  // Wing tip back
+        ctx.lineTo(-S * 0.65, S * 0.55);
+        ctx.lineTo(-S * 0.5, S * 0.15);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         
-        // Bottom wing
+        // Bottom wing orange tip
+        ctx.fillStyle = wingTip;
+        ctx.shadowColor = wingTipGlow;
+        ctx.shadowBlur = 10;
         ctx.beginPath();
-        ctx.moveTo(S * 0.2, S * 0.15);
-        ctx.lineTo(-S * 0.3, S * 0.2);
-        ctx.lineTo(-S * 0.8, S * 0.7);  // Wing tip
-        ctx.lineTo(-S * 0.7, S * 0.45);
-        ctx.lineTo(-S * 0.5, S * 0.12);
+        ctx.moveTo(-S * 0.7, S * 0.6);
+        ctx.lineTo(-S * 0.85, S * 0.75);
+        ctx.lineTo(-S * 0.75, S * 0.65);
         ctx.closePath();
         ctx.fill();
-        ctx.stroke();
+
+        // === MAIN FUSELAGE (copper/bronze angular body) ===
+        ctx.shadowColor = bodyMid;
+        ctx.shadowBlur = 10;
         
-        // === ENGINE NACELLES (on wings) ===
-        ctx.fillStyle = shipSecondary + '40';
-        ctx.strokeStyle = shipSecondary;
+        const bodyGrad = ctx.createLinearGradient(-S * 0.5, -S * 0.3, S * 0.5, S * 0.3);
+        bodyGrad.addColorStop(0, bodyDark);
+        bodyGrad.addColorStop(0.3, bodyMid);
+        bodyGrad.addColorStop(0.7, bodyLight);
+        bodyGrad.addColorStop(1, bodyMid);
+        
+        ctx.fillStyle = bodyGrad;
+        ctx.strokeStyle = bodyDark;
         ctx.lineWidth = 1.5;
         
-        // Top nacelle
         ctx.beginPath();
-        ctx.moveTo(-S * 0.4, -S * 0.45);
-        ctx.lineTo(-S * 0.7, -S * 0.5);
-        ctx.lineTo(-S * 0.75, -S * 0.55);
-        ctx.lineTo(-S * 0.7, -S * 0.6);
-        ctx.lineTo(-S * 0.4, -S * 0.55);
+        // Pointed nose
+        ctx.moveTo(S * 1.1, 0);
+        // Top edge
+        ctx.lineTo(S * 0.4, -S * 0.2);
+        ctx.lineTo(-S * 0.1, -S * 0.25);
+        ctx.lineTo(-S * 0.5, -S * 0.2);
+        // Back (engine area)
+        ctx.lineTo(-S * 0.6, -S * 0.1);
+        ctx.lineTo(-S * 0.6, S * 0.1);
+        // Bottom edge
+        ctx.lineTo(-S * 0.5, S * 0.2);
+        ctx.lineTo(-S * 0.1, S * 0.25);
+        ctx.lineTo(S * 0.4, S * 0.2);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         
-        // Bottom nacelle
+        // Body detail lines (angular panels)
+        ctx.strokeStyle = bodyDark + '80';
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(-S * 0.4, S * 0.45);
-        ctx.lineTo(-S * 0.7, S * 0.5);
-        ctx.lineTo(-S * 0.75, S * 0.55);
-        ctx.lineTo(-S * 0.7, S * 0.6);
-        ctx.lineTo(-S * 0.4, S * 0.55);
+        ctx.moveTo(S * 0.3, -S * 0.18);
+        ctx.lineTo(S * 0.3, S * 0.18);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-S * 0.2, -S * 0.22);
+        ctx.lineTo(-S * 0.2, S * 0.22);
+        ctx.stroke();
+
+        // === CRYSTAL COCKPIT (large, faceted, cyan) ===
+        ctx.shadowColor = crystalLight;
+        ctx.shadowBlur = 15;
+        
+        // Main crystal shape
+        const crystalGrad = ctx.createLinearGradient(S * 0.8, -S * 0.15, S * 0.2, S * 0.15);
+        crystalGrad.addColorStop(0, crystalLight);
+        crystalGrad.addColorStop(0.3, crystalMid);
+        crystalGrad.addColorStop(0.7, crystalDark);
+        crystalGrad.addColorStop(1, '#004444');
+        
+        ctx.fillStyle = crystalGrad;
+        ctx.strokeStyle = crystalMid;
+        ctx.lineWidth = 1.5;
+        
+        // Diamond/crystal shape cockpit
+        ctx.beginPath();
+        ctx.moveTo(S * 0.9, 0);           // Front point
+        ctx.lineTo(S * 0.55, -S * 0.18);  // Top left
+        ctx.lineTo(S * 0.2, -S * 0.12);   // Back top
+        ctx.lineTo(S * 0.2, S * 0.12);    // Back bottom
+        ctx.lineTo(S * 0.55, S * 0.18);   // Bottom left
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         
-        // === COCKPIT ===
-        const cockpitGradient = ctx.createLinearGradient(S * 0.7, -S * 0.1, S * 0.3, S * 0.1);
-        cockpitGradient.addColorStop(0, cockpitColors[0]);
-        cockpitGradient.addColorStop(0.5, cockpitColors[1]);
-        cockpitGradient.addColorStop(1, cockpitColors[2]);
-        
-        ctx.fillStyle = cockpitGradient;
-        ctx.strokeStyle = shipPrimary;
+        // Crystal facet lines (inner detail)
+        ctx.strokeStyle = crystalLight + '60';
         ctx.lineWidth = 1;
-        
         ctx.beginPath();
-        ctx.moveTo(S * 0.8, 0);
-        ctx.quadraticCurveTo(S * 0.6, -S * 0.1, S * 0.3, -S * 0.08);
-        ctx.lineTo(S * 0.3, S * 0.08);
-        ctx.quadraticCurveTo(S * 0.6, S * 0.1, S * 0.8, 0);
+        ctx.moveTo(S * 0.9, 0);
+        ctx.lineTo(S * 0.4, 0);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(S * 0.55, -S * 0.18);
+        ctx.lineTo(S * 0.45, 0);
+        ctx.lineTo(S * 0.55, S * 0.18);
+        ctx.stroke();
+        
+        // Crystal shine highlight
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.beginPath();
+        ctx.moveTo(S * 0.85, -S * 0.02);
+        ctx.lineTo(S * 0.6, -S * 0.12);
+        ctx.lineTo(S * 0.5, -S * 0.08);
+        ctx.lineTo(S * 0.7, 0);
         ctx.closePath();
         ctx.fill();
-        ctx.stroke();
-        
-        // Cockpit shine
-        ctx.strokeStyle = '#FFFFFF50';
+
+        // === ENGINE HOUSING (back center) ===
+        ctx.shadowBlur = 5;
+        ctx.fillStyle = bodyDark;
+        ctx.strokeStyle = '#5C3317';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(S * 0.75, -S * 0.02);
-        ctx.quadraticCurveTo(S * 0.55, -S * 0.06, S * 0.4, -S * 0.05);
-        ctx.stroke();
-        
-        // === PANEL LINES (details) ===
-        ctx.strokeStyle = shipSecondary;
-        ctx.lineWidth = 1;
-        
-        // Fuselage panel lines
-        ctx.beginPath();
-        ctx.moveTo(S * 0.2, -S * 0.12);
-        ctx.lineTo(S * 0.2, S * 0.12);
-        ctx.stroke();
-        
-        ctx.beginPath();
-        ctx.moveTo(-S * 0.1, -S * 0.15);
-        ctx.lineTo(-S * 0.1, S * 0.15);
-        ctx.stroke();
-        
-        // Wing detail lines
-        ctx.strokeStyle = shipPrimary + '60';
-        ctx.beginPath();
-        ctx.moveTo(-S * 0.1, -S * 0.2);
-        ctx.lineTo(-S * 0.5, -S * 0.45);
-        ctx.stroke();
-        
-        ctx.beginPath();
-        ctx.moveTo(-S * 0.1, S * 0.2);
-        ctx.lineTo(-S * 0.5, S * 0.45);
+        ctx.moveTo(-S * 0.5, -S * 0.12);
+        ctx.lineTo(-S * 0.65, -S * 0.08);
+        ctx.lineTo(-S * 0.65, S * 0.08);
+        ctx.lineTo(-S * 0.5, S * 0.12);
+        ctx.closePath();
+        ctx.fill();
         ctx.stroke();
 
         ctx.restore();
@@ -6258,7 +6250,6 @@ class Boss {
         this.deathAnimation = 0;
         this.game.addScore(BOSS_POINTS);
         this.game.screenShake.trigger(40);
-        this.game.bossesDefeated++;  // Track boss kills for ship skins
         soundManager.playBossDefeat();
     }
     
