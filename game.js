@@ -97,6 +97,313 @@ const ITEM_SPAWN_CHANCE = 0.25;
 const ITEM_SIZE = 10;
 const ITEM_LIFETIME = 480;
 
+// ============== SHIP SKINS ==============
+// Unlockable ship visual customizations
+const SHIP_SKINS = {
+    CLASSIC: {
+        name: 'Classic Neon',
+        description: 'The original cyan starfighter',
+        primary: '#00ffff',
+        secondary: '#0088ff',
+        engine: '#ff4400',
+        engineCore: '#ffff00',
+        cockpit: ['#4AF5FF', '#0088AA', '#003344'],
+        glow: '#00ffff',
+        unlockCondition: 'default',
+        unlockDesc: 'Default ship'
+    },
+    CRIMSON: {
+        name: 'Crimson Fury',
+        description: 'Aggressive red combat variant',
+        primary: '#ff3366',
+        secondary: '#ff0044',
+        engine: '#ffaa00',
+        engineCore: '#ffffff',
+        cockpit: ['#ff6688', '#aa2244', '#440011'],
+        glow: '#ff3366',
+        unlockCondition: 'kills_100',
+        unlockDesc: 'Destroy 100 asteroids'
+    },
+    PHANTOM: {
+        name: 'Phantom',
+        description: 'Stealth purple interceptor',
+        primary: '#aa66ff',
+        secondary: '#6622cc',
+        engine: '#ff66ff',
+        engineCore: '#ffffff',
+        cockpit: ['#cc88ff', '#7744aa', '#220044'],
+        glow: '#aa66ff',
+        unlockCondition: 'level_10',
+        unlockDesc: 'Reach level 10'
+    },
+    SOLAR: {
+        name: 'Solar Flare',
+        description: 'Burns with the power of a star',
+        primary: '#ffcc00',
+        secondary: '#ff8800',
+        engine: '#ff4400',
+        engineCore: '#ffffff',
+        cockpit: ['#ffee66', '#cc8800', '#442200'],
+        glow: '#ffcc00',
+        unlockCondition: 'score_50000',
+        unlockDesc: 'Score 50,000 points'
+    },
+    VENOM: {
+        name: 'Venom',
+        description: 'Toxic green assault craft',
+        primary: '#00ff66',
+        secondary: '#00cc44',
+        engine: '#88ff00',
+        engineCore: '#ffffff',
+        cockpit: ['#66ff88', '#22aa44', '#003311'],
+        glow: '#00ff66',
+        unlockCondition: 'ufo_10',
+        unlockDesc: 'Destroy 10 UFOs'
+    },
+    ARCTIC: {
+        name: 'Arctic Storm',
+        description: 'Ice-cold precision fighter',
+        primary: '#88ddff',
+        secondary: '#4488cc',
+        engine: '#aaeeff',
+        engineCore: '#ffffff',
+        cockpit: ['#bbffff', '#6699bb', '#223344'],
+        glow: '#88ddff',
+        unlockCondition: 'combo_15',
+        unlockDesc: 'Achieve 15x combo'
+    },
+    INFERNO: {
+        name: 'Inferno',
+        description: 'Forged in hellfire',
+        primary: '#ff6600',
+        secondary: '#cc3300',
+        engine: '#ff0000',
+        engineCore: '#ffff00',
+        cockpit: ['#ff8844', '#882200', '#330000'],
+        glow: '#ff6600',
+        unlockCondition: 'boss_3',
+        unlockDesc: 'Defeat 3 bosses'
+    },
+    NEBULA: {
+        name: 'Nebula Drifter',
+        description: 'Born from cosmic dust',
+        primary: '#ff88cc',
+        secondary: '#cc44aa',
+        engine: '#88ffff',
+        engineCore: '#ffffff',
+        cockpit: ['#ffaadd', '#aa5588', '#331122'],
+        glow: '#ff88cc',
+        unlockCondition: 'level_25',
+        unlockDesc: 'Reach level 25'
+    },
+    OBSIDIAN: {
+        name: 'Obsidian',
+        description: 'Dark as the void itself',
+        primary: '#666688',
+        secondary: '#444466',
+        engine: '#8888ff',
+        engineCore: '#ffffff',
+        cockpit: ['#7777aa', '#444466', '#111122'],
+        glow: '#8888ff',
+        unlockCondition: 'score_250000',
+        unlockDesc: 'Score 250,000 points'
+    },
+    RAINBOW: {
+        name: 'Prismatic',
+        description: 'Cycles through all colors',
+        primary: 'rainbow',  // Special: cycles hue
+        secondary: 'rainbow',
+        engine: '#ffffff',
+        engineCore: '#ffffff',
+        cockpit: ['#ffffff', '#888888', '#333333'],
+        glow: 'rainbow',
+        unlockCondition: 'all_skins',
+        unlockDesc: 'Unlock all other skins'
+    }
+};
+
+// ============== SHIP CUSTOMIZATION MANAGER ==============
+class ShipCustomization {
+    constructor() {
+        this.storageKey = 'asteroids_ship_customization';
+        this.unlockedSkins = ['CLASSIC'];  // Default always unlocked
+        this.currentSkin = 'CLASSIC';
+        this.stats = {
+            totalKills: 0,
+            totalUFOKills: 0,
+            totalBossKills: 0,
+            highestLevel: 0,
+            highestScore: 0,
+            highestCombo: 0
+        };
+        this.load();
+    }
+    
+    save() {
+        try {
+            localStorage.setItem(this.storageKey, JSON.stringify({
+                unlockedSkins: this.unlockedSkins,
+                currentSkin: this.currentSkin,
+                stats: this.stats
+            }));
+        } catch (e) { console.warn('Could not save ship customization:', e); }
+    }
+    
+    load() {
+        try {
+            const saved = localStorage.getItem(this.storageKey);
+            if (saved) {
+                const data = JSON.parse(saved);
+                this.unlockedSkins = data.unlockedSkins || ['CLASSIC'];
+                this.currentSkin = data.currentSkin || 'CLASSIC';
+                this.stats = { ...this.stats, ...data.stats };
+            }
+        } catch (e) { console.warn('Could not load ship customization:', e); }
+    }
+    
+    getCurrentSkin() {
+        return SHIP_SKINS[this.currentSkin] || SHIP_SKINS.CLASSIC;
+    }
+    
+    getSkinColors(time = 0) {
+        const skin = this.getCurrentSkin();
+        
+        // Handle rainbow skin special case
+        if (skin.primary === 'rainbow') {
+            const hue = (time * 2) % 360;
+            return {
+                primary: `hsl(${hue}, 100%, 60%)`,
+                secondary: `hsl(${(hue + 30) % 360}, 100%, 40%)`,
+                engine: skin.engine,
+                engineCore: skin.engineCore,
+                cockpit: skin.cockpit,
+                glow: `hsl(${hue}, 100%, 60%)`
+            };
+        }
+        
+        return {
+            primary: skin.primary,
+            secondary: skin.secondary,
+            engine: skin.engine,
+            engineCore: skin.engineCore,
+            cockpit: skin.cockpit,
+            glow: skin.glow
+        };
+    }
+    
+    selectSkin(skinId) {
+        if (this.unlockedSkins.includes(skinId) && SHIP_SKINS[skinId]) {
+            this.currentSkin = skinId;
+            this.save();
+            return true;
+        }
+        return false;
+    }
+    
+    cycleSkin(direction = 1) {
+        const skinIds = Object.keys(SHIP_SKINS);
+        const unlockedIds = skinIds.filter(id => this.unlockedSkins.includes(id));
+        const currentIndex = unlockedIds.indexOf(this.currentSkin);
+        const newIndex = (currentIndex + direction + unlockedIds.length) % unlockedIds.length;
+        this.currentSkin = unlockedIds[newIndex];
+        this.save();
+        return this.getCurrentSkin();
+    }
+    
+    updateStats(stats) {
+        let newUnlocks = [];
+        
+        // Update stats
+        if (stats.kills) this.stats.totalKills += stats.kills;
+        if (stats.ufoKills) this.stats.totalUFOKills += stats.ufoKills;
+        if (stats.bossKills) this.stats.totalBossKills += stats.bossKills;
+        if (stats.level && stats.level > this.stats.highestLevel) this.stats.highestLevel = stats.level;
+        if (stats.score && stats.score > this.stats.highestScore) this.stats.highestScore = stats.score;
+        if (stats.combo && stats.combo > this.stats.highestCombo) this.stats.highestCombo = stats.combo;
+        
+        // Check unlock conditions
+        Object.keys(SHIP_SKINS).forEach(skinId => {
+            if (this.unlockedSkins.includes(skinId)) return;
+            
+            const skin = SHIP_SKINS[skinId];
+            let unlocked = false;
+            
+            switch (skin.unlockCondition) {
+                case 'kills_100':
+                    unlocked = this.stats.totalKills >= 100;
+                    break;
+                case 'level_10':
+                    unlocked = this.stats.highestLevel >= 10;
+                    break;
+                case 'level_25':
+                    unlocked = this.stats.highestLevel >= 25;
+                    break;
+                case 'score_50000':
+                    unlocked = this.stats.highestScore >= 50000;
+                    break;
+                case 'score_250000':
+                    unlocked = this.stats.highestScore >= 250000;
+                    break;
+                case 'ufo_10':
+                    unlocked = this.stats.totalUFOKills >= 10;
+                    break;
+                case 'combo_15':
+                    unlocked = this.stats.highestCombo >= 15;
+                    break;
+                case 'boss_3':
+                    unlocked = this.stats.totalBossKills >= 3;
+                    break;
+                case 'all_skins':
+                    // Check if all other skins are unlocked
+                    const otherSkins = Object.keys(SHIP_SKINS).filter(id => id !== 'RAINBOW');
+                    unlocked = otherSkins.every(id => this.unlockedSkins.includes(id));
+                    break;
+            }
+            
+            if (unlocked) {
+                this.unlockedSkins.push(skinId);
+                newUnlocks.push(skinId);
+            }
+        });
+        
+        this.save();
+        return newUnlocks;
+    }
+    
+    getProgress(skinId) {
+        const skin = SHIP_SKINS[skinId];
+        if (!skin || this.unlockedSkins.includes(skinId)) return 1;
+        
+        switch (skin.unlockCondition) {
+            case 'kills_100': return Math.min(1, this.stats.totalKills / 100);
+            case 'level_10': return Math.min(1, this.stats.highestLevel / 10);
+            case 'level_25': return Math.min(1, this.stats.highestLevel / 25);
+            case 'score_50000': return Math.min(1, this.stats.highestScore / 50000);
+            case 'score_250000': return Math.min(1, this.stats.highestScore / 250000);
+            case 'ufo_10': return Math.min(1, this.stats.totalUFOKills / 10);
+            case 'combo_15': return Math.min(1, this.stats.highestCombo / 15);
+            case 'boss_3': return Math.min(1, this.stats.totalBossKills / 3);
+            case 'all_skins':
+                const otherSkins = Object.keys(SHIP_SKINS).filter(id => id !== 'RAINBOW');
+                return this.unlockedSkins.length / otherSkins.length;
+            default: return 0;
+        }
+    }
+    
+    getAllSkins() {
+        return Object.keys(SHIP_SKINS).map(id => ({
+            id,
+            ...SHIP_SKINS[id],
+            unlocked: this.unlockedSkins.includes(id),
+            progress: this.getProgress(id),
+            selected: this.currentSkin === id
+        }));
+    }
+}
+
+// Global ship customization instance
+const shipCustomization = new ShipCustomization();
+
 // ============== HIGH SCORE MANAGER CLASS ==============
 // Persistent leaderboard with localStorage
 
@@ -2939,11 +3246,35 @@ class Game {
         // Help popup state
         this.showHelp = false;
 
-                // Mobile touch controls
+        // Mobile touch controls
         this.touchControls = new TouchControlManager(this.canvas);
+        
+        // Ship customization tracking
+        this.asteroidsDestroyed = 0;
+        this.ufosDestroyed = 0;
+        this.bossesDefeated = 0;
+        this.highestCombo = 0;
+        this.pendingSkinUnlocks = [];
+        this.skinNotification = null;
+        this.skinNotificationTimer = 0;
 
         this.setupEventListeners();
         this.gameLoop();
+    }
+    
+    // Show skin change notification
+    showSkinChangeNotification(skinName) {
+        this.skinNotification = { text: skinName, type: 'change' };
+        this.skinNotificationTimer = 120; // 2 seconds
+    }
+    
+    // Show skin unlock notification
+    showSkinUnlockNotification(skinId) {
+        const skin = SHIP_SKINS[skinId];
+        if (skin) {
+            this.skinNotification = { text: skin.name, type: 'unlock' };
+            this.skinNotificationTimer = 180; // 3 seconds
+        }
     }
     
     getRandomUfoSpawnTime() {
@@ -2998,6 +3329,15 @@ class Game {
             // Music toggle with N key
             if (e.key === 'n' || e.key === 'N') {
                 musicManager.toggleMute();
+            }
+            
+            // Cycle ship skins with C key (while playing or on menu)
+            if (e.key === 'c' || e.key === 'C') {
+                if (this.state === 'playing' || this.state === 'start' || this.state === 'gameover') {
+                    const newSkin = shipCustomization.cycleSkin(1);
+                    this.showSkinChangeNotification(newSkin.name);
+                    soundManager.playPowerUp();
+                }
             }
             
             // Skill tree toggle with K key
@@ -3130,6 +3470,13 @@ class Game {
         this.comboTimer = 0;
         this.comboDisplayTimer = 0;
         this.maxCombo = 0;
+        
+        // Reset ship customization tracking for this session
+        this.asteroidsDestroyed = 0;
+        this.ufosDestroyed = 0;
+        this.bossesDefeated = 0;
+        this.highestCombo = 0;
+        this.pendingSkinUnlocks = [];
 
         this.spawnAsteroids(4);
         this.updateUI();
@@ -3258,6 +3605,19 @@ class Game {
         // Stop background music
         musicManager.stop();
         
+        // Update ship customization stats and check for new skin unlocks
+        const newSkins = shipCustomization.updateStats({
+            kills: this.asteroidsDestroyed || 0,
+            ufoKills: this.ufosDestroyed || 0,
+            bossKills: this.bossesDefeated || 0,
+            level: this.level,
+            score: this.score,
+            combo: this.highestCombo || 0
+        });
+        
+        // Queue skin unlock notifications
+        this.pendingSkinUnlocks = newSkins || [];
+        
         // Check for high score
         if (highScoreManager.isHighScore(this.score)) {
             this.isEnteringInitials = true;
@@ -3293,16 +3653,26 @@ class Game {
     }
 
     // Register a kill for combo system
-    registerKill(x, y) {
+    registerKill(x, y, isAsteroid = true) {
         this.comboCount++;
         this.comboTimer = COMBO_TIMEOUT;
         this.comboDisplayTimer = 60; // Show combo for 1 second
         this.lastKillX = x;
         this.lastKillY = y;
         
-        // Track max combo
+        // Track max combo (session)
         if (this.comboCount > this.maxCombo) {
             this.maxCombo = this.comboCount;
+        }
+        
+        // Track highest combo (for ship customization)
+        if (this.comboCount > this.highestCombo) {
+            this.highestCombo = this.comboCount;
+        }
+        
+        // Track asteroid kills
+        if (isAsteroid) {
+            this.asteroidsDestroyed++;
         }
         
         // Check for milestone celebrations
@@ -3632,6 +4002,13 @@ class Game {
             this.flashAlpha *= 0.9;
             if (this.flashAlpha < 0.01) this.flashAlpha = 0;
         }
+        
+        // Process pending skin unlock notifications (works in any state)
+        if (this.pendingSkinUnlocks && this.pendingSkinUnlocks.length > 0 && this.skinNotificationTimer <= 0) {
+            const skinId = this.pendingSkinUnlocks.shift();
+            this.showSkinUnlockNotification(skinId);
+            soundManager.playLevelComplete();  // Celebration sound for unlock
+        }
 
         if (this.state !== 'playing' && this.state !== 'paused') return;
         if (this.state === 'paused' || this.showHelp) return; // Pause freezes gameplay
@@ -3800,7 +4177,8 @@ class Game {
                     const ufo = this.ufos[j];
                     this.createUfoExplosion(ufo.x, ufo.y);
                     this.addScore(UFO_POINTS);
-                    this.registerKill(ufo.x, ufo.y);
+                    this.registerKill(ufo.x, ufo.y, false);  // Not an asteroid
+                    this.ufosDestroyed++;  // Track UFO kills for ship skins
                     this.spawnUfoLoot(ufo.x, ufo.y);
                     this.ufos.splice(j, 1);
                     this.triggerFlash(COLORS.ufoPrimary, 0.2);
@@ -4039,9 +4417,72 @@ class Game {
         // Draw save/load UI overlay (if visible)
         this.saveLoadUI.draw(ctx);
         
+        // Draw ship skin notification (if active)
+        this.drawSkinNotification(ctx);
+        
         // Draw help popup (if visible)
         if (this.showHelp) {
             this.drawHelpScreen(ctx);
+        }
+        
+        ctx.restore();
+    }
+    
+    // Draw skin change/unlock notification
+    drawSkinNotification(ctx) {
+        if (this.skinNotificationTimer <= 0 || !this.skinNotification) return;
+        
+        this.skinNotificationTimer--;
+        
+        const isUnlock = this.skinNotification.type === 'unlock';
+        const text = this.skinNotification.text;
+        const label = isUnlock ? 'SKIN UNLOCKED!' : 'SHIP SKIN:';
+        
+        // Slide-in animation
+        const slideProgress = Math.min(1, (180 - this.skinNotificationTimer) / 20);
+        const slideOut = this.skinNotificationTimer < 30 ? (30 - this.skinNotificationTimer) / 30 : 0;
+        const offsetX = (1 - slideProgress + slideOut) * 300;
+        
+        ctx.save();
+        ctx.translate(CANVAS_WIDTH - 10 - offsetX, 80);
+        
+        // Background
+        const bgWidth = 200;
+        const bgHeight = isUnlock ? 60 : 50;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.strokeStyle = isUnlock ? '#ffcc00' : shipCustomization.getSkinColors(this.time).primary;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(-bgWidth, -bgHeight/2, bgWidth, bgHeight, 8);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Glow effect for unlocks
+        if (isUnlock) {
+            ctx.shadowColor = '#ffcc00';
+            ctx.shadowBlur = 15;
+        }
+        
+        // Label
+        ctx.font = 'bold 12px "Courier New", monospace';
+        ctx.fillStyle = isUnlock ? '#ffcc00' : '#888888';
+        ctx.textAlign = 'right';
+        ctx.fillText(label, -10, isUnlock ? -10 : -5);
+        
+        // Skin name with skin color
+        const skinColors = shipCustomization.getSkinColors(this.time);
+        ctx.font = 'bold 16px "Courier New", monospace';
+        ctx.fillStyle = skinColors.primary;
+        ctx.shadowColor = skinColors.glow;
+        ctx.shadowBlur = 10;
+        ctx.fillText(text, -10, isUnlock ? 10 : 12);
+        
+        // Press C hint
+        if (!isUnlock) {
+            ctx.font = '10px "Courier New", monospace';
+            ctx.fillStyle = '#666666';
+            ctx.shadowBlur = 0;
+            ctx.fillText('[C] to cycle', -10, 28);
         }
         
         ctx.restore();
@@ -4217,6 +4658,20 @@ class Game {
         ctx.fillStyle = '#00ffff';
         ctx.font = '14px "Courier New", monospace';
         ctx.fillText('Press H for Help & Controls', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 145);
+        ctx.restore();
+        
+        // Ship skin indicator
+        const skinColors = shipCustomization.getSkinColors(this.time);
+        const currentSkin = shipCustomization.getCurrentSkin();
+        const unlockedCount = shipCustomization.unlockedSkins.length;
+        const totalCount = Object.keys(SHIP_SKINS).length;
+        ctx.save();
+        ctx.shadowColor = skinColors.glow;
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = skinColors.primary;
+        ctx.font = '12px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Ship: ${currentSkin.name} [C to cycle] (${unlockedCount}/${totalCount})`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 195);
         ctx.restore();
         
         // Load game hint (if saves exist)
@@ -4930,8 +5385,11 @@ class Ship {
                 const exhaustX = this.x - Math.cos(this.angle) * SHIP_SIZE;
                 const exhaustY = this.y - Math.sin(this.angle) * SHIP_SIZE;
                 
+                // Get skin colors for engine trail
+                const skinColors = shipCustomization.getSkinColors(this.game.time);
+                
                 for (let i = 0; i < 3; i++) {
-                    const color = Math.random() > 0.3 ? COLORS.shipEngine : COLORS.shipEngineCore;
+                    const color = Math.random() > 0.3 ? skinColors.engine : skinColors.engineCore;
                     this.game.trailParticles.push(new TrailParticle(
                         exhaustX + (Math.random() - 0.5) * 5,
                         exhaustY + (Math.random() - 0.5) * 5,
@@ -4986,6 +5444,14 @@ class Ship {
         ctx.save();
         ctx.translate(this.x, this.y);
         
+        // Get current skin colors (supports rainbow animation)
+        const skinColors = shipCustomization.getSkinColors(this.game.time);
+        const shipPrimary = skinColors.primary;
+        const shipSecondary = skinColors.secondary;
+        const shipEngine = skinColors.engine;
+        const shipEngineCore = skinColors.engineCore;
+        const cockpitColors = skinColors.cockpit;
+        
         // Spawn animation
         if (this.invulnerable) {
             const flicker = Math.sin(this.spawnAnimation * 3) > 0;
@@ -4999,16 +5465,16 @@ class Ship {
         if (this.hasShield) {
             const shieldPulse = Math.sin(this.game.time * 0.1) * 3;
             ctx.save();
-            ctx.shadowColor = COLORS.shipPrimary;
+            ctx.shadowColor = shipPrimary;
             ctx.shadowBlur = 20;
-            ctx.strokeStyle = COLORS.shipPrimary;
+            ctx.strokeStyle = shipPrimary;
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.arc(0, 0, SHIP_SIZE + 8 + shieldPulse, 0, Math.PI * 2);
             ctx.stroke();
             
             // Inner shield glow
-            ctx.strokeStyle = COLORS.shipPrimary + '40';
+            ctx.strokeStyle = shipPrimary + '40';
             ctx.lineWidth = 4;
             ctx.beginPath();
             ctx.arc(0, 0, SHIP_SIZE + 5 + shieldPulse, 0, Math.PI * 2);
@@ -5034,12 +5500,12 @@ class Ship {
             enginePositions.forEach(pos => {
                 const gradient = ctx.createLinearGradient(pos.x - flameLength, pos.y, pos.x, pos.y);
                 gradient.addColorStop(0, 'transparent');
-                gradient.addColorStop(0.3, COLORS.shipEngine + '60');
-                gradient.addColorStop(0.7, COLORS.shipEngine);
-                gradient.addColorStop(1, COLORS.shipEngineCore);
+                gradient.addColorStop(0.3, shipEngine + '60');
+                gradient.addColorStop(0.7, shipEngine);
+                gradient.addColorStop(1, shipEngineCore);
                 
                 ctx.save();
-                ctx.shadowColor = COLORS.shipEngine;
+                ctx.shadowColor = shipEngine;
                 ctx.shadowBlur = 12;
                 ctx.fillStyle = gradient;
                 ctx.beginPath();
@@ -5055,11 +5521,11 @@ class Ship {
             const mainFlameLength = (18 + this.engineFlicker * 12) * this.thrustAmount;
             const mainGradient = ctx.createLinearGradient(-S * 0.5 - mainFlameLength, 0, -S * 0.5, 0);
             mainGradient.addColorStop(0, 'transparent');
-            mainGradient.addColorStop(0.4, COLORS.shipEngine + '80');
-            mainGradient.addColorStop(1, COLORS.shipEngineCore);
+            mainGradient.addColorStop(0.4, shipEngine + '80');
+            mainGradient.addColorStop(1, shipEngineCore);
             
             ctx.save();
-            ctx.shadowColor = COLORS.shipEngine;
+            ctx.shadowColor = shipEngine;
             ctx.shadowBlur = 20;
             ctx.fillStyle = mainGradient;
             ctx.beginPath();
@@ -5072,12 +5538,12 @@ class Ship {
         }
 
         // === SPACESHIP BODY ===
-        ctx.shadowColor = COLORS.shipPrimary;
+        ctx.shadowColor = shipPrimary;
         ctx.shadowBlur = GLOW_INTENSITY;
         
         // Main fuselage (elongated body)
-        ctx.fillStyle = COLORS.shipPrimary + '25';
-        ctx.strokeStyle = COLORS.shipPrimary;
+        ctx.fillStyle = shipPrimary + '25';
+        ctx.strokeStyle = shipPrimary;
         ctx.lineWidth = 2;
         
         ctx.beginPath();
@@ -5097,7 +5563,7 @@ class Ship {
         ctx.stroke();
         
         // === WINGS ===
-        ctx.fillStyle = COLORS.shipPrimary + '30';
+        ctx.fillStyle = shipPrimary + '30';
         
         // Top wing
         ctx.beginPath();
@@ -5122,8 +5588,8 @@ class Ship {
         ctx.stroke();
         
         // === ENGINE NACELLES (on wings) ===
-        ctx.fillStyle = COLORS.shipSecondary + '40';
-        ctx.strokeStyle = COLORS.shipSecondary;
+        ctx.fillStyle = shipSecondary + '40';
+        ctx.strokeStyle = shipSecondary;
         ctx.lineWidth = 1.5;
         
         // Top nacelle
@@ -5150,12 +5616,12 @@ class Ship {
         
         // === COCKPIT ===
         const cockpitGradient = ctx.createLinearGradient(S * 0.7, -S * 0.1, S * 0.3, S * 0.1);
-        cockpitGradient.addColorStop(0, '#4AF5FF');
-        cockpitGradient.addColorStop(0.5, '#0088AA');
-        cockpitGradient.addColorStop(1, '#003344');
+        cockpitGradient.addColorStop(0, cockpitColors[0]);
+        cockpitGradient.addColorStop(0.5, cockpitColors[1]);
+        cockpitGradient.addColorStop(1, cockpitColors[2]);
         
         ctx.fillStyle = cockpitGradient;
-        ctx.strokeStyle = COLORS.shipPrimary;
+        ctx.strokeStyle = shipPrimary;
         ctx.lineWidth = 1;
         
         ctx.beginPath();
@@ -5176,7 +5642,7 @@ class Ship {
         ctx.stroke();
         
         // === PANEL LINES (details) ===
-        ctx.strokeStyle = COLORS.shipSecondary;
+        ctx.strokeStyle = shipSecondary;
         ctx.lineWidth = 1;
         
         // Fuselage panel lines
@@ -5191,7 +5657,7 @@ class Ship {
         ctx.stroke();
         
         // Wing detail lines
-        ctx.strokeStyle = COLORS.shipPrimary + '60';
+        ctx.strokeStyle = shipPrimary + '60';
         ctx.beginPath();
         ctx.moveTo(-S * 0.1, -S * 0.2);
         ctx.lineTo(-S * 0.5, -S * 0.45);
@@ -5792,6 +6258,7 @@ class Boss {
         this.deathAnimation = 0;
         this.game.addScore(BOSS_POINTS);
         this.game.screenShake.trigger(40);
+        this.game.bossesDefeated++;  // Track boss kills for ship skins
         soundManager.playBossDefeat();
     }
     
