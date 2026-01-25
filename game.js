@@ -97,6 +97,420 @@ const ITEM_SPAWN_CHANCE = 0.25;
 const ITEM_SIZE = 10;
 const ITEM_LIFETIME = 480;
 
+// ============== SKILL TREE SYSTEM ==============
+// Persistent progression with unlockable abilities
+
+const SKILL_CATEGORIES = {
+    OFFENSE: { name: 'Offense', color: '#ff4444', icon: '⚔', description: 'Increase damage and firepower' },
+    DEFENSE: { name: 'Defense', color: '#44ff44', icon: '🛡', description: 'Improve survivability' },
+    UTILITY: { name: 'Utility', color: '#4444ff', icon: '⚡', description: 'Enhance utility and bonuses' }
+};
+
+const SKILLS = {
+    // === OFFENSE SKILLS ===
+    RAPID_FIRE_MASTERY: {
+        category: 'OFFENSE', name: 'Rapid Fire Mastery', description: 'Permanently reduce shot cooldown',
+        maxLevel: 5, costPerLevel: [1, 2, 3, 4, 5],
+        effect: (level) => ({ shootCooldownReduction: level * 0.15 }), position: { x: 0, y: 0 }
+    },
+    BULLET_VELOCITY: {
+        category: 'OFFENSE', name: 'Bullet Velocity', description: 'Faster bullets travel further',
+        maxLevel: 3, costPerLevel: [1, 2, 3],
+        effect: (level) => ({ bulletSpeedBonus: level * 0.2 }), position: { x: 1, y: 0 }
+    },
+    PIERCING_SHOTS: {
+        category: 'OFFENSE', name: 'Piercing Shots', description: 'Chance for bullets to pierce targets',
+        maxLevel: 3, costPerLevel: [2, 3, 4],
+        effect: (level) => ({ pierceChance: level * 0.15 }), position: { x: 2, y: 0 }, requires: ['BULLET_VELOCITY']
+    },
+    EXPLOSIVE_ROUNDS: {
+        category: 'OFFENSE', name: 'Explosive Rounds', description: 'Kills create small explosions',
+        maxLevel: 3, costPerLevel: [3, 4, 5],
+        effect: (level) => ({ explosionRadius: level * 15 }), position: { x: 2, y: 1 }, requires: ['PIERCING_SHOTS']
+    },
+    CRITICAL_HIT: {
+        category: 'OFFENSE', name: 'Critical Strike', description: 'Chance for double damage',
+        maxLevel: 5, costPerLevel: [2, 2, 3, 3, 4],
+        effect: (level) => ({ critChance: level * 0.08 }), position: { x: 1, y: 1 }
+    },
+    // === DEFENSE SKILLS ===
+    EXTRA_LIVES: {
+        category: 'DEFENSE', name: 'Extra Lives', description: 'Start with additional lives',
+        maxLevel: 3, costPerLevel: [3, 5, 7],
+        effect: (level) => ({ startingLives: level }), position: { x: 0, y: 0 }
+    },
+    SHIELD_DURATION: {
+        category: 'DEFENSE', name: 'Shield Mastery', description: 'Shield power-ups last longer',
+        maxLevel: 5, costPerLevel: [1, 2, 2, 3, 3],
+        effect: (level) => ({ shieldDurationBonus: level * 0.2 }), position: { x: 1, y: 0 }
+    },
+    REGENERATION: {
+        category: 'DEFENSE', name: 'Hull Regeneration', description: 'Slowly regenerate lives over time',
+        maxLevel: 3, costPerLevel: [4, 6, 8],
+        effect: (level) => ({ regenInterval: Math.max(1800, 3600 - level * 600) }), position: { x: 1, y: 1 }, requires: ['EXTRA_LIVES']
+    },
+    SPAWN_PROTECTION: {
+        category: 'DEFENSE', name: 'Spawn Protection', description: 'Longer invulnerability after respawn',
+        maxLevel: 3, costPerLevel: [1, 2, 3],
+        effect: (level) => ({ spawnInvulnBonus: level * 60 }), position: { x: 2, y: 0 }
+    },
+    EMERGENCY_SHIELD: {
+        category: 'DEFENSE', name: 'Emergency Shield', description: 'Chance to auto-activate shield on hit',
+        maxLevel: 3, costPerLevel: [3, 5, 7],
+        effect: (level) => ({ emergencyShieldChance: level * 0.1 }), position: { x: 2, y: 1 }, requires: ['SHIELD_DURATION']
+    },
+    // === UTILITY SKILLS ===
+    MAGNET_RANGE: {
+        category: 'UTILITY', name: 'Magnetic Pull', description: 'Increased item attraction range',
+        maxLevel: 5, costPerLevel: [1, 1, 2, 2, 3],
+        effect: (level) => ({ magnetRangeBonus: level * 30 }), position: { x: 0, y: 0 }
+    },
+    POWERUP_DURATION: {
+        category: 'UTILITY', name: 'Power Efficiency', description: 'All power-ups last longer',
+        maxLevel: 5, costPerLevel: [1, 2, 2, 3, 3],
+        effect: (level) => ({ powerUpDurationBonus: level * 0.15 }), position: { x: 1, y: 0 }
+    },
+    SCORE_MULTIPLIER: {
+        category: 'UTILITY', name: 'Score Hunter', description: 'Permanent score bonus',
+        maxLevel: 5, costPerLevel: [2, 3, 4, 5, 6],
+        effect: (level) => ({ scoreBonus: level * 0.1 }), position: { x: 2, y: 0 }
+    },
+    LUCKY_DROPS: {
+        category: 'UTILITY', name: 'Lucky Drops', description: 'Increased item drop chance',
+        maxLevel: 3, costPerLevel: [2, 3, 4],
+        effect: (level) => ({ dropChanceBonus: level * 0.1 }), position: { x: 1, y: 1 }, requires: ['MAGNET_RANGE']
+    },
+    INVENTORY_EXPANSION: {
+        category: 'UTILITY', name: 'Deep Pockets', description: 'Additional inventory slots',
+        maxLevel: 2, costPerLevel: [4, 6],
+        effect: (level) => ({ extraInventorySlots: level }), position: { x: 0, y: 1 }
+    },
+    XP_BOOST: {
+        category: 'UTILITY', name: 'Quick Learner', description: 'Earn skill points faster',
+        maxLevel: 3, costPerLevel: [3, 5, 7],
+        effect: (level) => ({ xpBonus: level * 0.15 }), position: { x: 2, y: 1 }, requires: ['SCORE_MULTIPLIER']
+    }
+};
+
+class SkillTree {
+    constructor() {
+        this.skillLevels = {};
+        this.skillPoints = 0;
+        this.totalPointsEarned = 0;
+        Object.keys(SKILLS).forEach(skillId => { this.skillLevels[skillId] = 0; });
+        this.load();
+    }
+    save() {
+        try {
+            localStorage.setItem('asteroids_skill_tree', JSON.stringify({
+                skillLevels: this.skillLevels, skillPoints: this.skillPoints, totalPointsEarned: this.totalPointsEarned
+            }));
+        } catch (e) { console.warn('Could not save skill tree:', e); }
+    }
+    load() {
+        try {
+            const saved = localStorage.getItem('asteroids_skill_tree');
+            if (saved) {
+                const data = JSON.parse(saved);
+                this.skillLevels = { ...this.skillLevels, ...data.skillLevels };
+                this.skillPoints = data.skillPoints || 0;
+                this.totalPointsEarned = data.totalPointsEarned || 0;
+            }
+        } catch (e) { console.warn('Could not load skill tree:', e); }
+    }
+    getSkillLevel(skillId) { return this.skillLevels[skillId] || 0; }
+    getSkillEffect(skillId) {
+        const level = this.getSkillLevel(skillId);
+        return level === 0 ? null : SKILLS[skillId].effect(level);
+    }
+    getAllEffects() {
+        const effects = {};
+        Object.keys(SKILLS).forEach(skillId => {
+            const effect = this.getSkillEffect(skillId);
+            if (effect) Object.assign(effects, effect);
+        });
+        return effects;
+    }
+    canUpgradeSkill(skillId) {
+        const skill = SKILLS[skillId];
+        const currentLevel = this.getSkillLevel(skillId);
+        if (currentLevel >= skill.maxLevel) return false;
+        if (this.skillPoints < skill.costPerLevel[currentLevel]) return false;
+        if (skill.requires) {
+            for (const reqId of skill.requires) { if (this.getSkillLevel(reqId) === 0) return false; }
+        }
+        return true;
+    }
+    upgradeSkill(skillId) {
+        if (!this.canUpgradeSkill(skillId)) return false;
+        const skill = SKILLS[skillId];
+        const currentLevel = this.getSkillLevel(skillId);
+        this.skillPoints -= skill.costPerLevel[currentLevel];
+        this.skillLevels[skillId] = currentLevel + 1;
+        this.save();
+        return true;
+    }
+    addSkillPoints(points) {
+        this.skillPoints += points;
+        this.totalPointsEarned += points;
+        this.save();
+    }
+    reset() {
+        let refund = 0;
+        Object.keys(SKILLS).forEach(skillId => {
+            const skill = SKILLS[skillId];
+            const level = this.getSkillLevel(skillId);
+            for (let i = 0; i < level; i++) refund += skill.costPerLevel[i];
+            this.skillLevels[skillId] = 0;
+        });
+        this.skillPoints += refund;
+        this.save();
+    }
+}
+
+class SkillTreeUI {
+    constructor(skillTree, game) {
+        this.skillTree = skillTree;
+        this.game = game;
+        this.visible = false;
+        this.selectedCategory = 'OFFENSE';
+        this.hoveredSkill = null;
+        this.animPhase = 0;
+        this.nodeSize = 40;
+        this.nodeSpacing = 100;
+        this.categoryTabWidth = 120;
+    }
+    toggle() { this.visible = !this.visible; if (this.visible) soundManager.playItemCollect(); }
+    handleClick(x, y) {
+        if (!this.visible) return false;
+        const canvasRect = this.game.canvas.getBoundingClientRect();
+        const scaleX = CANVAS_WIDTH / canvasRect.width;
+        const scaleY = CANVAS_HEIGHT / canvasRect.height;
+        x = (x - canvasRect.left) * scaleX;
+        y = (y - canvasRect.top) * scaleY;
+        
+        const tabY = 80;
+        const categories = Object.keys(SKILL_CATEGORIES);
+        categories.forEach((cat, i) => {
+            const tabX = 150 + i * (this.categoryTabWidth + 20);
+            if (x >= tabX && x <= tabX + this.categoryTabWidth && y >= tabY && y <= tabY + 40) {
+                this.selectedCategory = cat;
+                soundManager.playItemCollect();
+            }
+        });
+        
+        const baseX = 200, baseY = 200;
+        Object.entries(SKILLS).forEach(([skillId, skill]) => {
+            if (skill.category !== this.selectedCategory) return;
+            const nodeX = baseX + skill.position.x * this.nodeSpacing;
+            const nodeY = baseY + skill.position.y * this.nodeSpacing;
+            const dist = Math.sqrt((x - nodeX) ** 2 + (y - nodeY) ** 2);
+            if (dist <= this.nodeSize / 2) {
+                if (this.skillTree.canUpgradeSkill(skillId)) {
+                    this.skillTree.upgradeSkill(skillId);
+                    soundManager.playPowerUp();
+                } else soundManager.playShieldHit();
+            }
+        });
+        
+        if (x >= CANVAS_WIDTH - 60 && x <= CANVAS_WIDTH - 20 && y >= 30 && y <= 70) this.toggle();
+        if (x >= 30 && x <= 130 && y >= CANVAS_HEIGHT - 60 && y <= CANVAS_HEIGHT - 30) {
+            this.skillTree.reset();
+            soundManager.playItemUse();
+        }
+        return true;
+    }
+    handleMouseMove(x, y) {
+        if (!this.visible) return;
+        const canvasRect = this.game.canvas.getBoundingClientRect();
+        x = (x - canvasRect.left) * (CANVAS_WIDTH / canvasRect.width);
+        y = (y - canvasRect.top) * (CANVAS_HEIGHT / canvasRect.height);
+        this.hoveredSkill = null;
+        const baseX = 200, baseY = 200;
+        Object.entries(SKILLS).forEach(([skillId, skill]) => {
+            if (skill.category !== this.selectedCategory) return;
+            const nodeX = baseX + skill.position.x * this.nodeSpacing;
+            const nodeY = baseY + skill.position.y * this.nodeSpacing;
+            if (Math.sqrt((x - nodeX) ** 2 + (y - nodeY) ** 2) <= this.nodeSize / 2) this.hoveredSkill = skillId;
+        });
+    }
+    draw(ctx) {
+        if (!this.visible) return;
+        this.animPhase += 0.03;
+        ctx.fillStyle = 'rgba(0, 0, 20, 0.95)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        ctx.save();
+        ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 20;
+        ctx.fillStyle = '#00ffff'; ctx.font = 'bold 36px "Courier New", monospace';
+        ctx.textAlign = 'center'; ctx.fillText('SKILL TREE', CANVAS_WIDTH / 2, 50);
+        ctx.restore();
+        
+        ctx.save();
+        ctx.shadowColor = '#ffff00'; ctx.shadowBlur = 10;
+        ctx.fillStyle = '#ffff00'; ctx.font = 'bold 18px "Courier New", monospace';
+        ctx.textAlign = 'right'; ctx.fillText(`Skill Points: ${this.skillTree.skillPoints}`, CANVAS_WIDTH - 30, 55);
+        ctx.restore();
+        
+        this.drawCategoryTabs(ctx);
+        this.drawSkillNodes(ctx);
+        if (this.hoveredSkill) this.drawSkillDetails(ctx, this.hoveredSkill);
+        
+        ctx.save();
+        ctx.strokeStyle = '#ff4444'; ctx.lineWidth = 3; ctx.shadowColor = '#ff4444'; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.moveTo(CANVAS_WIDTH - 55, 35); ctx.lineTo(CANVAS_WIDTH - 25, 65);
+        ctx.moveTo(CANVAS_WIDTH - 25, 35); ctx.lineTo(CANVAS_WIDTH - 55, 65); ctx.stroke();
+        ctx.restore();
+        
+        ctx.save();
+        ctx.strokeStyle = '#ff8800'; ctx.fillStyle = '#ff880030'; ctx.lineWidth = 2;
+        ctx.shadowColor = '#ff8800'; ctx.shadowBlur = 10;
+        ctx.fillRect(30, CANVAS_HEIGHT - 60, 100, 30); ctx.strokeRect(30, CANVAS_HEIGHT - 60, 100, 30);
+        ctx.fillStyle = '#ff8800'; ctx.font = '14px "Courier New", monospace';
+        ctx.textAlign = 'center'; ctx.fillText('RESET', 80, CANVAS_HEIGHT - 40);
+        ctx.restore();
+        
+        ctx.fillStyle = '#666666'; ctx.font = '12px "Courier New", monospace';
+        ctx.textAlign = 'center'; ctx.fillText('Click skills to upgrade • Press K to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
+    }
+    drawCategoryTabs(ctx) {
+        const tabY = 80;
+        Object.keys(SKILL_CATEGORIES).forEach((catId, i) => {
+            const cat = SKILL_CATEGORIES[catId];
+            const tabX = 150 + i * (this.categoryTabWidth + 20);
+            const isSelected = catId === this.selectedCategory;
+            ctx.save();
+            ctx.fillStyle = isSelected ? cat.color + '40' : '#22222280';
+            ctx.strokeStyle = cat.color; ctx.lineWidth = isSelected ? 3 : 1;
+            ctx.shadowColor = cat.color; ctx.shadowBlur = isSelected ? 15 : 5;
+            ctx.beginPath(); ctx.roundRect(tabX, tabY, this.categoryTabWidth, 40, 5); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = isSelected ? '#ffffff' : cat.color;
+            ctx.font = `${isSelected ? 'bold ' : ''}14px "Courier New", monospace`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(`${cat.icon} ${cat.name}`, tabX + this.categoryTabWidth / 2, tabY + 20);
+            ctx.restore();
+        });
+    }
+    drawSkillNodes(ctx) {
+        const baseX = 200, baseY = 200;
+        const category = SKILL_CATEGORIES[this.selectedCategory];
+        Object.entries(SKILLS).forEach(([skillId, skill]) => {
+            if (skill.category !== this.selectedCategory || !skill.requires) return;
+            const nodeX = baseX + skill.position.x * this.nodeSpacing;
+            const nodeY = baseY + skill.position.y * this.nodeSpacing;
+            skill.requires.forEach(reqId => {
+                const reqSkill = SKILLS[reqId];
+                if (reqSkill.category !== this.selectedCategory) return;
+                const reqX = baseX + reqSkill.position.x * this.nodeSpacing;
+                const reqY = baseY + reqSkill.position.y * this.nodeSpacing;
+                const isUnlocked = this.skillTree.getSkillLevel(reqId) > 0;
+                ctx.save();
+                ctx.strokeStyle = isUnlocked ? category.color : '#333333'; ctx.lineWidth = 2;
+                ctx.shadowColor = isUnlocked ? category.color : 'transparent'; ctx.shadowBlur = 10;
+                ctx.setLineDash(isUnlocked ? [] : [5, 5]);
+                ctx.beginPath(); ctx.moveTo(reqX, reqY); ctx.lineTo(nodeX, nodeY); ctx.stroke();
+                ctx.restore();
+            });
+        });
+        Object.entries(SKILLS).forEach(([skillId, skill]) => {
+            if (skill.category !== this.selectedCategory) return;
+            const nodeX = baseX + skill.position.x * this.nodeSpacing;
+            const nodeY = baseY + skill.position.y * this.nodeSpacing;
+            const level = this.skillTree.getSkillLevel(skillId);
+            const canUpgrade = this.skillTree.canUpgradeSkill(skillId);
+            const isHovered = this.hoveredSkill === skillId;
+            const isMaxed = level >= skill.maxLevel;
+            let isLocked = false;
+            if (skill.requires) { for (const reqId of skill.requires) { if (this.skillTree.getSkillLevel(reqId) === 0) { isLocked = true; break; } } }
+            ctx.save();
+            let pulse = canUpgrade ? 1 + Math.sin(this.animPhase * 3) * 0.1 : 1;
+            if (isHovered) pulse *= 1.15;
+            let nodeColor = isLocked ? '#333333' : (isMaxed ? '#ffff00' : category.color);
+            ctx.shadowColor = nodeColor; ctx.shadowBlur = level > 0 ? 20 : 10;
+            ctx.fillStyle = level > 0 ? nodeColor + '40' : '#111111';
+            ctx.strokeStyle = nodeColor; ctx.lineWidth = isHovered ? 3 : 2;
+            ctx.beginPath(); ctx.arc(nodeX, nodeY, this.nodeSize / 2 * pulse, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            if (skill.maxLevel > 1) {
+                const pipRadius = 4, pipSpacing = 12;
+                const startX = nodeX - ((skill.maxLevel - 1) * pipSpacing) / 2;
+                for (let i = 0; i < skill.maxLevel; i++) {
+                    ctx.fillStyle = i < level ? '#ffffff' : '#333333';
+                    ctx.beginPath(); ctx.arc(startX + i * pipSpacing, nodeY + this.nodeSize / 2 + 10, pipRadius, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+            ctx.fillStyle = isLocked ? '#555555' : '#ffffff';
+            ctx.font = '11px "Courier New", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            const words = skill.name.split(' ');
+            if (words.length > 1 && skill.name.length > 10) {
+                ctx.fillText(words[0], nodeX, nodeY - 5);
+                ctx.fillText(words.slice(1).join(' '), nodeX, nodeY + 8);
+            } else ctx.fillText(skill.name, nodeX, nodeY);
+            ctx.restore();
+        });
+    }
+    drawSkillDetails(ctx, skillId) {
+        const skill = SKILLS[skillId];
+        const level = this.skillTree.getSkillLevel(skillId);
+        const canUpgrade = this.skillTree.canUpgradeSkill(skillId);
+        const category = SKILL_CATEGORIES[skill.category];
+        const panelX = 450, panelY = 180, panelWidth = 300, panelHeight = 200;
+        ctx.save();
+        ctx.fillStyle = '#0a0a1a'; ctx.strokeStyle = category.color; ctx.lineWidth = 2;
+        ctx.shadowColor = category.color; ctx.shadowBlur = 15;
+        ctx.beginPath(); ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 10); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = category.color; ctx.font = 'bold 18px "Courier New", monospace';
+        ctx.textAlign = 'left'; ctx.fillText(skill.name, panelX + 15, panelY + 30);
+        ctx.fillStyle = '#aaaaaa'; ctx.font = '14px "Courier New", monospace';
+        ctx.fillText(`Level: ${level} / ${skill.maxLevel}`, panelX + 15, panelY + 55);
+        ctx.fillStyle = '#ffffff'; ctx.font = '13px "Courier New", monospace';
+        ctx.fillText(skill.description, panelX + 15, panelY + 80);
+        if (level > 0) {
+            const effectText = this.formatEffect(skill.effect(level));
+            ctx.fillStyle = '#00ff00'; ctx.font = '12px "Courier New", monospace';
+            ctx.fillText(`Current: ${effectText}`, panelX + 15, panelY + 110);
+        }
+        if (level < skill.maxLevel) {
+            const cost = skill.costPerLevel[level];
+            const nextEffectText = this.formatEffect(skill.effect(level + 1));
+            ctx.fillStyle = canUpgrade ? '#ffff00' : '#ff4444'; ctx.font = '12px "Courier New", monospace';
+            ctx.fillText(`Next: ${nextEffectText}`, panelX + 15, panelY + 135);
+            ctx.fillText(`Cost: ${cost} point${cost > 1 ? 's' : ''}`, panelX + 15, panelY + 155);
+        } else {
+            ctx.fillStyle = '#ffff00'; ctx.font = 'bold 14px "Courier New", monospace';
+            ctx.fillText('MAXED OUT!', panelX + 15, panelY + 145);
+        }
+        if (skill.requires && skill.requires.length > 0) {
+            const allMet = skill.requires.every(req => this.skillTree.getSkillLevel(req) > 0);
+            ctx.fillStyle = allMet ? '#00ff00' : '#ff4444'; ctx.font = '11px "Courier New", monospace';
+            ctx.fillText(`Requires: ${skill.requires.map(req => SKILLS[req].name).join(', ')}`, panelX + 15, panelY + 180);
+        }
+        ctx.restore();
+    }
+    formatEffect(effect) {
+        const key = Object.keys(effect)[0];
+        const value = effect[key];
+        const labels = {
+            shootCooldownReduction: `${Math.round(value * 100)}% faster firing`,
+            bulletSpeedBonus: `${Math.round(value * 100)}% bullet speed`,
+            pierceChance: `${Math.round(value * 100)}% pierce chance`,
+            explosionRadius: `${value}px explosion`,
+            critChance: `${Math.round(value * 100)}% crit chance`,
+            startingLives: `+${value} starting lives`,
+            shieldDurationBonus: `${Math.round(value * 100)}% shield duration`,
+            regenInterval: `Regen every ${Math.round(value / 60)}s`,
+            spawnInvulnBonus: `+${value / 60}s spawn protection`,
+            emergencyShieldChance: `${Math.round(value * 100)}% auto-shield`,
+            magnetRangeBonus: `+${value}px magnet range`,
+            powerUpDurationBonus: `${Math.round(value * 100)}% power-up duration`,
+            scoreBonus: `+${Math.round(value * 100)}% score`,
+            dropChanceBonus: `+${Math.round(value * 100)}% drop rate`,
+            extraInventorySlots: `+${value} inventory slot${value > 1 ? 's' : ''}`,
+            xpBonus: `+${Math.round(value * 100)}% skill point gain`
+        };
+        return labels[key] || `${key}: ${value}`;
+    }
+}
+
 // ============== SOUND MANAGER CLASS ==============
 // Procedural audio using Web Audio API - no external files needed!
 class SoundManager {
@@ -1244,6 +1658,11 @@ class Game {
         
         // Engine sound state tracking
         this.wasThrusting = false;
+        
+        // Skill tree system
+        this.skillTree = new SkillTree();
+        this.skillTreeUI = new SkillTreeUI(this.skillTree, this);
+        this.regenTimer = 0;
 
         this.setupEventListeners();
         this.gameLoop();
@@ -1280,17 +1699,40 @@ class Game {
             if (e.key === 'm' || e.key === 'M') {
                 soundManager.toggleMute();
             }
+            
+            // Skill tree toggle with K key
+            if (e.key === 'k' || e.key === 'K') {
+                if (this.state === 'start' || this.state === 'playing') {
+                    this.skillTreeUI.toggle();
+                }
+            }
         });
 
         window.addEventListener('keyup', (e) => {
             this.keys[e.key] = false;
+        });
+        
+        // Mouse events for skill tree
+        this.canvas.addEventListener('click', (e) => {
+            if (this.skillTreeUI.visible) {
+                this.skillTreeUI.handleClick(e.clientX, e.clientY);
+            }
+        });
+        
+        this.canvas.addEventListener('mousemove', (e) => {
+            this.skillTreeUI.handleMouseMove(e.clientX, e.clientY);
         });
     }
 
     startGame() {
         this.state = 'playing';
         this.score = 0;
-        this.lives = 3;
+        
+        // Apply skill bonuses
+        const effects = this.skillTree.getAllEffects();
+        this.lives = 3 + (effects.startingLives || 0);
+        this.maxInventorySlots = MAX_INVENTORY_SLOTS + (effects.extraInventorySlots || 0);
+        
         this.level = 1;
         this.ship = new Ship(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, this);
         this.asteroids = [];
@@ -1381,6 +1823,13 @@ class Game {
     nextLevel() {
         this.level++;
         this.updateUI();
+        
+        // Award skill point every level (with XP boost bonus)
+        const effects = this.skillTree.getAllEffects();
+        const xpBonus = effects.xpBonus || 0;
+        const basePoints = 1;
+        const bonusPoints = Math.random() < xpBonus ? 1 : 0;
+        this.skillTree.addSkillPoints(basePoints + bonusPoints);
         
         // Check if this is a boss level
         if (BOSS_LEVELS.includes(this.level)) {
@@ -2042,6 +2491,7 @@ class Game {
 
         if (this.state === 'start') {
             this.drawStartScreen(ctx);
+            this.skillTreeUI.draw(ctx);
             ctx.restore();
             return;
         }
@@ -2090,6 +2540,9 @@ class Game {
         ctx.fillStyle = vignette;
         ctx.fillRect(-20, -20, CANVAS_WIDTH + 40, CANVAS_HEIGHT + 40);
         
+        // Draw skill tree UI overlay (if visible)
+        this.skillTreeUI.draw(ctx);
+        
         ctx.restore();
     }
 
@@ -2130,6 +2583,15 @@ class Game {
         ctx.font = '14px "Courier New", monospace';
         ctx.textAlign = 'center';
         ctx.fillText('Press M to toggle sound', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
+        
+        // Skill tree hint
+        ctx.save();
+        ctx.shadowColor = '#ffff00';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#ffff00';
+        ctx.font = '16px "Courier New", monospace';
+        ctx.fillText(`Press K for Skill Tree (${this.skillTree.skillPoints} points)`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 120);
+        ctx.restore();
         
         // Draw decorative asteroids in background
         ctx.save();
