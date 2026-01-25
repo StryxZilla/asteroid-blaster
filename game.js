@@ -1,4 +1,4 @@
-﻿// Game constants
+﻿﻿// Game constants
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const FPS = 60;
@@ -921,6 +921,555 @@ class SoundManager {
 // Global sound manager instance
 const soundManager = new SoundManager();
 
+// ============== ACHIEVEMENT SYSTEM ==============
+// Unlock achievements for milestones - persistent with localStorage
+
+const ACHIEVEMENTS = {
+    // Combat achievements
+    FIRST_BLOOD: { 
+        id: 'first_blood', 
+        name: 'First Blood', 
+        description: 'Destroy your first asteroid',
+        icon: '*',
+        color: '#ff6600',
+        secret: false
+    },
+    CENTURY: { 
+        id: 'century', 
+        name: 'Century', 
+        description: 'Score 1,000 points',
+        icon: '!',
+        color: '#ffcc00',
+        secret: false
+    },
+    HIGH_SCORER: { 
+        id: 'high_scorer', 
+        name: 'High Scorer', 
+        description: 'Score 10,000 points',
+        icon: '!!',
+        color: '#ff00ff',
+        secret: false
+    },
+    LEGENDARY: { 
+        id: 'legendary', 
+        name: 'Legendary', 
+        description: 'Score 100,000 points',
+        icon: '!!!',
+        color: '#00ffff',
+        secret: false
+    },
+    
+    // Survival achievements
+    SURVIVOR: { 
+        id: 'survivor', 
+        name: 'Survivor', 
+        description: 'Reach level 5',
+        icon: 'V',
+        color: '#00ff00',
+        secret: false
+    },
+    VETERAN: { 
+        id: 'veteran', 
+        name: 'Veteran', 
+        description: 'Reach level 10',
+        icon: 'X',
+        color: '#00ffff',
+        secret: false
+    },
+    ELITE: { 
+        id: 'elite', 
+        name: 'Elite', 
+        description: 'Reach level 20',
+        icon: 'XX',
+        color: '#ff00ff',
+        secret: false
+    },
+    
+    // Enemy achievements
+    UFO_HUNTER: { 
+        id: 'ufo_hunter', 
+        name: 'UFO Hunter', 
+        description: 'Destroy a UFO',
+        icon: '@',
+        color: '#00ff00',
+        secret: false
+    },
+    UFO_EXTERMINATOR: { 
+        id: 'ufo_exterminator', 
+        name: 'UFO Exterminator', 
+        description: 'Destroy 10 UFOs total',
+        icon: '@@',
+        color: '#88ff00',
+        secret: false
+    },
+    BOSS_SLAYER: { 
+        id: 'boss_slayer', 
+        name: 'Boss Slayer', 
+        description: 'Defeat a boss',
+        icon: 'B',
+        color: '#ff00aa',
+        secret: false
+    },
+    BOSS_MASTER: { 
+        id: 'boss_master', 
+        name: 'Boss Master', 
+        description: 'Defeat 5 bosses total',
+        icon: 'BB',
+        color: '#ff00ff',
+        secret: false
+    },
+    
+    // Collection achievements
+    COLLECTOR: { 
+        id: 'collector', 
+        name: 'Collector', 
+        description: 'Fill your inventory completely',
+        icon: '#',
+        color: '#da70d6',
+        secret: false
+    },
+    POWER_SURGE: { 
+        id: 'power_surge', 
+        name: 'Power Surge', 
+        description: 'Collect your first power-up',
+        icon: '+',
+        color: '#00ffff',
+        secret: false
+    },
+    POWER_ADDICT: { 
+        id: 'power_addict', 
+        name: 'Power Addict', 
+        description: 'Collect 50 power-ups total',
+        icon: '++',
+        color: '#ff00ff',
+        secret: false
+    },
+    
+    // Combo achievements
+    COMBO_STARTER: { 
+        id: 'combo_starter', 
+        name: 'Combo Starter', 
+        description: 'Achieve a 5x combo',
+        icon: 'C5',
+        color: '#ffff00',
+        secret: false
+    },
+    COMBO_KING: { 
+        id: 'combo_king', 
+        name: 'Combo King', 
+        description: 'Achieve a 10x combo',
+        icon: 'C10',
+        color: '#ff8800',
+        secret: false
+    },
+    COMBO_MASTER: { 
+        id: 'combo_master', 
+        name: 'Combo Master', 
+        description: 'Achieve a 25x combo',
+        icon: 'C25',
+        color: '#ff0088',
+        secret: false
+    },
+    COMBO_LEGEND: { 
+        id: 'combo_legend', 
+        name: 'Combo Legend', 
+        description: 'Achieve a 50x combo',
+        icon: 'C50',
+        color: '#00ffff',
+        secret: true
+    },
+    
+    // Skill achievements  
+    STUDENT: { 
+        id: 'student', 
+        name: 'Student', 
+        description: 'Unlock your first skill',
+        icon: 'S1',
+        color: '#88ff88',
+        secret: false
+    },
+    SKILLED: { 
+        id: 'skilled', 
+        name: 'Skilled', 
+        description: 'Unlock 5 skills',
+        icon: 'S5',
+        color: '#00ff88',
+        secret: false
+    },
+    MASTER_OF_ALL: { 
+        id: 'master_of_all', 
+        name: 'Master of All', 
+        description: 'Unlock all 16 skills',
+        icon: 'S!',
+        color: '#ffff00',
+        secret: false
+    },
+    
+    // Special achievements
+    PERFECT_LEVEL: { 
+        id: 'perfect_level', 
+        name: 'Perfect Level', 
+        description: 'Complete a level without taking damage',
+        icon: 'P',
+        color: '#ffffff',
+        secret: false
+    },
+    BOMBER: { 
+        id: 'bomber', 
+        name: 'Bomber', 
+        description: 'Use a bomb to destroy 10+ asteroids',
+        icon: '*!',
+        color: '#ff8c00',
+        secret: true
+    },
+    ASTEROID_SLAYER: { 
+        id: 'asteroid_slayer', 
+        name: 'Asteroid Slayer', 
+        description: 'Destroy 500 asteroids total',
+        icon: 'A!',
+        color: '#ff6600',
+        secret: false
+    }
+};
+
+class AchievementManager {
+    constructor() {
+        this.unlocked = {};
+        this.stats = {
+            asteroidsDestroyed: 0,
+            ufosDestroyed: 0,
+            bossesDefeated: 0,
+            powerUpsCollected: 0,
+            highestCombo: 0,
+            skillsUnlocked: 0,
+            levelsWithoutDamage: 0,
+            biggestBombKill: 0
+        };
+        this.toasts = [];
+        this.load();
+    }
+    
+    load() {
+        try {
+            const saved = localStorage.getItem('asteroids_achievements');
+            if (saved) {
+                const data = JSON.parse(saved);
+                this.unlocked = data.unlocked || {};
+                this.stats = { ...this.stats, ...data.stats };
+            }
+        } catch (e) {
+            console.warn('Failed to load achievements:', e);
+        }
+    }
+    
+    save() {
+        try {
+            localStorage.setItem('asteroids_achievements', JSON.stringify({
+                unlocked: this.unlocked,
+                stats: this.stats
+            }));
+        } catch (e) {
+            console.warn('Failed to save achievements:', e);
+        }
+    }
+    
+    isUnlocked(achievementId) {
+        return !!this.unlocked[achievementId];
+    }
+    
+    unlock(achievementKey) {
+        const achievement = ACHIEVEMENTS[achievementKey];
+        if (!achievement || this.isUnlocked(achievement.id)) return false;
+        
+        this.unlocked[achievement.id] = {
+            unlockedAt: Date.now()
+        };
+        
+        // Show toast notification
+        this.showToast(achievement);
+        
+        // Play achievement sound
+        this.playAchievementSound();
+        
+        this.save();
+        return true;
+    }
+    
+    showToast(achievement) {
+        this.toasts.push({
+            achievement: achievement,
+            timer: 300, // 5 seconds at 60fps
+            y: -60,
+            targetY: 80,
+            alpha: 0
+        });
+    }
+    
+    playAchievementSound() {
+        if (!soundManager.initialized) return;
+        soundManager.resume();
+        
+        const now = soundManager.audioContext.currentTime;
+        
+        // Triumphant fanfare for achievements
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        
+        notes.forEach((freq, i) => {
+            const osc = soundManager.audioContext.createOscillator();
+            const gain = soundManager.audioContext.createGain();
+            
+            osc.type = 'triangle';
+            osc.frequency.value = freq;
+            
+            const startTime = now + i * 0.1;
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(0.15, startTime + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.3);
+            
+            osc.connect(gain);
+            gain.connect(soundManager.masterGain);
+            
+            osc.start(startTime);
+            osc.stop(startTime + 0.35);
+        });
+        
+        // Extra sparkle on last note
+        const sparkle = soundManager.audioContext.createOscillator();
+        const sparkleGain = soundManager.audioContext.createGain();
+        sparkle.type = 'sine';
+        sparkle.frequency.setValueAtTime(2093, now + 0.35);
+        sparkle.frequency.exponentialRampToValueAtTime(4186, now + 0.5);
+        sparkleGain.gain.setValueAtTime(0.1, now + 0.35);
+        sparkleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+        sparkle.connect(sparkleGain);
+        sparkleGain.connect(soundManager.masterGain);
+        sparkle.start(now + 0.35);
+        sparkle.stop(now + 0.55);
+    }
+    
+    // Call this each frame to update toast animations
+    update() {
+        for (let i = this.toasts.length - 1; i >= 0; i--) {
+            const toast = this.toasts[i];
+            toast.timer--;
+            
+            // Slide in
+            if (toast.y < toast.targetY) {
+                toast.y += (toast.targetY - toast.y) * 0.15;
+                toast.alpha = Math.min(1, toast.alpha + 0.1);
+            }
+            
+            // Fade out near end
+            if (toast.timer < 60) {
+                toast.alpha = toast.timer / 60;
+                toast.y -= 0.5;
+            }
+            
+            if (toast.timer <= 0) {
+                this.toasts.splice(i, 1);
+            }
+        }
+    }
+    
+    draw(ctx) {
+        this.toasts.forEach((toast, index) => {
+            const achievement = toast.achievement;
+            const x = CANVAS_WIDTH / 2;
+            const y = toast.y + index * 70;
+            
+            ctx.save();
+            ctx.globalAlpha = toast.alpha;
+            
+            // Background box
+            const boxWidth = 280;
+            const boxHeight = 60;
+            
+            ctx.fillStyle = '#000000cc';
+            ctx.strokeStyle = achievement.color;
+            ctx.lineWidth = 2;
+            ctx.shadowColor = achievement.color;
+            ctx.shadowBlur = 15;
+            
+            // Rounded rectangle
+            const radius = 10;
+            ctx.beginPath();
+            ctx.moveTo(x - boxWidth/2 + radius, y - boxHeight/2);
+            ctx.lineTo(x + boxWidth/2 - radius, y - boxHeight/2);
+            ctx.quadraticCurveTo(x + boxWidth/2, y - boxHeight/2, x + boxWidth/2, y - boxHeight/2 + radius);
+            ctx.lineTo(x + boxWidth/2, y + boxHeight/2 - radius);
+            ctx.quadraticCurveTo(x + boxWidth/2, y + boxHeight/2, x + boxWidth/2 - radius, y + boxHeight/2);
+            ctx.lineTo(x - boxWidth/2 + radius, y + boxHeight/2);
+            ctx.quadraticCurveTo(x - boxWidth/2, y + boxHeight/2, x - boxWidth/2, y + boxHeight/2 - radius);
+            ctx.lineTo(x - boxWidth/2, y - boxHeight/2 + radius);
+            ctx.quadraticCurveTo(x - boxWidth/2, y - boxHeight/2, x - boxWidth/2 + radius, y - boxHeight/2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            
+            // Icon circle
+            ctx.beginPath();
+            ctx.arc(x - boxWidth/2 + 35, y, 20, 0, Math.PI * 2);
+            ctx.fillStyle = achievement.color + '40';
+            ctx.fill();
+            ctx.strokeStyle = achievement.color;
+            ctx.stroke();
+            
+            // Icon text
+            ctx.fillStyle = achievement.color;
+            ctx.font = 'bold 14px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(achievement.icon, x - boxWidth/2 + 35, y);
+            
+            // "ACHIEVEMENT UNLOCKED" header
+            ctx.fillStyle = '#888888';
+            ctx.font = '10px "Courier New", monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText('ACHIEVEMENT UNLOCKED', x - boxWidth/2 + 65, y - 15);
+            
+            // Achievement name
+            ctx.fillStyle = achievement.color;
+            ctx.font = 'bold 16px "Courier New", monospace';
+            ctx.fillText(achievement.name, x - boxWidth/2 + 65, y + 2);
+            
+            // Description
+            ctx.fillStyle = '#aaaaaa';
+            ctx.font = '11px "Courier New", monospace';
+            ctx.fillText(achievement.description, x - boxWidth/2 + 65, y + 18);
+            
+            ctx.restore();
+        });
+    }
+    
+    // Track stats and check for cumulative achievements
+    trackAsteroidDestroyed() {
+        this.stats.asteroidsDestroyed++;
+        
+        if (this.stats.asteroidsDestroyed === 1) {
+            this.unlock('FIRST_BLOOD');
+        }
+        if (this.stats.asteroidsDestroyed >= 500) {
+            this.unlock('ASTEROID_SLAYER');
+        }
+        
+        this.save();
+    }
+    
+    trackUfoDestroyed() {
+        this.stats.ufosDestroyed++;
+        
+        if (this.stats.ufosDestroyed === 1) {
+            this.unlock('UFO_HUNTER');
+        }
+        if (this.stats.ufosDestroyed >= 10) {
+            this.unlock('UFO_EXTERMINATOR');
+        }
+        
+        this.save();
+    }
+    
+    trackBossDefeated() {
+        this.stats.bossesDefeated++;
+        
+        if (this.stats.bossesDefeated === 1) {
+            this.unlock('BOSS_SLAYER');
+        }
+        if (this.stats.bossesDefeated >= 5) {
+            this.unlock('BOSS_MASTER');
+        }
+        
+        this.save();
+    }
+    
+    trackPowerUpCollected() {
+        this.stats.powerUpsCollected++;
+        
+        if (this.stats.powerUpsCollected === 1) {
+            this.unlock('POWER_SURGE');
+        }
+        if (this.stats.powerUpsCollected >= 50) {
+            this.unlock('POWER_ADDICT');
+        }
+        
+        this.save();
+    }
+    
+    trackCombo(comboCount) {
+        if (comboCount > this.stats.highestCombo) {
+            this.stats.highestCombo = comboCount;
+            this.save();
+        }
+        
+        if (comboCount >= 5) this.unlock('COMBO_STARTER');
+        if (comboCount >= 10) this.unlock('COMBO_KING');
+        if (comboCount >= 25) this.unlock('COMBO_MASTER');
+        if (comboCount >= 50) this.unlock('COMBO_LEGEND');
+    }
+    
+    trackScore(score) {
+        if (score >= 1000) this.unlock('CENTURY');
+        if (score >= 10000) this.unlock('HIGH_SCORER');
+        if (score >= 100000) this.unlock('LEGENDARY');
+    }
+    
+    trackLevel(level) {
+        if (level >= 5) this.unlock('SURVIVOR');
+        if (level >= 10) this.unlock('VETERAN');
+        if (level >= 20) this.unlock('ELITE');
+    }
+    
+    trackSkillUnlocked(totalSkills) {
+        this.stats.skillsUnlocked = totalSkills;
+        
+        if (totalSkills >= 1) this.unlock('STUDENT');
+        if (totalSkills >= 5) this.unlock('SKILLED');
+        if (totalSkills >= 16) this.unlock('MASTER_OF_ALL');
+        
+        this.save();
+    }
+    
+    trackInventoryFull() {
+        this.unlock('COLLECTOR');
+    }
+    
+    trackPerfectLevel() {
+        this.unlock('PERFECT_LEVEL');
+    }
+    
+    trackBombKill(asteroidCount) {
+        if (asteroidCount > this.stats.biggestBombKill) {
+            this.stats.biggestBombKill = asteroidCount;
+            this.save();
+        }
+        
+        if (asteroidCount >= 10) {
+            this.unlock('BOMBER');
+        }
+    }
+    
+    getUnlockedCount() {
+        return Object.keys(this.unlocked).length;
+    }
+    
+    getTotalCount() {
+        return Object.keys(ACHIEVEMENTS).length;
+    }
+    
+    // Get all achievements with unlock status for display
+    getAllAchievements() {
+        return Object.entries(ACHIEVEMENTS).map(([key, ach]) => ({
+            ...ach,
+            key: key,
+            unlocked: this.isUnlocked(ach.id),
+            unlockedAt: this.unlocked[ach.id]?.unlockedAt
+        }));
+    }
+}
+
+// Global achievement manager instance
+const achievementManager = new AchievementManager();
+
+
 // ============== STARFIELD CLASS ==============
 class StarField {
     constructor() {
@@ -1760,6 +2309,7 @@ class Game {
         this.level++;
         this.spawnAsteroids(3 + this.level);
         this.updateUI();
+        achievementManager.trackLevel(this.level);
         this.triggerFlash('#00ff00', 0.2);
         
         // Start level complete celebration
@@ -1814,6 +2364,7 @@ class Game {
     addScore(points) {
         this.score += points * this.scoreMultiplier;
         this.updateUI();
+        achievementManager.trackScore(this.score);
     }
 
     spawnPowerUp(x, y) {
@@ -1864,6 +2415,10 @@ class Game {
             this.inventory.push(item.type);
             this.updateInventoryUI();
             soundManager.playItemCollect();
+            // Check if inventory is now full
+            if (this.inventory.length >= MAX_INVENTORY_SLOTS) {
+                achievementManager.trackInventoryFull();
+            }
             return true;
         }
         return false;
@@ -1885,6 +2440,8 @@ class Game {
                 break;
 
             case 'BOMB':
+                // Track asteroid count for achievement
+                const bombKillCount = this.asteroids.length;
                 // Destroy all asteroids
                 this.asteroids.forEach(asteroid => {
                     this.createExplosion(asteroid.x, asteroid.y, asteroid.size * 8);
@@ -1901,6 +2458,7 @@ class Game {
                 this.screenShake.trigger(30);
                 this.triggerFlash('#ff8c00', 0.5);
                 soundManager.playBomb();
+                achievementManager.trackBombKill(bombKillCount);
                 used = true;
                 break;
 
@@ -2066,6 +2624,9 @@ class Game {
         // Update transitions
         this.transitionManager.update();
         
+        // Update achievement toasts
+        achievementManager.update();
+        
         // Get slow-mo factor from transitions
         const slowMo = this.transitionManager.getSlowMoFactor();
         
@@ -2194,6 +2755,7 @@ class Game {
                     this.spawnPowerUp(asteroid.x, asteroid.y);
                     this.spawnItem(asteroid.x, asteroid.y, asteroid.size);
                     this.asteroids.splice(j, 1);
+                    achievementManager.trackAsteroidDestroyed();
                     break;
                 }
             }
@@ -2214,6 +2776,7 @@ class Game {
                     this.spawnUfoLoot(ufo.x, ufo.y);
                     this.ufos.splice(j, 1);
                     this.triggerFlash(COLORS.ufoPrimary, 0.2);
+                    achievementManager.trackUfoDestroyed();
                     break;
                 }
             }
@@ -2308,6 +2871,7 @@ class Game {
                     this.ship.activatePowerUp(this.powerUps[i].type);
                     this.triggerFlash(POWERUP_TYPES[this.powerUps[i].type].color, 0.2);
                     soundManager.playPowerUp();
+                    achievementManager.trackPowerUpCollected();
                     this.powerUps.splice(i, 1);
                 }
             }
@@ -2393,6 +2957,9 @@ class Game {
         
         // Draw transition overlays
         this.transitionManager.draw(ctx);
+        
+        // Draw achievement toasts
+        achievementManager.draw(ctx);
         
         // Vignette effect
         const vignette = ctx.createRadialGradient(
@@ -3556,3 +4123,4 @@ class Item {
 window.addEventListener('DOMContentLoaded', () => {
     new Game();
 });
+
