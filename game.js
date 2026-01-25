@@ -4347,7 +4347,7 @@ class Game {
             ctx.textAlign = 'center';
             ctx.fillText(`+${this.comboCount}`, this.lastKillX, floatY);
             ctx.restore();
-        }        }
+        }
         
         // Draw mobile touch controls overlay
         if (this.touchControls) {
@@ -6112,3 +6112,4 @@ SoundManager.prototype.playLoadSound = function() {
 window.addEventListener('DOMContentLoaded', () => {
     new Game();
 });
+
