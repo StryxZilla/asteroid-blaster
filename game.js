@@ -3030,8 +3030,9 @@ class BulletImpactSpark {
 // Virtual joystick and fire button for touch devices
 
 class TouchControlManager {
-    constructor(canvas) {
+    constructor(canvas, game = null) {
         this.canvas = canvas;
+        this.game = game;  // Reference to game for tap-to-start
         this.isTouchDevice = this.detectTouch();
         this.enabled = this.isTouchDevice;
         
@@ -3111,6 +3112,33 @@ class TouchControlManager {
     
     handleTouchStart(e) {
         e.preventDefault();
+        
+        // Initialize audio on first touch (required for mobile browsers)
+        soundManager.init();
+        soundManager.resume();
+        musicManager.init();
+        
+        // Handle tap-to-start on title/game over screens
+        if (this.game) {
+            if (this.game.state === 'start') {
+                this.game.startGame();
+                return;
+            }
+            if (this.game.state === 'gameover') {
+                // Handle initials entry - tap to confirm
+                if (this.game.isEnteringInitials) {
+                    if (this.game.initials.length === 0) {
+                        this.game.initials = 'AAA';
+                    }
+                    highScoreManager.addScore(this.game.initials, this.game.score, this.game.level);
+                    this.game.isEnteringInitials = false;
+                    soundManager.playItemCollect();
+                } else {
+                    this.game.startGame();
+                }
+                return;
+            }
+        }
         
         for (const touch of e.changedTouches) {
             const pos = this.getTouchPos(touch);
@@ -3395,7 +3423,7 @@ class Game {
         this.showHelp = false;
 
                 // Mobile touch controls
-        this.touchControls = new TouchControlManager(this.canvas);
+        this.touchControls = new TouchControlManager(this.canvas, this);
 
         this.setupEventListeners();
         this.gameLoop();
