@@ -438,7 +438,7 @@ class SkillTreeUI {
         ctx.restore();
         
         ctx.fillStyle = '#666666'; ctx.font = '12px "Courier New", monospace';
-        ctx.textAlign = 'center'; ctx.fillText('Click skills to upgrade Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•Î“Ã¶Â¼â”œâ”‚ Press K to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
+        ctx.textAlign = 'center'; ctx.fillText('Click skills to upgrade | Press K or ESC to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
     }
     drawCategoryTabs(ctx) {
         const tabY = 80;
@@ -3357,17 +3357,19 @@ class Game {
             
             // Visual feedback - show item name
             const itemInfo = ITEM_TYPES[item.type];
-            this.showFloatingText(`+${itemInfo.name}`, item.x, item.y, itemInfo.color);
-            this.triggerFlash(itemInfo.color, 0.15);
-            
-            // Spawn collection particles
-            for (let i = 0; i < 8; i++) {
-                const angle = (i / 8) * Math.PI * 2;
-                this.particles.push(new Particle(
-                    item.x, item.y,
-                    Math.cos(angle) * 3, Math.sin(angle) * 3,
-                    itemInfo.color, 20
-                ));
+            if (itemInfo) {
+                this.showFloatingText(`+${itemInfo.name}`, item.x, item.y, itemInfo.color);
+                this.triggerFlash(itemInfo.color, 0.15);
+                
+                // Spawn collection particles
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i / 8) * Math.PI * 2;
+                    this.particles.push(new Particle(
+                        item.x, item.y,
+                        Math.cos(angle) * 3, Math.sin(angle) * 3,
+                        itemInfo.color, 20
+                    ));
+                }
             }
             return true;
         } else {
@@ -3617,7 +3619,7 @@ class Game {
         }
 
         if (this.state !== 'playing' && this.state !== 'paused') return;
-        if (this.state === 'paused') return; // Pause freezes gameplay
+        if (this.state === 'paused' || this.showHelp) return; // Pause freezes gameplay
 
         this.updateItemEffects();
         this.updateCombo();
