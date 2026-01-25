@@ -1,4 +1,4 @@
-﻿// Game constants
+// Game constants
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const FPS = 60;
@@ -2933,6 +2933,9 @@ class Game {
         this.isEnteringInitials = false;
         this.newHighScoreRank = 0;
         this.initials = '';
+        
+        // Help popup state
+        this.showHelp = false;
 
                 // Mobile touch controls
         this.touchControls = new TouchControlManager(this.canvas);
@@ -3002,9 +3005,19 @@ class Game {
                 }
             }
             
+            // Help toggle with H key
+            if (e.key === 'h' || e.key === 'H') {
+                if (this.state === 'start' || this.state === 'playing' || this.state === 'paused') {
+                    this.showHelp = !this.showHelp;
+                    soundManager.playItemUse();
+                }
+            }
+            
             // Save/Load controls and Pause
             if (e.key === 'Escape') {
-                if (this.saveLoadUI.visible) {
+                if (this.showHelp) {
+                    this.showHelp = false;
+                } else if (this.saveLoadUI.visible) {
                     this.saveLoadUI.close();
                 } else if (this.skillTreeUI.visible) {
                     this.skillTreeUI.toggle();
@@ -3963,7 +3976,119 @@ class Game {
         // Draw save/load UI overlay (if visible)
         this.saveLoadUI.draw(ctx);
         
+        // Draw help popup (if visible)
+        if (this.showHelp) {
+            this.drawHelpScreen(ctx);
+        }
+        
         ctx.restore();
+    }
+    
+    drawHelpScreen(ctx) {
+        // Semi-transparent overlay
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        // Help box
+        const boxWidth = 700;
+        const boxHeight = 500;
+        const boxX = (CANVAS_WIDTH - boxWidth) / 2;
+        const boxY = (CANVAS_HEIGHT - boxHeight) / 2;
+        
+        // Box background
+        ctx.fillStyle = '#0a0020';
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+        ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+        
+        // Title
+        ctx.save();
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 15;
+        ctx.fillStyle = '#00ffff';
+        ctx.font = 'bold 28px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('HELP & CONTROLS', CANVAS_WIDTH / 2, boxY + 40);
+        ctx.restore();
+        
+        let y = boxY + 80;
+        const leftCol = boxX + 30;
+        const rightCol = boxX + 370;
+        
+        // Controls section
+        ctx.fillStyle = '#ffff00';
+        ctx.font = 'bold 16px "Courier New", monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText('CONTROLS', leftCol, y);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '14px "Courier New", monospace';
+        y += 25;
+        ctx.fillText('Arrow Keys / WASD - Move ship', leftCol, y);
+        y += 20;
+        ctx.fillText('SPACE - Shoot', leftCol, y);
+        y += 20;
+        ctx.fillText('1-5 - Use inventory item', leftCol, y);
+        y += 20;
+        ctx.fillText('M - Toggle sound effects', leftCol, y);
+        y += 20;
+        ctx.fillText('N - Toggle music', leftCol, y);
+        y += 20;
+        ctx.fillText('K - Skill tree', leftCol, y);
+        y += 20;
+        ctx.fillText('P / ESC - Pause', leftCol, y);
+        y += 20;
+        ctx.fillText('H - This help screen', leftCol, y);
+        
+        // Powerups section
+        y = boxY + 80;
+        ctx.fillStyle = '#ff00ff';
+        ctx.font = 'bold 16px "Courier New", monospace';
+        ctx.fillText('POWER-UPS (auto-activate)', rightCol, y);
+        
+        ctx.font = '14px "Courier New", monospace';
+        y += 25;
+        Object.entries(POWERUP_TYPES).forEach(([key, powerup]) => {
+            ctx.fillStyle = powerup.color;
+            ctx.fillText(`${powerup.symbol} - ${powerup.name}`, rightCol, y);
+            y += 20;
+        });
+        
+        // Items section
+        y += 15;
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 16px "Courier New", monospace';
+        ctx.fillText('ITEMS (press 1-5 to use)', rightCol, y);
+        
+        ctx.font = '14px "Courier New", monospace';
+        y += 25;
+        Object.entries(ITEM_TYPES).forEach(([key, item]) => {
+            ctx.fillStyle = item.color;
+            ctx.fillText(`${item.symbol} - ${item.name}: ${item.description}`, rightCol, y);
+            y += 20;
+        });
+        
+        // Tips section
+        y = boxY + 380;
+        ctx.fillStyle = '#00ff00';
+        ctx.font = 'bold 16px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('TIPS', CANVAS_WIDTH / 2, y);
+        
+        ctx.fillStyle = '#aaaaaa';
+        ctx.font = '13px "Courier New", monospace';
+        y += 25;
+        ctx.fillText('Destroy asteroids to collect power-ups and items', CANVAS_WIDTH / 2, y);
+        y += 18;
+        ctx.fillText('Items go to inventory - press 1-5 to use them!', CANVAS_WIDTH / 2, y);
+        y += 18;
+        ctx.fillText('Build combos for score multipliers', CANVAS_WIDTH / 2, y);
+        
+        // Close instruction
+        ctx.fillStyle = '#888888';
+        ctx.font = '14px "Courier New", monospace';
+        ctx.fillText('Press H or ESC to close', CANVAS_WIDTH / 2, boxY + boxHeight - 20);
     }
 
     drawStartScreen(ctx) {
@@ -4013,14 +4138,23 @@ class Game {
         ctx.fillText(`Press K for Skill Tree (${this.skillTree.skillPoints} points)`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 120);
         ctx.restore();
         
+        // Help hint
+        ctx.save();
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = '#00ffff';
+        ctx.font = '14px "Courier New", monospace';
+        ctx.fillText('Press H for Help & Controls', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 145);
+        ctx.restore();
+        
         // Load game hint (if saves exist)
         if (this.saveLoadUI.saveManager.hasSaves()) {
             ctx.save();
             ctx.shadowColor = '#00ff88';
             ctx.shadowBlur = 10;
             ctx.fillStyle = '#00ff88';
-            ctx.font = '16px "Courier New", monospace';
-            ctx.fillText('Press L to Load Saved Game', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 150);
+            ctx.font = '14px "Courier New", monospace';
+            ctx.fillText('Press L to Load Saved Game', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 168);
             ctx.restore();
         }
         
@@ -4199,11 +4333,13 @@ class Game {
             ctx.font = '20px "Courier New", monospace';
             ctx.fillText('Enter your initials:', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
             
-            // Draw initials boxes
+            // Draw initials boxes - properly centered
             const boxWidth = 40;
-            const startX = CANVAS_WIDTH / 2 - boxWidth * 1.5;
+            const boxGap = 10;
+            const totalWidth = boxWidth * 3 + boxGap * 2; // 140px total
+            const startX = CANVAS_WIDTH / 2 - totalWidth / 2;
             for (let i = 0; i < 3; i++) {
-                const x = startX + i * (boxWidth + 10);
+                const x = startX + i * (boxWidth + boxGap);
                 const y = CANVAS_HEIGHT / 2 + 75;
                 
                 // Box background
