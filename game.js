@@ -32,6 +32,15 @@ const UFO_SHOOT_INTERVAL = 90; // 1.5 seconds
 const UFO_BULLET_SPEED = 4;
 const UFO_POINTS = 500;
 
+// Boss constants
+const BOSS_LEVELS = [5, 10, 15, 20, 25, 30];
+const BOSS_SIZE = 60;
+const BOSS_BASE_HEALTH = 10;
+const BOSS_HEALTH_PER_TIER = 3;
+const BOSS_POINTS = 2000;
+const BOSS_SHOOT_INTERVAL = 60;
+const BOSS_BULLET_SPEED = 3.5;
+
 // Color palette - Neon cyberpunk theme
 const COLORS = {
     shipPrimary: '#00ffff',
@@ -66,11 +75,11 @@ const POWERUP_TYPES = {
 
 // Inventory item types
 const ITEM_TYPES = {
-    REPAIR_KIT: { name: 'Repair Kit', color: '#ff6b6b', symbol: '♥', description: 'Restore 1 life', rarity: 0.15 },
-    BOMB: { name: 'Bomb', color: '#ff8c00', symbol: '✸', description: 'Destroy all asteroids', rarity: 0.10 },
-    FREEZE: { name: 'Freeze', color: '#87ceeb', symbol: '❄', description: 'Freeze asteroids for 5s', rarity: 0.20 },
-    MAGNET: { name: 'Magnet', color: '#da70d6', symbol: '⊛', description: 'Attract items for 10s', rarity: 0.25 },
-    SCORE_BOOST: { name: 'Score x2', color: '#ffd700', symbol: '★', description: 'Double points for 15s', rarity: 0.30 }
+    REPAIR_KIT: { name: 'Repair Kit', color: '#ff6b6b', symbol: 'â™¥', description: 'Restore 1 life', rarity: 0.15 },
+    BOMB: { name: 'Bomb', color: '#ff8c00', symbol: 'âœ¸', description: 'Destroy all asteroids', rarity: 0.10 },
+    FREEZE: { name: 'Freeze', color: '#87ceeb', symbol: 'â„', description: 'Freeze asteroids for 5s', rarity: 0.20 },
+    MAGNET: { name: 'Magnet', color: '#da70d6', symbol: 'âŠ›', description: 'Attract items for 10s', rarity: 0.25 },
+    SCORE_BOOST: { name: 'Score x2', color: '#ffd700', symbol: 'â˜…', description: 'Double points for 15s', rarity: 0.30 }
 };
 
 const MAX_INVENTORY_SLOTS = 5;
@@ -435,7 +444,7 @@ class SoundManager {
         const lfoGain = this.audioContext.createGain();
         lfo.type = 'sine';
         lfo.frequency.value = 8; // 8 Hz wobble
-        lfoGain.gain.value = 10; // ±10 Hz variation
+        lfoGain.gain.value = 10; // Â±10 Hz variation
         
         lfo.connect(lfoGain);
         lfoGain.connect(this.engineOscillator.frequency);
@@ -1191,6 +1200,10 @@ class Game {
         this.ufos = [];
         this.enemyBullets = [];
         this.ufoSpawnTimer = this.getRandomUfoSpawnTime();
+        
+        // Boss system
+        this.boss = null;
+        this.bossLevel = false;
 
         // Visual systems
         this.starField = new StarField();
@@ -1274,6 +1287,8 @@ class Game {
         this.ufos = [];
         this.enemyBullets = [];
         this.ufoSpawnTimer = this.getRandomUfoSpawnTime();
+        this.boss = null;
+        this.bossLevel = false;
         this.magnetActive = false;
         this.magnetTimer = 0;
         this.scoreMultiplier = 1;
@@ -1344,12 +1359,20 @@ class Game {
 
     nextLevel() {
         this.level++;
-        this.spawnAsteroids(3 + this.level);
         this.updateUI();
-        this.triggerFlash('#00ff00', 0.2);
         
-        // Play level complete fanfare
-        soundManager.playLevelComplete();
+        // Check if this is a boss level
+        if (BOSS_LEVELS.includes(this.level)) {
+            this.bossLevel = true;
+            this.boss = new Boss(this);
+            this.triggerFlash('#ff0066', 0.4);
+            // Don't play normal level complete - boss appear sound plays instead
+        } else {
+            this.bossLevel = false;
+            this.spawnAsteroids(3 + this.level);
+            this.triggerFlash('#00ff00', 0.2);
+            soundManager.playLevelComplete();
+        }
     }
 
     updateUI() {
@@ -1726,10 +1749,23 @@ class Game {
         
         // Remove UFOs that went off-screen
         this.ufos = this.ufos.filter(ufo => !ufo.offScreen);
+        
+        // Update boss
+        if (this.boss) {
+            this.boss.update();
+            if (this.boss.isFinished()) {
+                this.boss = null;
+                this.bossLevel = false;
+                // After boss defeat, continue to next level
+                this.nextLevel();
+                return;
+            }
+        }
 
         this.checkCollisions();
 
-        if (this.asteroids.length === 0) {
+        // Level completion: no asteroids AND no active boss
+        if (this.asteroids.length === 0 && !this.boss && !this.bossLevel) {
             this.nextLevel();
         }
     }
@@ -1779,6 +1815,20 @@ class Game {
                     this.spawnUfoLoot(ufo.x, ufo.y);
                     this.ufos.splice(j, 1);
                     this.triggerFlash(COLORS.ufoPrimary, 0.2);
+                    break;
+                }
+            }
+        }
+        
+        // Bullet vs Boss
+        if (this.boss && !this.boss.defeated && !this.boss.entering) {
+            for (let i = this.bullets.length - 1; i >= 0; i--) {
+                if (this.circleCollision(
+                    this.bullets[i].x, this.bullets[i].y, 4,
+                    this.boss.x, this.boss.y, BOSS_SIZE
+                )) {
+                    this.bullets.splice(i, 1);
+                    this.boss.takeDamage();
                     break;
                 }
             }
@@ -1938,6 +1988,7 @@ class Game {
         this.powerUps.forEach(powerUp => powerUp.draw(ctx));
         this.asteroids.forEach(asteroid => asteroid.draw(ctx));
         this.ufos.forEach(ufo => ufo.draw(ctx));
+        if (this.boss) this.boss.draw(ctx);
         this.enemyBullets.forEach(bullet => bullet.draw(ctx));
         this.bullets.forEach(bullet => bullet.draw(ctx));
         
@@ -3113,6 +3164,562 @@ class Item {
         }
     }
 }
+
+// ============== BOSS CLASS ==============
+class Boss {
+    constructor(game) {
+        this.game = game;
+        this.x = CANVAS_WIDTH / 2;
+        this.y = -BOSS_SIZE * 2;
+        
+        this.tier = Math.ceil(game.level / 5);
+        this.maxHealth = BOSS_BASE_HEALTH + (this.tier - 1) * BOSS_HEALTH_PER_TIER;
+        this.health = this.maxHealth;
+        
+        this.targetY = 100;
+        this.vx = 0;
+        this.vy = 0;
+        this.movePhase = Math.random() * Math.PI * 2;
+        this.entering = true;
+        
+        this.rotation = 0;
+        this.pulsePhase = 0;
+        this.coreRotation = 0;
+        this.damageFlash = 0;
+        
+        this.shootTimer = 120;
+        this.attackPattern = 0;
+        this.burstCount = 0;
+        
+        this.defeated = false;
+        this.deathAnimation = 0;
+        
+        soundManager.playBossAppear();
+    }
+    
+    update() {
+        if (this.defeated) {
+            this.updateDeathAnimation();
+            return;
+        }
+        
+        if (this.entering) {
+            this.y += 2;
+            if (this.y >= this.targetY) {
+                this.y = this.targetY;
+                this.entering = false;
+            }
+            this.pulsePhase += 0.1;
+            this.coreRotation += 0.02;
+            return;
+        }
+        
+        this.movePhase += 0.015;
+        const moveX = Math.sin(this.movePhase) * 200;
+        const moveY = Math.sin(this.movePhase * 2) * 30;
+        
+        this.x = CANVAS_WIDTH / 2 + moveX;
+        this.y = this.targetY + moveY;
+        
+        this.rotation += 0.01;
+        this.pulsePhase += 0.05;
+        this.coreRotation += 0.03;
+        
+        if (this.damageFlash > 0) this.damageFlash -= 0.1;
+        
+        this.updateAttacks();
+    }
+    
+    updateAttacks() {
+        if (this.entering || !this.game.ship) return;
+        
+        this.shootTimer--;
+        
+        if (this.shootTimer <= 0) {
+            switch (this.attackPattern) {
+                case 0: this.attackSpiral(); break;
+                case 1: this.attackSpread(); break;
+                case 2: this.attackTargeted(); break;
+                case 3: this.attackRing(); break;
+            }
+        }
+    }
+    
+    attackSpiral() {
+        this.burstCount++;
+        const angle = this.burstCount * 0.3 + Math.PI / 2;
+        this.fireBullet(angle);
+        soundManager.playBossLaser();
+        
+        if (this.burstCount >= 20) {
+            this.burstCount = 0;
+            this.attackPattern = (this.attackPattern + 1) % 4;
+            this.shootTimer = 90;
+        } else {
+            this.shootTimer = 4;
+        }
+    }
+    
+    attackSpread() {
+        const spreadCount = 5 + this.tier;
+        const spreadAngle = Math.PI / 3;
+        const startAngle = Math.PI / 2 - spreadAngle / 2;
+        
+        for (let i = 0; i < spreadCount; i++) {
+            const angle = startAngle + (i / (spreadCount - 1)) * spreadAngle;
+            this.fireBullet(angle);
+        }
+        soundManager.playBossLaser();
+        
+        this.burstCount++;
+        if (this.burstCount >= 3) {
+            this.burstCount = 0;
+            this.attackPattern = (this.attackPattern + 1) % 4;
+            this.shootTimer = 90;
+        } else {
+            this.shootTimer = 30;
+        }
+    }
+    
+    attackTargeted() {
+        if (!this.game.ship) return;
+        
+        const dx = this.game.ship.x - this.x;
+        const dy = this.game.ship.y - this.y;
+        const angle = Math.atan2(dy, dx);
+        
+        for (let i = -1; i <= 1; i++) {
+            this.fireBullet(angle + i * 0.1, BOSS_BULLET_SPEED * 1.3);
+        }
+        soundManager.playBossLaser();
+        
+        this.burstCount++;
+        if (this.burstCount >= 4) {
+            this.burstCount = 0;
+            this.attackPattern = (this.attackPattern + 1) % 4;
+            this.shootTimer = 90;
+        } else {
+            this.shootTimer = 20;
+        }
+    }
+    
+    attackRing() {
+        const bulletCount = 12 + this.tier * 2;
+        for (let i = 0; i < bulletCount; i++) {
+            const angle = (i / bulletCount) * Math.PI * 2;
+            this.fireBullet(angle);
+        }
+        soundManager.playBossLaser();
+        
+        this.burstCount++;
+        if (this.burstCount >= 2) {
+            this.burstCount = 0;
+            this.attackPattern = (this.attackPattern + 1) % 4;
+            this.shootTimer = 120;
+        } else {
+            this.shootTimer = 40;
+        }
+    }
+    
+    fireBullet(angle, speed = BOSS_BULLET_SPEED) {
+        this.game.enemyBullets.push(new BossBullet(this.x, this.y, angle, speed, this.game));
+    }
+    
+    takeDamage() {
+        if (this.entering || this.defeated) return false;
+        
+        this.health--;
+        this.damageFlash = 1;
+        this.game.screenShake.trigger(8);
+        soundManager.playBossHit();
+        
+        if (this.health <= 0) {
+            this.defeat();
+            return true;
+        }
+        return false;
+    }
+    
+    defeat() {
+        this.defeated = true;
+        this.deathAnimation = 0;
+        this.game.addScore(BOSS_POINTS);
+        this.game.screenShake.trigger(40);
+        soundManager.playBossDefeat();
+    }
+    
+    updateDeathAnimation() {
+        this.deathAnimation++;
+        
+        if (this.deathAnimation % 8 === 0 && this.deathAnimation < 80) {
+            const offsetX = (Math.random() - 0.5) * BOSS_SIZE * 1.5;
+            const offsetY = (Math.random() - 0.5) * BOSS_SIZE * 1.5;
+            this.game.createExplosion(this.x + offsetX, this.y + offsetY, 15);
+        }
+        
+        if (this.deathAnimation === 80) {
+            this.game.createExplosion(this.x, this.y, 50);
+            this.game.triggerFlash('#ff8800', 0.6);
+            
+            for (let i = 0; i < 3; i++) {
+                const types = Object.keys(POWERUP_TYPES);
+                const randomType = types[Math.floor(Math.random() * types.length)];
+                const ox = (Math.random() - 0.5) * 60;
+                const oy = (Math.random() - 0.5) * 60;
+                this.game.powerUps.push(new PowerUp(this.x + ox, this.y + oy, randomType, this.game));
+            }
+            
+            const itemTypes = Object.keys(ITEM_TYPES);
+            for (let i = 0; i < 2; i++) {
+                const randomItem = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+                const ox = (Math.random() - 0.5) * 40;
+                const oy = (Math.random() - 0.5) * 40;
+                this.game.items.push(new Item(this.x + ox, this.y + oy, randomItem, this.game));
+            }
+        }
+    }
+    
+    isFinished() {
+        return this.defeated && this.deathAnimation > 100;
+    }
+    
+    draw(ctx) {
+        if (this.defeated && this.deathAnimation > 80) return;
+        
+        const pulse = 1 + Math.sin(this.pulsePhase) * 0.05;
+        const flash = this.damageFlash;
+        
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        
+        if (!this.entering && !this.defeated) {
+            this.drawHealthBar(ctx);
+        }
+        
+        ctx.scale(pulse, pulse);
+        
+        const glowColor = flash > 0 ? '#ffffff' : '#ff0066';
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 30 + Math.sin(this.pulsePhase * 2) * 10;
+        
+        ctx.save();
+        ctx.rotate(this.rotation);
+        
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, BOSS_SIZE);
+        if (flash > 0) {
+            gradient.addColorStop(0, '#ffffff');
+            gradient.addColorStop(0.5, '#ff6688');
+            gradient.addColorStop(1, '#cc0044');
+        } else {
+            gradient.addColorStop(0, '#660033');
+            gradient.addColorStop(0.5, '#990044');
+            gradient.addColorStop(1, '#330022');
+        }
+        
+        ctx.fillStyle = gradient;
+        ctx.strokeStyle = flash > 0 ? '#ffffff' : '#ff0066';
+        ctx.lineWidth = 3;
+        
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+            const x = Math.cos(angle) * BOSS_SIZE;
+            const y = Math.sin(angle) * BOSS_SIZE;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        ctx.strokeStyle = '#ff3366';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 6; i++) {
+            const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(angle) * BOSS_SIZE * 0.8, Math.sin(angle) * BOSS_SIZE * 0.8);
+            ctx.stroke();
+        }
+        
+        ctx.restore();
+        
+        ctx.save();
+        ctx.rotate(-this.coreRotation * 2);
+        
+        const coreGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, BOSS_SIZE * 0.4);
+        coreGradient.addColorStop(0, '#ff88aa');
+        coreGradient.addColorStop(0.5, '#ff0066');
+        coreGradient.addColorStop(1, '#880033');
+        
+        ctx.fillStyle = coreGradient;
+        ctx.beginPath();
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const r = BOSS_SIZE * (i % 2 === 0 ? 0.4 : 0.25);
+            const x = Math.cos(angle) * r;
+            const y = Math.sin(angle) * r;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowBlur = 20;
+        ctx.beginPath();
+        ctx.arc(0, 0, BOSS_SIZE * 0.12, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+        
+        for (let i = 0; i < 4; i++) {
+            const orbitAngle = this.rotation * 3 + (i / 4) * Math.PI * 2;
+            const orbitRadius = BOSS_SIZE * 0.7;
+            const orbX = Math.cos(orbitAngle) * orbitRadius;
+            const orbY = Math.sin(orbitAngle) * orbitRadius;
+            
+            ctx.fillStyle = '#ff3366';
+            ctx.shadowColor = '#ff0066';
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(orbX, orbY, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        ctx.restore();
+    }
+    
+    drawHealthBar(ctx) {
+        const barWidth = BOSS_SIZE * 2;
+        const barHeight = 8;
+        const barY = -BOSS_SIZE - 25;
+        
+        ctx.fillStyle = '#330022';
+        ctx.fillRect(-barWidth / 2, barY, barWidth, barHeight);
+        
+        const healthPercent = this.health / this.maxHealth;
+        const healthColor = healthPercent > 0.5 ? '#ff0066' : (healthPercent > 0.25 ? '#ff6600' : '#ff0000');
+        ctx.fillStyle = healthColor;
+        ctx.shadowColor = healthColor;
+        ctx.shadowBlur = 10;
+        ctx.fillRect(-barWidth / 2, barY, barWidth * healthPercent, barHeight);
+        
+        ctx.strokeStyle = '#ff3366';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-barWidth / 2, barY, barWidth, barHeight);
+        
+        ctx.fillStyle = '#ff3366';
+        ctx.font = 'bold 14px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.shadowBlur = 5;
+        ctx.fillText(`MOTHERSHIP MK${this.tier}`, 0, barY - 8);
+    }
+}
+
+// ============== BOSS BULLET CLASS ==============
+class BossBullet {
+    constructor(x, y, angle, speed, game) {
+        this.x = x;
+        this.y = y;
+        this.game = game;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        this.lifetime = 180;
+        this.pulsePhase = Math.random() * Math.PI * 2;
+        this.trailCounter = 0;
+    }
+    
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.lifetime--;
+        this.pulsePhase += 0.2;
+        this.trailCounter++;
+        
+        if (this.trailCounter % 4 === 0) {
+            this.game.trailParticles.push(new TrailParticle(
+                this.x, this.y, '#ff0066', 2, 10, -this.vx * 0.05, -this.vy * 0.05
+            ));
+        }
+        
+        if (this.x < 0) this.x = CANVAS_WIDTH;
+        if (this.x > CANVAS_WIDTH) this.x = 0;
+        if (this.y < 0) this.y = CANVAS_HEIGHT;
+        if (this.y > CANVAS_HEIGHT) this.y = 0;
+    }
+    
+    draw(ctx) {
+        const pulse = 1 + Math.sin(this.pulsePhase) * 0.3;
+        
+        ctx.save();
+        
+        ctx.shadowColor = '#ff0066';
+        ctx.shadowBlur = 15;
+        ctx.fillStyle = '#ff0066';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 5 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.shadowBlur = 5;
+        ctx.fillStyle = '#ffaacc';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 2.5 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+    }
+}
+
+// ============== BOSS SOUND METHODS ==============
+SoundManager.prototype.playBossAppear = function() {
+    if (!this.initialized) return;
+    this.resume();
+    
+    const now = this.audioContext.currentTime;
+    
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(60, now);
+    osc.frequency.exponentialRampToValueAtTime(200, now + 1);
+    
+    const filter = this.audioContext.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(200, now);
+    filter.frequency.exponentialRampToValueAtTime(800, now + 1);
+    
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.3, now + 0.5);
+    gain.gain.linearRampToValueAtTime(0.1, now + 1);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 1.5);
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+    
+    osc.start(now);
+    osc.stop(now + 1.5);
+    
+    const klaxon = this.audioContext.createOscillator();
+    const klaxonGain = this.audioContext.createGain();
+    
+    klaxon.type = 'square';
+    klaxon.frequency.setValueAtTime(440, now);
+    klaxon.frequency.setValueAtTime(330, now + 0.3);
+    klaxon.frequency.setValueAtTime(440, now + 0.6);
+    klaxon.frequency.setValueAtTime(330, now + 0.9);
+    
+    klaxonGain.gain.setValueAtTime(0.15, now);
+    klaxonGain.gain.setValueAtTime(0.05, now + 0.25);
+    klaxonGain.gain.setValueAtTime(0.15, now + 0.3);
+    klaxonGain.gain.setValueAtTime(0.05, now + 0.55);
+    klaxonGain.gain.setValueAtTime(0.15, now + 0.6);
+    klaxonGain.gain.setValueAtTime(0.05, now + 0.85);
+    klaxonGain.gain.setValueAtTime(0.15, now + 0.9);
+    klaxonGain.gain.exponentialRampToValueAtTime(0.01, now + 1.2);
+    
+    klaxon.connect(klaxonGain);
+    klaxonGain.connect(this.masterGain);
+    
+    klaxon.start(now);
+    klaxon.stop(now + 1.2);
+};
+
+SoundManager.prototype.playBossLaser = function() {
+    if (!this.initialized) return;
+    this.resume();
+    
+    const now = this.audioContext.currentTime;
+    
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(400, now);
+    osc.frequency.exponentialRampToValueAtTime(150, now + 0.1);
+    
+    gain.gain.setValueAtTime(0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+    
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    
+    osc.start(now);
+    osc.stop(now + 0.1);
+};
+
+SoundManager.prototype.playBossHit = function() {
+    if (!this.initialized) return;
+    this.resume();
+    
+    const now = this.audioContext.currentTime;
+    
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, now);
+    osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
+    
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+    
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    
+    osc.start(now);
+    osc.stop(now + 0.2);
+    
+    const clang = this.audioContext.createOscillator();
+    const clangGain = this.audioContext.createGain();
+    
+    clang.type = 'triangle';
+    clang.frequency.setValueAtTime(800, now);
+    clang.frequency.exponentialRampToValueAtTime(400, now + 0.1);
+    
+    clangGain.gain.setValueAtTime(0.15, now);
+    clangGain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+    
+    clang.connect(clangGain);
+    clangGain.connect(this.masterGain);
+    
+    clang.start(now);
+    clang.stop(now + 0.15);
+};
+
+SoundManager.prototype.playBossDefeat = function() {
+    if (!this.initialized) return;
+    this.resume();
+    
+    const now = this.audioContext.currentTime;
+    
+    for (let i = 0; i < 5; i++) {
+        setTimeout(() => this.playExplosion(3), i * 150);
+    }
+    
+    const notes = [523.25, 659.25, 783.99, 1046.50];
+    notes.forEach((freq, i) => {
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
+        
+        osc.type = 'square';
+        osc.frequency.value = freq;
+        
+        const startTime = now + 0.8 + i * 0.12;
+        
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.2, startTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.3);
+        
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        
+        osc.start(startTime);
+        osc.stop(startTime + 0.3);
+    });
+};
 
 // Initialize game
 window.addEventListener('DOMContentLoaded', () => {
