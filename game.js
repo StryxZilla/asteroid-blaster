@@ -1,4 +1,4 @@
-﻿// Game constants
+// Game constants
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const FPS = 60;
@@ -1615,6 +1615,111 @@ class SoundManager {
         
         noise.start(now);
         noise.stop(now + 0.1);
+    }
+    
+    // === BOSS PHASE CHANGE ===
+    // Dramatic phase transition sound (rising ominous chord)
+    playBossPhaseChange() {
+        if (!this.initialized) return;
+        this.resume();
+        
+        const now = this.audioContext.currentTime;
+        
+        // Ominous rising chord
+        const frequencies = [220, 277, 330]; // A3, C#4, E4 (A major)
+        
+        frequencies.forEach((freq, i) => {
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+            
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(freq * 0.5, now);
+            osc.frequency.linearRampToValueAtTime(freq, now + 0.3);
+            
+            const delay = i * 0.05;
+            gain.gain.setValueAtTime(0, now + delay);
+            gain.gain.linearRampToValueAtTime(0.15, now + delay + 0.1);
+            gain.gain.setValueAtTime(0.15, now + 0.3);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+            
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+            
+            osc.start(now + delay);
+            osc.stop(now + 0.5);
+        });
+        
+        // Sub bass impact
+        const subOsc = this.audioContext.createOscillator();
+        const subGain = this.audioContext.createGain();
+        
+        subOsc.type = 'sine';
+        subOsc.frequency.value = 55;
+        
+        subGain.gain.setValueAtTime(0.3, now);
+        subGain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+        
+        subOsc.connect(subGain);
+        subGain.connect(this.masterGain);
+        
+        subOsc.start(now);
+        subOsc.stop(now + 0.4);
+    }
+    
+    // === BOSS ENRAGE (Phase 3) ===
+    // Intense alarm-like sound for RAGE MODE
+    playBossEnrage() {
+        if (!this.initialized) return;
+        this.resume();
+        
+        const now = this.audioContext.currentTime;
+        
+        // Alarm siren sweep
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
+        
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(110, now);
+        osc.frequency.linearRampToValueAtTime(440, now + 0.15);
+        osc.frequency.linearRampToValueAtTime(110, now + 0.3);
+        osc.frequency.linearRampToValueAtTime(550, now + 0.45);
+        
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.setValueAtTime(0.25, now + 0.4);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+        
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        
+        osc.start(now);
+        osc.stop(now + 0.6);
+        
+        // Distorted bass hit
+        const bassOsc = this.audioContext.createOscillator();
+        const bassGain = this.audioContext.createGain();
+        const distortion = this.audioContext.createWaveShaper();
+        
+        // Simple distortion curve
+        const curve = new Float32Array(256);
+        for (let i = 0; i < 256; i++) {
+            const x = (i - 128) / 128;
+            curve[i] = Math.tanh(x * 3);
+        }
+        distortion.curve = curve;
+        
+        bassOsc.type = 'square';
+        bassOsc.frequency.setValueAtTime(55, now);
+        bassOsc.frequency.linearRampToValueAtTime(27.5, now + 0.3);
+        
+        bassGain.gain.setValueAtTime(0.4, now);
+        bassGain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+        
+        bassOsc.connect(distortion);
+        distortion.connect(bassGain);
+        bassGain.connect(this.masterGain);
+        
+        bassOsc.start(now);
+        bassOsc.stop(now + 0.4);
     }
     
     // === LEVEL COMPLETE FANFARE ===
@@ -3827,6 +3932,20 @@ class Game {
                         soundManager.playShieldHit();
                         this.triggerFlash(COLORS.ufoPrimary, 0.1);
                     }
+                }
+            }
+        }
+
+        // Ship vs Boss Laser (phase 2+ attack)
+        if (this.ship && !this.ship.invulnerable && this.boss && this.boss.checkLaserCollision) {
+            if (this.boss.checkLaserCollision(this.ship)) {
+                if (!this.ship.hasShield) {
+                    this.createExplosion(this.ship.x, this.ship.y, 25);
+                    this.ship = null;
+                    this.loseLife();
+                } else {
+                    soundManager.playShieldHit();
+                    this.triggerFlash('#ff0000', 0.3);
                 }
             }
         }
