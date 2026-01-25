@@ -164,6 +164,398 @@ class HighScoreManager {
 
 const highScoreManager = new HighScoreManager();
 
+// ============== ACHIEVEMENT SYSTEM ==============
+// Persistent achievements with animated unlock notifications
+
+const ACHIEVEMENT_CATEGORIES = {
+    COMBAT: { name: 'Combat', color: '#ff4444', icon: '!' },
+    SURVIVAL: { name: 'Survival', color: '#44ff44', icon: 'O' },
+    MASTERY: { name: 'Mastery', color: '#ffff44', icon: '*' },
+    COLLECTOR: { name: 'Collector', color: '#ff44ff', icon: '$' }
+};
+
+const ACHIEVEMENTS = {
+    // Combat achievements
+    FIRST_BLOOD: {
+        id: 'FIRST_BLOOD', category: 'COMBAT', name: 'First Blood',
+        description: 'Destroy your first asteroid', icon: '!',
+        check: (stats) => stats.totalKills >= 1, secret: false
+    },
+    SHARPSHOOTER: {
+        id: 'SHARPSHOOTER', category: 'COMBAT', name: 'Sharpshooter',
+        description: 'Destroy 100 asteroids', icon: '!!',
+        check: (stats) => stats.totalKills >= 100, secret: false
+    },
+    ANNIHILATOR: {
+        id: 'ANNIHILATOR', category: 'COMBAT', name: 'Annihilator',
+        description: 'Destroy 1,000 asteroids', icon: '!!!',
+        check: (stats) => stats.totalKills >= 1000, secret: false
+    },
+    UFO_HUNTER: {
+        id: 'UFO_HUNTER', category: 'COMBAT', name: 'UFO Hunter',
+        description: 'Destroy your first UFO', icon: '@',
+        check: (stats) => stats.ufosDestroyed >= 1, secret: false
+    },
+    ALIEN_EXTERMINATOR: {
+        id: 'ALIEN_EXTERMINATOR', category: 'COMBAT', name: 'Alien Exterminator',
+        description: 'Destroy 50 UFOs', icon: '@@',
+        check: (stats) => stats.ufosDestroyed >= 50, secret: false
+    },
+    BOSS_SLAYER: {
+        id: 'BOSS_SLAYER', category: 'COMBAT', name: 'Boss Slayer',
+        description: 'Defeat your first boss', icon: '#',
+        check: (stats) => stats.bossesDefeated >= 1, secret: false
+    },
+    BOSS_HUNTER: {
+        id: 'BOSS_HUNTER', category: 'COMBAT', name: 'Boss Hunter',
+        description: 'Defeat 5 bosses', icon: '##',
+        check: (stats) => stats.bossesDefeated >= 5, secret: false
+    },
+    BOSS_DOMINATOR: {
+        id: 'BOSS_DOMINATOR', category: 'COMBAT', name: 'Boss Dominator',
+        description: 'Defeat 10 bosses', icon: '###',
+        check: (stats) => stats.bossesDefeated >= 10, secret: false
+    },
+
+    // Mastery achievements (combos)
+    COMBO_STARTER: {
+        id: 'COMBO_STARTER', category: 'MASTERY', name: 'Combo Starter',
+        description: 'Get a 5x combo', icon: 'x5',
+        check: (stats) => stats.highestCombo >= 5, secret: false
+    },
+    COMBO_MASTER: {
+        id: 'COMBO_MASTER', category: 'MASTERY', name: 'Combo Master',
+        description: 'Get a 10x combo', icon: 'x10',
+        check: (stats) => stats.highestCombo >= 10, secret: false
+    },
+    COMBO_LEGEND: {
+        id: 'COMBO_LEGEND', category: 'MASTERY', name: 'Combo Legend',
+        description: 'Get a 25x combo', icon: 'x25',
+        check: (stats) => stats.highestCombo >= 25, secret: false
+    },
+    COMBO_GOD: {
+        id: 'COMBO_GOD', category: 'MASTERY', name: 'Combo God',
+        description: 'Get a 50x combo', icon: 'x50',
+        check: (stats) => stats.highestCombo >= 50, secret: true
+    },
+
+    // Survival achievements
+    SURVIVOR: {
+        id: 'SURVIVOR', category: 'SURVIVAL', name: 'Survivor',
+        description: 'Reach level 5', icon: 'L5',
+        check: (stats) => stats.highestLevel >= 5, secret: false
+    },
+    VETERAN: {
+        id: 'VETERAN', category: 'SURVIVAL', name: 'Veteran',
+        description: 'Reach level 10', icon: 'L10',
+        check: (stats) => stats.highestLevel >= 10, secret: false
+    },
+    ELITE: {
+        id: 'ELITE', category: 'SURVIVAL', name: 'Elite Pilot',
+        description: 'Reach level 25', icon: 'L25',
+        check: (stats) => stats.highestLevel >= 25, secret: false
+    },
+    IMMORTAL: {
+        id: 'IMMORTAL', category: 'SURVIVAL', name: 'Immortal',
+        description: 'Complete a level without taking damage', icon: '<>',
+        check: (stats) => stats.perfectLevels >= 1, secret: false
+    },
+
+    // Collector/Score achievements
+    SCORE_10K: {
+        id: 'SCORE_10K', category: 'COLLECTOR', name: 'Rising Star',
+        description: 'Score 10,000 points', icon: '$',
+        check: (stats) => stats.highestScore >= 10000, secret: false
+    },
+    SCORE_100K: {
+        id: 'SCORE_100K', category: 'COLLECTOR', name: 'Score Master',
+        description: 'Score 100,000 points', icon: '$$',
+        check: (stats) => stats.highestScore >= 100000, secret: false
+    },
+    SCORE_1M: {
+        id: 'SCORE_1M', category: 'COLLECTOR', name: 'Millionaire',
+        description: 'Score 1,000,000 points', icon: '$$$',
+        check: (stats) => stats.highestScore >= 1000000, secret: true
+    },
+    HOARDER: {
+        id: 'HOARDER', category: 'COLLECTOR', name: 'Hoarder',
+        description: 'Fill all 5 inventory slots', icon: '[5]',
+        check: (stats) => stats.maxInventoryFilled >= 5, secret: false
+    },
+    POWER_COLLECTOR: {
+        id: 'POWER_COLLECTOR', category: 'COLLECTOR', name: 'Power Collector',
+        description: 'Collect 100 power-ups', icon: 'P!',
+        check: (stats) => stats.powerUpsCollected >= 100, secret: false
+    }
+};
+
+class AchievementManager {
+    constructor() {
+        this.storageKey = 'asteroids_neon_achievements';
+        this.statsKey = 'asteroids_neon_stats';
+        this.unlocked = this.loadUnlocked();
+        this.stats = this.loadStats();
+        this.pendingNotifications = [];
+        this.activeNotification = null;
+    }
+
+    loadUnlocked() {
+        try {
+            const data = localStorage.getItem(this.storageKey);
+            return data ? JSON.parse(data) : {};
+        } catch (e) {
+            console.warn('Failed to load achievements:', e);
+            return {};
+        }
+    }
+
+    loadStats() {
+        try {
+            const data = localStorage.getItem(this.statsKey);
+            return data ? JSON.parse(data) : this.getDefaultStats();
+        } catch (e) {
+            return this.getDefaultStats();
+        }
+    }
+
+    getDefaultStats() {
+        return {
+            totalKills: 0,
+            ufosDestroyed: 0,
+            bossesDefeated: 0,
+            highestCombo: 0,
+            highestLevel: 0,
+            highestScore: 0,
+            perfectLevels: 0,
+            maxInventoryFilled: 0,
+            powerUpsCollected: 0,
+            gamesPlayed: 0,
+            totalPlayTime: 0
+        };
+    }
+
+    save() {
+        try {
+            localStorage.setItem(this.storageKey, JSON.stringify(this.unlocked));
+            localStorage.setItem(this.statsKey, JSON.stringify(this.stats));
+        } catch (e) {
+            console.warn('Failed to save achievements:', e);
+        }
+    }
+
+    // Update stats and check for new achievements
+    updateStats(newStats) {
+        let changed = false;
+        for (const key in newStats) {
+            if (newStats[key] > (this.stats[key] || 0)) {
+                this.stats[key] = newStats[key];
+                changed = true;
+            }
+        }
+        if (changed) {
+            this.checkAchievements();
+            this.save();
+        }
+    }
+
+    // Increment a stat
+    incrementStat(statName, amount = 1) {
+        this.stats[statName] = (this.stats[statName] || 0) + amount;
+        this.checkAchievements();
+        this.save();
+    }
+
+    checkAchievements() {
+        for (const id in ACHIEVEMENTS) {
+            if (!this.unlocked[id] && ACHIEVEMENTS[id].check(this.stats)) {
+                this.unlock(id);
+            }
+        }
+    }
+
+    unlock(achievementId) {
+        if (this.unlocked[achievementId]) return;
+        
+        this.unlocked[achievementId] = {
+            unlockedAt: Date.now(),
+            date: new Date().toISOString().split('T')[0]
+        };
+        this.save();
+
+        // Queue notification
+        const achievement = ACHIEVEMENTS[achievementId];
+        this.pendingNotifications.push(achievement);
+    }
+
+    // Get next notification to display
+    getNextNotification() {
+        if (this.activeNotification) return null;
+        if (this.pendingNotifications.length === 0) return null;
+        this.activeNotification = this.pendingNotifications.shift();
+        return this.activeNotification;
+    }
+
+    clearActiveNotification() {
+        this.activeNotification = null;
+    }
+
+    isUnlocked(achievementId) {
+        return !!this.unlocked[achievementId];
+    }
+
+    getUnlockedCount() {
+        return Object.keys(this.unlocked).length;
+    }
+
+    getTotalCount() {
+        return Object.keys(ACHIEVEMENTS).length;
+    }
+
+    getProgress() {
+        return `${this.getUnlockedCount()}/${this.getTotalCount()}`;
+    }
+
+    getAllAchievements() {
+        return Object.values(ACHIEVEMENTS).map(a => ({
+            ...a,
+            unlocked: this.isUnlocked(a.id),
+            unlockedAt: this.unlocked[a.id]?.date
+        }));
+    }
+
+    getStats() {
+        return { ...this.stats };
+    }
+}
+
+// Achievement notification display
+class AchievementNotification {
+    constructor() {
+        this.current = null;
+        this.timer = 0;
+        this.phase = 'none'; // 'slidein', 'display', 'slideout', 'none'
+        this.y = -80;
+        this.displayTime = 180; // 3 seconds
+        this.slideSpeed = 4;
+    }
+
+    show(achievement) {
+        this.current = achievement;
+        this.phase = 'slidein';
+        this.y = -80;
+        this.timer = 0;
+    }
+
+    update() {
+        if (!this.current) return;
+
+        switch (this.phase) {
+            case 'slidein':
+                this.y += this.slideSpeed;
+                if (this.y >= 20) {
+                    this.y = 20;
+                    this.phase = 'display';
+                    this.timer = this.displayTime;
+                }
+                break;
+            case 'display':
+                this.timer--;
+                if (this.timer <= 0) {
+                    this.phase = 'slideout';
+                }
+                break;
+            case 'slideout':
+                this.y -= this.slideSpeed;
+                if (this.y <= -80) {
+                    this.current = null;
+                    this.phase = 'none';
+                    achievementManager.clearActiveNotification();
+                }
+                break;
+        }
+    }
+
+    draw(ctx) {
+        if (!this.current) return;
+
+        const achievement = this.current;
+        const category = ACHIEVEMENT_CATEGORIES[achievement.category];
+        const x = CANVAS_WIDTH / 2;
+        const width = 280;
+        const height = 60;
+
+        ctx.save();
+
+        // Background panel with glow
+        ctx.shadowColor = category.color;
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = 'rgba(0, 0, 20, 0.9)';
+        ctx.strokeStyle = category.color;
+        ctx.lineWidth = 2;
+
+        // Rounded rectangle
+        const rx = x - width / 2;
+        const ry = this.y;
+        const r = 10;
+        ctx.beginPath();
+        ctx.moveTo(rx + r, ry);
+        ctx.lineTo(rx + width - r, ry);
+        ctx.quadraticCurveTo(rx + width, ry, rx + width, ry + r);
+        ctx.lineTo(rx + width, ry + height - r);
+        ctx.quadraticCurveTo(rx + width, ry + height, rx + width - r, ry + height);
+        ctx.lineTo(rx + r, ry + height);
+        ctx.quadraticCurveTo(rx, ry + height, rx, ry + height - r);
+        ctx.lineTo(rx, ry + r);
+        ctx.quadraticCurveTo(rx, ry, rx + r, ry);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Icon circle
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(rx + 35, this.y + height / 2, 20, 0, Math.PI * 2);
+        ctx.fillStyle = category.color + '33';
+        ctx.fill();
+        ctx.strokeStyle = category.color;
+        ctx.stroke();
+
+        // Icon text
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = category.color;
+        ctx.font = 'bold 12px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(achievement.icon, rx + 35, this.y + height / 2);
+
+        // "ACHIEVEMENT UNLOCKED"
+        ctx.fillStyle = '#888888';
+        ctx.font = '10px "Courier New", monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText('ACHIEVEMENT UNLOCKED', rx + 65, this.y + 18);
+
+        // Achievement name
+        ctx.fillStyle = category.color;
+        ctx.font = 'bold 14px "Courier New", monospace';
+        ctx.fillText(achievement.name, rx + 65, this.y + 35);
+
+        // Description
+        ctx.fillStyle = '#aaaaaa';
+        ctx.font = '11px "Courier New", monospace';
+        ctx.fillText(achievement.description, rx + 65, this.y + 50);
+
+        ctx.restore();
+    }
+
+    isActive() {
+        return this.current !== null;
+    }
+}
+
+const achievementManager = new AchievementManager();
+const achievementNotification = new AchievementNotification();
+
+
 // ============== SKILL TREE SYSTEM ==============
 // Persistent progression with unlockable abilities
 
@@ -5214,10 +5606,7 @@ class Bullet {
     }
 }
 
-// ============== POWERUP CLASS - AAA VISUAL OVERHAUL ==============
-// Geometry Wars-inspired powerup visuals with particle auras, 
-// unique shapes per type, orbital particles, and dynamic animations
-
+// ============== POWERUP CLASS ==============
 class PowerUp {
     constructor(x, y, type, game) {
         this.x = x;
@@ -5227,45 +5616,10 @@ class PowerUp {
         this.lifetime = POWERUP_LIFETIME;
         this.pulsePhase = 0;
         this.rotationPhase = 0;
-        this.spawnTime = 0;
 
         const angle = Math.random() * Math.PI * 2;
         this.vx = Math.cos(angle) * 0.3;
         this.vy = Math.sin(angle) * 0.3;
-        
-        // === AAA VISUAL ENHANCEMENTS ===
-        // Orbital particles - small particles that orbit the powerup
-        this.orbitals = [];
-        this.initOrbitals();
-        
-        // Aura particles - emanate outward periodically
-        this.auraParticles = [];
-        this.auraTimer = 0;
-        
-        // Type-specific animation phases
-        this.typePhase = Math.random() * Math.PI * 2;
-        this.sparklePhase = 0;
-        
-        // Entrance animation
-        this.spawnScale = 0;
-        this.isSpawning = true;
-    }
-    
-    initOrbitals() {
-        // Create 3-6 orbital particles based on powerup type
-        const orbitalCount = this.type === 'SHIELD' ? 6 : 
-                            this.type === 'TRIPLE_SHOT' ? 3 : 
-                            this.type === 'RAPID_FIRE' ? 5 : 4;
-        
-        for (let i = 0; i < orbitalCount; i++) {
-            this.orbitals.push({
-                angle: (i / orbitalCount) * Math.PI * 2,
-                distance: POWERUP_SIZE + 8,
-                speed: 0.03 + Math.random() * 0.02,
-                size: 2 + Math.random() * 2,
-                phase: Math.random() * Math.PI * 2
-            });
-        }
     }
 
     update() {
@@ -5273,441 +5627,65 @@ class PowerUp {
         this.y += this.vy;
         this.lifetime--;
         this.pulsePhase += 0.1;
-        this.rotationPhase += 0.03;
-        this.typePhase += 0.08;
-        this.sparklePhase += 0.15;
-        this.spawnTime++;
-        
-        // Spawn animation
-        if (this.isSpawning) {
-            this.spawnScale = Math.min(1, this.spawnScale + 0.08);
-            if (this.spawnScale >= 1) this.isSpawning = false;
-        }
-        
-        // Update orbital particles
-        this.orbitals.forEach(orbital => {
-            orbital.angle += orbital.speed;
-            orbital.phase += 0.1;
-        });
-        
-        // Spawn aura particles periodically
-        this.auraTimer++;
-        if (this.auraTimer >= 8) {
-            this.auraTimer = 0;
-            this.spawnAuraParticle();
-        }
-        
-        // Update aura particles
-        this.auraParticles = this.auraParticles.filter(p => {
-            p.x += p.vx;
-            p.y += p.vy;
-            p.life--;
-            p.alpha = p.life / p.maxLife;
-            p.size *= 0.97;
-            return p.life > 0;
-        });
+        this.rotationPhase += 0.02;
 
-        // Screen wrap
         if (this.x < 0) this.x = CANVAS_WIDTH;
         if (this.x > CANVAS_WIDTH) this.x = 0;
         if (this.y < 0) this.y = CANVAS_HEIGHT;
         if (this.y > CANVAS_HEIGHT) this.y = 0;
     }
-    
-    spawnAuraParticle() {
-        const powerUpInfo = POWERUP_TYPES[this.type];
-        const angle = Math.random() * Math.PI * 2;
-        const speed = 0.5 + Math.random() * 1;
-        
-        this.auraParticles.push({
-            x: this.x,
-            y: this.y,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            size: 3 + Math.random() * 3,
-            color: powerUpInfo.color,
-            life: 30 + Math.random() * 20,
-            maxLife: 50,
-            alpha: 1
-        });
-    }
 
     draw(ctx) {
         const powerUpInfo = POWERUP_TYPES[this.type];
-        const basePulse = Math.sin(this.pulsePhase) * 3 + POWERUP_SIZE;
-        const pulse = basePulse * this.spawnScale;
-        
+        const pulse = Math.sin(this.pulsePhase) * 3 + POWERUP_SIZE;
+
         ctx.save();
-        
-        // Draw aura particles behind main powerup
-        this.auraParticles.forEach(p => {
-            ctx.save();
-            ctx.globalAlpha = p.alpha * 0.6;
-            ctx.fillStyle = p.color;
-            ctx.shadowColor = p.color;
-            ctx.shadowBlur = 8;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-        });
-        
         ctx.translate(this.x, this.y);
-        
-        // Scale for spawn animation
-        ctx.scale(this.spawnScale, this.spawnScale);
-        
-        // === OUTER ROTATING EFFECTS ===
-        this.drawOuterEffects(ctx, powerUpInfo, pulse);
-        
-        // === ORBITAL PARTICLES ===
-        this.drawOrbitals(ctx, powerUpInfo);
-        
-        // === TYPE-SPECIFIC INNER SHAPE ===
-        ctx.save();
         ctx.rotate(this.rotationPhase);
-        this.drawTypeShape(ctx, powerUpInfo, pulse);
-        ctx.restore();
-        
-        // === CENTRAL CORE ===
-        this.drawCore(ctx, powerUpInfo, pulse);
-        
-        // === SPARKLE HIGHLIGHTS ===
-        this.drawSparkles(ctx, powerUpInfo);
-        
+
+        // Outer ring glow
+        ctx.shadowColor = powerUpInfo.color;
+        ctx.shadowBlur = 20;
+        ctx.strokeStyle = powerUpInfo.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, pulse + 3, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Inner filled circle
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, pulse);
+        gradient.addColorStop(0, powerUpInfo.color);
+        gradient.addColorStop(1, powerUpInfo.color + '40');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, pulse - 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Symbol
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 14px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(powerUpInfo.symbol, 0, 1);
+
         ctx.restore();
 
         // Warning flicker when expiring
         if (this.lifetime < 120) {
-            const flicker = Math.sin(this.lifetime * 0.5) > 0;
+            const flicker = Math.sin(this.lifetime * 0.3) > 0;
             if (flicker) {
                 ctx.save();
-                ctx.strokeStyle = powerUpInfo.color;
-                ctx.globalAlpha = 0.3 + Math.sin(this.lifetime * 0.3) * 0.2;
-                ctx.lineWidth = 2;
-                ctx.setLineDash([5, 5]);
+                ctx.strokeStyle = powerUpInfo.color + '60';
+                ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, POWERUP_SIZE + 15, 0, Math.PI * 2);
+                ctx.arc(this.x, this.y, POWERUP_SIZE + 10, 0, Math.PI * 2);
                 ctx.stroke();
                 ctx.restore();
             }
         }
     }
-    
-    drawOuterEffects(ctx, powerUpInfo, pulse) {
-        // Rotating dashed outer ring
-        ctx.save();
-        ctx.rotate(this.rotationPhase * 2);
-        ctx.strokeStyle = powerUpInfo.color + '60';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 6]);
-        ctx.beginPath();
-        ctx.arc(0, 0, pulse + 10, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-        
-        // Pulsing secondary ring
-        const ringPulse = 1 + Math.sin(this.pulsePhase * 1.5) * 0.3;
-        ctx.save();
-        ctx.rotate(-this.rotationPhase);
-        ctx.strokeStyle = powerUpInfo.color + '40';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([2, 8]);
-        ctx.beginPath();
-        ctx.arc(0, 0, (pulse + 6) * ringPulse, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-    }
-    
-    drawOrbitals(ctx, powerUpInfo) {
-        this.orbitals.forEach((orbital, i) => {
-            const ox = Math.cos(orbital.angle) * orbital.distance;
-            const oy = Math.sin(orbital.angle) * orbital.distance;
-            const sizePulse = orbital.size * (1 + Math.sin(orbital.phase) * 0.3);
-            
-            ctx.save();
-            ctx.shadowColor = powerUpInfo.color;
-            ctx.shadowBlur = 10;
-            ctx.fillStyle = powerUpInfo.color;
-            ctx.beginPath();
-            ctx.arc(ox, oy, sizePulse, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Orbital trail
-            ctx.globalAlpha = 0.3;
-            const trailAngle = orbital.angle - orbital.speed * 8;
-            for (let t = 0; t < 3; t++) {
-                const ta = orbital.angle - orbital.speed * (t + 1) * 3;
-                const tx = Math.cos(ta) * orbital.distance;
-                const ty = Math.sin(ta) * orbital.distance;
-                ctx.globalAlpha = 0.2 - t * 0.06;
-                ctx.beginPath();
-                ctx.arc(tx, ty, sizePulse * (0.8 - t * 0.2), 0, Math.PI * 2);
-                ctx.fill();
-            }
-            ctx.restore();
-        });
-    }
-    
-    drawTypeShape(ctx, powerUpInfo, pulse) {
-        ctx.shadowColor = powerUpInfo.color;
-        ctx.shadowBlur = 20;
-        
-        switch(this.type) {
-            case 'SHIELD':
-                // Hexagonal shield pattern
-                this.drawHexagonShield(ctx, powerUpInfo, pulse);
-                break;
-            case 'RAPID_FIRE':
-                // Bullet burst pattern
-                this.drawRapidFireBurst(ctx, powerUpInfo, pulse);
-                break;
-            case 'TRIPLE_SHOT':
-                // Three-way split pattern
-                this.drawTripleShotPattern(ctx, powerUpInfo, pulse);
-                break;
-            case 'SPEED_BOOST':
-                // Speed lines/chevrons
-                this.drawSpeedChevrons(ctx, powerUpInfo, pulse);
-                break;
-            case 'EXTRA_LIFE':
-                // Heart/plus pattern
-                this.drawExtraLifeHeart(ctx, powerUpInfo, pulse);
-                break;
-        }
-    }
-    
-    drawHexagonShield(ctx, powerUpInfo, pulse) {
-        // Layered hexagons
-        for (let layer = 0; layer < 2; layer++) {
-            const size = pulse - layer * 4;
-            ctx.save();
-            ctx.rotate(layer * 0.5);
-            ctx.strokeStyle = layer === 0 ? powerUpInfo.color : powerUpInfo.color + '80';
-            ctx.lineWidth = 2 - layer * 0.5;
-            ctx.beginPath();
-            for (let i = 0; i < 6; i++) {
-                const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
-                const x = Math.cos(angle) * size;
-                const y = Math.sin(angle) * size;
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            }
-            ctx.closePath();
-            ctx.stroke();
-            ctx.restore();
-        }
-        
-        // Inner shield glow
-        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, pulse);
-        gradient.addColorStop(0, powerUpInfo.color + '60');
-        gradient.addColorStop(0.7, powerUpInfo.color + '20');
-        gradient.addColorStop(1, 'transparent');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(0, 0, pulse, 0, Math.PI * 2);
-        ctx.fill();
-    }
-    
-    drawRapidFireBurst(ctx, powerUpInfo, pulse) {
-        // Radiating bullet shapes
-        const bulletCount = 8;
-        for (let i = 0; i < bulletCount; i++) {
-            const angle = (i / bulletCount) * Math.PI * 2;
-            const burstPhase = (this.typePhase + i * 0.5) % (Math.PI * 2);
-            const burstDist = 3 + Math.sin(burstPhase) * 3;
-            
-            ctx.save();
-            ctx.rotate(angle);
-            ctx.translate(burstDist, 0);
-            
-            // Bullet shape
-            ctx.fillStyle = powerUpInfo.color;
-            ctx.beginPath();
-            ctx.ellipse(0, 0, 4, 2, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-        }
-        
-        // Center circle
-        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, pulse * 0.6);
-        gradient.addColorStop(0, powerUpInfo.color);
-        gradient.addColorStop(1, powerUpInfo.color + '40');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(0, 0, pulse * 0.5, 0, Math.PI * 2);
-        ctx.fill();
-    }
-    
-    drawTripleShotPattern(ctx, powerUpInfo, pulse) {
-        // Three diverging lines
-        ctx.strokeStyle = powerUpInfo.color;
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        
-        for (let i = 0; i < 3; i++) {
-            const baseAngle = -Math.PI / 2;
-            const spreadAngle = (i - 1) * 0.4; // -0.4, 0, 0.4 spread
-            const angle = baseAngle + spreadAngle;
-            
-            const animOffset = Math.sin(this.typePhase + i) * 2;
-            
-            ctx.save();
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(
-                Math.cos(angle) * (pulse + animOffset),
-                Math.sin(angle) * (pulse + animOffset)
-            );
-            ctx.stroke();
-            
-            // Arrowhead
-            const tipX = Math.cos(angle) * (pulse + animOffset);
-            const tipY = Math.sin(angle) * (pulse + animOffset);
-            ctx.fillStyle = powerUpInfo.color;
-            ctx.beginPath();
-            ctx.arc(tipX, tipY, 3, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-        }
-        
-        // Center dot
-        ctx.fillStyle = powerUpInfo.color;
-        ctx.beginPath();
-        ctx.arc(0, 0, 4, 0, Math.PI * 2);
-        ctx.fill();
-    }
-    
-    drawSpeedChevrons(ctx, powerUpInfo, pulse) {
-        // Animated chevrons indicating speed
-        ctx.strokeStyle = powerUpInfo.color;
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        
-        for (let i = 0; i < 3; i++) {
-            const offset = ((this.typePhase * 3 + i * 3) % 12) - 6;
-            const alpha = 1 - Math.abs(offset) / 8;
-            
-            ctx.save();
-            ctx.globalAlpha = Math.max(0, alpha);
-            ctx.translate(offset, 0);
-            
-            // Chevron shape pointing right
-            ctx.beginPath();
-            ctx.moveTo(-4, -6);
-            ctx.lineTo(4, 0);
-            ctx.lineTo(-4, 6);
-            ctx.stroke();
-            ctx.restore();
-        }
-        
-        // Circular border
-        ctx.globalAlpha = 0.5;
-        ctx.beginPath();
-        ctx.arc(0, 0, pulse, 0, Math.PI * 2);
-        ctx.stroke();
-    }
-    
-    drawExtraLifeHeart(ctx, powerUpInfo, pulse) {
-        // Pulsing heart shape
-        const heartPulse = 1 + Math.sin(this.typePhase * 2) * 0.15;
-        const size = pulse * 0.7 * heartPulse;
-        
-        ctx.save();
-        ctx.scale(size / 10, size / 10);
-        
-        // Heart path
-        ctx.fillStyle = powerUpInfo.color;
-        ctx.beginPath();
-        ctx.moveTo(0, 3);
-        ctx.bezierCurveTo(-8, -3, -8, -8, 0, -8);
-        ctx.bezierCurveTo(8, -8, 8, -3, 0, 3);
-        ctx.fill();
-        
-        // Inner highlight
-        ctx.fillStyle = '#ffffff40';
-        ctx.beginPath();
-        ctx.ellipse(-3, -5, 2, 1.5, -0.3, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.restore();
-        
-        // Plus signs around heart
-        const plusCount = 4;
-        for (let i = 0; i < plusCount; i++) {
-            const angle = (i / plusCount) * Math.PI * 2 + this.typePhase * 0.5;
-            const dist = pulse + 5;
-            const px = Math.cos(angle) * dist;
-            const py = Math.sin(angle) * dist;
-            
-            ctx.save();
-            ctx.translate(px, py);
-            ctx.strokeStyle = powerUpInfo.color + '80';
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(-3, 0); ctx.lineTo(3, 0);
-            ctx.moveTo(0, -3); ctx.lineTo(0, 3);
-            ctx.stroke();
-            ctx.restore();
-        }
-    }
-    
-    drawCore(ctx, powerUpInfo, pulse) {
-        // Bright central core
-        const coreSize = pulse * 0.4;
-        const coreGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, coreSize);
-        coreGradient.addColorStop(0, '#ffffff');
-        coreGradient.addColorStop(0.3, powerUpInfo.color);
-        coreGradient.addColorStop(1, powerUpInfo.color + '00');
-        
-        ctx.fillStyle = coreGradient;
-        ctx.beginPath();
-        ctx.arc(0, 0, coreSize, 0, Math.PI * 2);
-        ctx.fill();
-    }
-    
-    drawSparkles(ctx, powerUpInfo) {
-        // Random sparkle highlights
-        const sparkleCount = 4;
-        for (let i = 0; i < sparkleCount; i++) {
-            const sparkleAngle = (i / sparkleCount) * Math.PI * 2 + this.sparklePhase;
-            const sparkleDist = POWERUP_SIZE * (0.6 + Math.sin(this.sparklePhase * 2 + i) * 0.3);
-            const sparkleAlpha = (Math.sin(this.sparklePhase * 3 + i * 1.5) + 1) / 2;
-            
-            if (sparkleAlpha > 0.5) {
-                const sx = Math.cos(sparkleAngle) * sparkleDist;
-                const sy = Math.sin(sparkleAngle) * sparkleDist;
-                
-                ctx.save();
-                ctx.translate(sx, sy);
-                ctx.globalAlpha = (sparkleAlpha - 0.5) * 2;
-                ctx.fillStyle = '#ffffff';
-                
-                // 4-pointed star sparkle
-                ctx.beginPath();
-                const sparkleSize = 3;
-                ctx.moveTo(0, -sparkleSize);
-                ctx.lineTo(sparkleSize * 0.3, 0);
-                ctx.lineTo(0, sparkleSize);
-                ctx.lineTo(-sparkleSize * 0.3, 0);
-                ctx.closePath();
-                ctx.fill();
-                
-                ctx.beginPath();
-                ctx.moveTo(-sparkleSize, 0);
-                ctx.lineTo(0, sparkleSize * 0.3);
-                ctx.lineTo(sparkleSize, 0);
-                ctx.lineTo(0, -sparkleSize * 0.3);
-                ctx.closePath();
-                ctx.fill();
-                
-                ctx.restore();
-            }
-        }
-    }
 }
-
 
 // ============== ITEM CLASS ==============
 class Item {
@@ -6526,3 +6504,4 @@ SoundManager.prototype.playLoadSound = function() {
 window.addEventListener('DOMContentLoaded', () => {
     new Game();
 });
+
