@@ -2445,6 +2445,224 @@ class StarField {
     }
 }
 
+// ============== WARPING GRID BACKGROUND (Geometry Wars Style) ==============
+// A reactive grid that warps from explosions, ship movement, and forces
+class WarpingGrid {
+    constructor(cellSize = 40) {
+        this.cellSize = cellSize;
+        this.cols = Math.ceil(CANVAS_WIDTH / cellSize) + 1;
+        this.rows = Math.ceil(CANVAS_HEIGHT / cellSize) + 1;
+        
+        // Grid physics constants
+        this.stiffness = 0.03;      // Spring stiffness (how fast it snaps back)
+        this.damping = 0.92;        // Velocity damping (0-1, higher = less bouncy)
+        this.maxDisplacement = 30;  // Max pixels a vertex can move from rest
+        
+        // Create grid vertices with rest positions and physics
+        this.vertices = [];
+        for (let row = 0; row < this.rows; row++) {
+            this.vertices[row] = [];
+            for (let col = 0; col < this.cols; col++) {
+                this.vertices[row][col] = {
+                    // Rest position
+                    restX: col * cellSize,
+                    restY: row * cellSize,
+                    // Current position
+                    x: col * cellSize,
+                    y: row * cellSize,
+                    // Velocity
+                    vx: 0,
+                    vy: 0
+                };
+            }
+        }
+        
+        // Grid color with pulsing
+        this.baseColor = { r: 0, g: 100, b: 180 };
+        this.pulsePhase = 0;
+        this.intensity = 0.4; // Base grid opacity
+    }
+    
+    // Apply a radial force (explosions, impacts)
+    applyForce(x, y, force, radius) {
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                const v = this.vertices[row][col];
+                const dx = v.restX - x;
+                const dy = v.restY - y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist < radius && dist > 0) {
+                    // Force falls off with distance
+                    const falloff = 1 - (dist / radius);
+                    const strength = force * falloff * falloff;
+                    
+                    // Push away from center
+                    v.vx += (dx / dist) * strength;
+                    v.vy += (dy / dist) * strength;
+                }
+            }
+        }
+    }
+    
+    // Apply a directional push (ship thrust)
+    applyDirectionalForce(x, y, dirX, dirY, force, radius) {
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                const v = this.vertices[row][col];
+                const dx = v.restX - x;
+                const dy = v.restY - y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist < radius) {
+                    const falloff = 1 - (dist / radius);
+                    v.vx += dirX * force * falloff;
+                    v.vy += dirY * force * falloff;
+                }
+            }
+        }
+    }
+    
+    // Apply a pulling/attracting force (for gravity wells)
+    applyAttractorForce(x, y, force, radius) {
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                const v = this.vertices[row][col];
+                const dx = x - v.restX;
+                const dy = y - v.restY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist < radius && dist > 10) {
+                    const falloff = 1 - (dist / radius);
+                    const strength = force * falloff;
+                    v.vx += (dx / dist) * strength;
+                    v.vy += (dy / dist) * strength;
+                }
+            }
+        }
+    }
+    
+    update() {
+        this.pulsePhase += 0.02;
+        
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                const v = this.vertices[row][col];
+                
+                // Calculate displacement from rest
+                const dispX = v.x - v.restX;
+                const dispY = v.y - v.restY;
+                
+                // Spring force toward rest position
+                v.vx -= dispX * this.stiffness;
+                v.vy -= dispY * this.stiffness;
+                
+                // Apply damping
+                v.vx *= this.damping;
+                v.vy *= this.damping;
+                
+                // Update position
+                v.x += v.vx;
+                v.y += v.vy;
+                
+                // Clamp displacement to max
+                const currentDispX = v.x - v.restX;
+                const currentDispY = v.y - v.restY;
+                const currentDist = Math.sqrt(currentDispX * currentDispX + currentDispY * currentDispY);
+                
+                if (currentDist > this.maxDisplacement) {
+                    const scale = this.maxDisplacement / currentDist;
+                    v.x = v.restX + currentDispX * scale;
+                    v.y = v.restY + currentDispY * scale;
+                }
+            }
+        }
+    }
+    
+    draw(ctx) {
+        ctx.save();
+        
+        // Subtle pulse on base color
+        const pulse = Math.sin(this.pulsePhase) * 0.15 + 0.85;
+        
+        // Draw horizontal lines
+        for (let row = 0; row < this.rows; row++) {
+            ctx.beginPath();
+            for (let col = 0; col < this.cols; col++) {
+                const v = this.vertices[row][col];
+                
+                // Calculate color intensity based on displacement
+                const dispX = v.x - v.restX;
+                const dispY = v.y - v.restY;
+                const disp = Math.sqrt(dispX * dispX + dispY * dispY);
+                const intensity = Math.min(1, disp / 10);
+                
+                if (col === 0) {
+                    ctx.moveTo(v.x, v.y);
+                } else {
+                    ctx.lineTo(v.x, v.y);
+                }
+            }
+            
+            // Base grid line
+            ctx.strokeStyle = `rgba(${this.baseColor.r}, ${this.baseColor.g}, ${this.baseColor.b}, ${this.intensity * pulse * 0.3})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+        
+        // Draw vertical lines
+        for (let col = 0; col < this.cols; col++) {
+            ctx.beginPath();
+            for (let row = 0; row < this.rows; row++) {
+                const v = this.vertices[row][col];
+                
+                if (row === 0) {
+                    ctx.moveTo(v.x, v.y);
+                } else {
+                    ctx.lineTo(v.x, v.y);
+                }
+            }
+            
+            ctx.strokeStyle = `rgba(${this.baseColor.r}, ${this.baseColor.g}, ${this.baseColor.b}, ${this.intensity * pulse * 0.3})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+        
+        // Draw glowing vertices at intersections (only where displaced)
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                const v = this.vertices[row][col];
+                const dispX = v.x - v.restX;
+                const dispY = v.y - v.restY;
+                const disp = Math.sqrt(dispX * dispX + dispY * dispY);
+                
+                // Only draw glow for displaced vertices
+                if (disp > 2) {
+                    const glowIntensity = Math.min(1, disp / 15);
+                    
+                    // Glow based on displacement direction - warm colors for displacement
+                    const r = Math.min(255, this.baseColor.r + disp * 8);
+                    const g = Math.min(255, this.baseColor.g + disp * 4);
+                    const b = this.baseColor.b;
+                    
+                    ctx.beginPath();
+                    ctx.arc(v.x, v.y, 2 + disp * 0.2, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${glowIntensity * 0.6})`;
+                    ctx.fill();
+                    
+                    // Inner bright point
+                    ctx.beginPath();
+                    ctx.arc(v.x, v.y, 1, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 255, 255, ${glowIntensity * 0.4})`;
+                    ctx.fill();
+                }
+            }
+        }
+        
+        ctx.restore();
+    }
+}
+
 // ============== TRAIL PARTICLE CLASS ==============
 class TrailParticle {
     constructor(x, y, color, size, lifetime, vx = 0, vy = 0) {
@@ -3378,6 +3596,7 @@ class Game {
 
         // Visual systems
         this.starField = new StarField();
+        this.warpingGrid = new WarpingGrid(50); // Geometry Wars-style warping grid
         this.screenShake = new ScreenShake();
         
         // Global visual effects
@@ -4071,6 +4290,9 @@ class Game {
         // Directional screen shake based on explosion size and position
         this.screenShake.triggerDirectional(intensity * 0.8, x, y);
         
+        // Warp the background grid (Geometry Wars style)
+        this.warpingGrid.applyForce(x, y, intensity * 0.15, intensity * 8);
+        
         // Play explosion sound with size-based intensity
         soundManager.playExplosion(intensity / 15);
         
@@ -4125,6 +4347,9 @@ class Game {
     createBulletSparks(x, y, bulletVx, bulletVy) {
         // Calculate impact angle (opposite of bullet direction)
         const impactAngle = Math.atan2(-bulletVy, -bulletVx);
+        
+        // Small grid ripple from impact
+        this.warpingGrid.applyForce(x, y, 0.8, 30);
         
         // Spawn 6-10 sparks
         const sparkCount = 6 + Math.floor(Math.random() * 5);
@@ -4208,6 +4433,21 @@ class Game {
         const shipVx = this.ship ? this.ship.vx : 0;
         const shipVy = this.ship ? this.ship.vy : 0;
         this.starField.update(shipVx, shipVy);
+        
+        // Update warping grid physics
+        this.warpingGrid.update();
+        
+        // Apply ship thrust force to grid (subtle wake effect)
+        if (this.ship && this.ship.thrusting) {
+            const thrustDirX = -Math.sin(this.ship.angle);
+            const thrustDirY = Math.cos(this.ship.angle);
+            this.warpingGrid.applyDirectionalForce(
+                this.ship.x - thrustDirX * 20,
+                this.ship.y - thrustDirY * 20,
+                thrustDirX, thrustDirY,
+                0.3, 60
+            );
+        }
         
         // Update screen shake
         this.screenShake.update();
@@ -4580,6 +4820,9 @@ class Game {
         
         // Draw starfield
         this.starField.draw(ctx);
+        
+        // Draw warping grid (Geometry Wars style)
+        this.warpingGrid.draw(ctx);
 
         if (this.state === 'start') {
             this.drawStartScreen(ctx);
