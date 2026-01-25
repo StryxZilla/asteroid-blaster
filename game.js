@@ -1008,7 +1008,7 @@ class SaveLoadUI {
                 ctx.fillText(`SLOT ${slot.slot}`, textX, slotY + 30);
                 ctx.fillStyle = '#444444';
                 ctx.font = '14px "Courier New", monospace';
-                ctx.fillText('Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•â•¬Ã´â”œÃ§â”¬Ã‘ Empty Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•â•¬Ã´â”œÃ§â”¬Ã‘', textX, slotY + 55);
+                ctx.fillText('├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├â┬º├óΓÇ¥┬¼├âΓÇÿ Empty ├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├â┬º├óΓÇ¥┬¼├âΓÇÿ', textX, slotY + 55);
             } else {
                 ctx.fillStyle = '#ffffff';
                 ctx.font = 'bold 18px "Courier New", monospace';
@@ -1016,12 +1016,12 @@ class SaveLoadUI {
                 
                 ctx.fillStyle = '#00ffff';
                 ctx.font = '14px "Courier New", monospace';
-                ctx.fillText(`Level ${slot.level}  Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•Î“Ã¶Â¼â”œâ”‚  Score: ${slot.score.toLocaleString()}`, textX, slotY + 48);
+                ctx.fillText(`Level ${slot.level}  ├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├ÄΓÇ£├â┬╢├é┬╝├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ  Score: ${slot.score.toLocaleString()}`, textX, slotY + 48);
                 
                 ctx.fillStyle = '#888888';
                 ctx.font = '12px "Courier New", monospace';
                 const dateStr = slot.date.toLocaleDateString() + ' ' + slot.date.toLocaleTimeString();
-                ctx.fillText(`${dateStr}  Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•Î“Ã¶Â¼â”œâ”‚  ${slot.skillPoints} skill pts`, textX, slotY + 68);
+                ctx.fillText(`${dateStr}  ├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├ÄΓÇ£├â┬╢├é┬╝├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ  ${slot.skillPoints} skill pts`, textX, slotY + 68);
                 
                 const deleteX = centerX + slotWidth / 2 - 35;
                 const deleteY = slotY + slotHeight / 2;
@@ -2541,6 +2541,125 @@ class ExplosionParticle {
     }
 }
 
+// ============== SHIP DEBRIS PARTICLE CLASS ==============
+// Hull pieces that tumble and fade during ship destruction
+class ShipDebrisParticle {
+    constructor(x, y, angle, color) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        
+        // Launch debris outward from explosion center
+        const speed = 2 + Math.random() * 4;
+        const launchAngle = angle + (Math.random() - 0.5) * 0.5;
+        this.vx = Math.cos(launchAngle) * speed;
+        this.vy = Math.sin(launchAngle) * speed;
+        
+        // Tumbling rotation
+        this.rotation = Math.random() * Math.PI * 2;
+        this.rotSpeed = (Math.random() - 0.5) * 0.3;
+        
+        // Debris shape (triangular hull piece)
+        this.size = 4 + Math.random() * 8;
+        this.shape = Math.floor(Math.random() * 3); // 0=triangle, 1=quad, 2=line
+        
+        this.lifetime = 60 + Math.random() * 40;
+        this.maxLifetime = this.lifetime;
+        
+        // Trail
+        this.trail = [];
+        this.trailTimer = 0;
+    }
+    
+    update() {
+        // Movement with drag
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vx *= 0.98;
+        this.vy *= 0.98;
+        
+        // Rotation
+        this.rotation += this.rotSpeed;
+        this.rotSpeed *= 0.99;
+        
+        // Trail spawning
+        this.trailTimer++;
+        if (this.trailTimer % 3 === 0 && this.lifetime > this.maxLifetime * 0.3) {
+            this.trail.push({
+                x: this.x,
+                y: this.y,
+                alpha: 0.6,
+                size: this.size * 0.5
+            });
+        }
+        
+        // Update trail
+        this.trail = this.trail.filter(t => {
+            t.alpha -= 0.08;
+            t.size *= 0.95;
+            return t.alpha > 0;
+        });
+        
+        this.lifetime--;
+    }
+    
+    draw(ctx) {
+        const alpha = Math.min(1, this.lifetime / (this.maxLifetime * 0.3));
+        
+        // Draw trail
+        this.trail.forEach(t => {
+            ctx.save();
+            ctx.globalAlpha = t.alpha * alpha;
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, t.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        });
+        
+        // Draw debris piece
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+        ctx.globalAlpha = alpha;
+        
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = this.color;
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 2;
+        
+        ctx.beginPath();
+        if (this.shape === 0) {
+            // Triangle piece
+            ctx.moveTo(0, -this.size);
+            ctx.lineTo(-this.size * 0.7, this.size * 0.5);
+            ctx.lineTo(this.size * 0.7, this.size * 0.5);
+            ctx.closePath();
+        } else if (this.shape === 1) {
+            // Quad piece
+            ctx.moveTo(-this.size * 0.5, -this.size * 0.5);
+            ctx.lineTo(this.size * 0.5, -this.size * 0.3);
+            ctx.lineTo(this.size * 0.3, this.size * 0.5);
+            ctx.lineTo(-this.size * 0.4, this.size * 0.3);
+            ctx.closePath();
+        } else {
+            // Line piece (strut)
+            ctx.moveTo(-this.size, 0);
+            ctx.lineTo(this.size, 0);
+        }
+        
+        if (this.shape === 2) {
+            ctx.stroke();
+        } else {
+            ctx.fill();
+            ctx.stroke();
+        }
+        
+        ctx.restore();
+    }
+}
+
 // ============== SCREEN SHAKE CLASS ==============
 class ScreenShake {
     constructor() {
@@ -3271,6 +3390,7 @@ class Game {
         this.particles = [];
         this.trailParticles = [];
         this.explosionParticles = [];
+        this.shipDebris = [];
         this.powerUps = [];
         this.items = [];
         this.inventory = [];
@@ -3506,6 +3626,7 @@ class Game {
         this.particles = [];
         this.trailParticles = [];
         this.explosionParticles = [];
+        this.shipDebris = [];
         this.powerUps = [];
         this.items = [];
         this.inventory = [];
@@ -4018,6 +4139,54 @@ class Game {
         this.particles.push(new ShockwaveParticle(x, y, 60));
     }
 
+    // Create dramatic ship destruction effect
+    createShipExplosion(x, y, angle) {
+        // Massive screen shake
+        this.screenShake.trigger(35);
+        
+        // Bright flash
+        this.triggerFlash('#00ffff', 0.6);
+        
+        // Play death sound
+        soundManager.playShipDeath();
+        
+        // Create hull debris pieces (8-12 pieces)
+        const debrisCount = 8 + Math.floor(Math.random() * 5);
+        const colors = [COLORS.shipPrimary, COLORS.shipSecondary, '#ffffff', COLORS.shipEngine];
+        
+        for (let i = 0; i < debrisCount; i++) {
+            const debrisAngle = (i / debrisCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            this.shipDebris.push(new ShipDebrisParticle(x, y, debrisAngle, color));
+        }
+        
+        // Core explosion particles (cyan themed)
+        for (let i = 0; i < 20; i++) {
+            this.explosionParticles.push(new ExplosionParticle(x, y, COLORS.shipPrimary, true));
+        }
+        
+        // Secondary explosion particles
+        for (let i = 0; i < 30; i++) {
+            const color = Math.random() > 0.5 ? COLORS.shipPrimary : COLORS.shipEngine;
+            this.explosionParticles.push(new ExplosionParticle(x, y, color, false));
+        }
+        
+        // Large shockwave
+        this.particles.push(new ShockwaveParticle(x, y, 100));
+        
+        // Cascading secondary explosions (delayed)
+        const game = this;
+        for (let wave = 1; wave < 4; wave++) {
+            setTimeout(() => {
+                if (game.state === 'gameover' && wave > 1) return;
+                const offsetX = (Math.random() - 0.5) * 30;
+                const offsetY = (Math.random() - 0.5) * 30;
+                game.createExplosion(x + offsetX, y + offsetY, 12 - wave * 2);
+                game.screenShake.trigger(12 - wave * 3);
+            }, wave * 100);
+        }
+    }
+
     update() {
         this.time++;
         this.titlePulse += 0.05;
@@ -4115,6 +4284,11 @@ class Game {
         this.explosionParticles = this.explosionParticles.filter(particle => {
             particle.update();
             return particle.lifetime > 0;
+        });
+
+        this.shipDebris = this.shipDebris.filter(debris => {
+            debris.update();
+            return debris.lifetime > 0;
         });
 
         this.particles = this.particles.filter(particle => {
@@ -4239,7 +4413,10 @@ class Game {
                     this.asteroids[i].x, this.asteroids[i].y, this.asteroids[i].radius
                 )) {
                     if (!this.ship.hasShield) {
-                        this.createExplosion(this.ship.x, this.ship.y, 25);
+                        const shipX = this.ship.x;
+                        const shipY = this.ship.y;
+                        const shipAngle = this.ship.angle;
+                        this.createShipExplosion(shipX, shipY, shipAngle);
                         this.ship = null;
                         this.loseLife();
                         break;
@@ -4272,7 +4449,10 @@ class Game {
                     this.ufos[i].x, this.ufos[i].y, UFO_SIZE
                 )) {
                     if (!this.ship.hasShield) {
-                        this.createExplosion(this.ship.x, this.ship.y, 25);
+                        const shipX = this.ship.x;
+                        const shipY = this.ship.y;
+                        const shipAngle = this.ship.angle;
+                        this.createShipExplosion(shipX, shipY, shipAngle);
                         this.createUfoExplosion(this.ufos[i].x, this.ufos[i].y);
                         this.ufos.splice(i, 1);
                         this.ship = null;
@@ -4298,7 +4478,10 @@ class Game {
                     this.enemyBullets.splice(i, 1);
                     
                     if (!this.ship.hasShield) {
-                        this.createExplosion(this.ship.x, this.ship.y, 25);
+                        const shipX = this.ship.x;
+                        const shipY = this.ship.y;
+                        const shipAngle = this.ship.angle;
+                        this.createShipExplosion(shipX, shipY, shipAngle);
                         this.ship = null;
                         this.loseLife();
                         break;
@@ -4405,6 +4588,7 @@ class Game {
         // Draw game objects in order (back to front)
         this.trailParticles.forEach(particle => particle.draw(ctx));
         this.explosionParticles.forEach(particle => particle.draw(ctx));
+        this.shipDebris.forEach(debris => debris.draw(ctx));
         this.particles.forEach(particle => particle.draw(ctx));
         this.items.forEach(item => item.draw(ctx));
         this.powerUps.forEach(powerUp => powerUp.draw(ctx));
@@ -6626,7 +6810,87 @@ SoundManager.prototype.playBossDefeat = function() {
     });
 };
 
-
+// === SHIP DEATH SOUND ===
+// Dramatic cascading explosions with deep bass
+SoundManager.prototype.playShipDeath = function() {
+    if (!this.initialized) return;
+    this.resume();
+    
+    const now = this.audioContext.currentTime;
+    
+    // Deep bass impact
+    const bass = this.audioContext.createOscillator();
+    const bassGain = this.audioContext.createGain();
+    
+    bass.type = 'sine';
+    bass.frequency.setValueAtTime(80, now);
+    bass.frequency.exponentialRampToValueAtTime(20, now + 0.8);
+    
+    bassGain.gain.setValueAtTime(0.5, now);
+    bassGain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+    
+    bass.connect(bassGain);
+    bassGain.connect(this.masterGain);
+    
+    bass.start(now);
+    bass.stop(now + 0.8);
+    
+    // Cascading explosions
+    for (let i = 0; i < 4; i++) {
+        const time = now + i * 0.12;
+        
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
+        
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(200 - i * 30, time);
+        osc.frequency.exponentialRampToValueAtTime(40, time + 0.2);
+        
+        const filter = this.audioContext.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1500 - i * 200, time);
+        filter.frequency.exponentialRampToValueAtTime(100, time + 0.25);
+        
+        gain.gain.setValueAtTime(0.25 - i * 0.04, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.25);
+        
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+        
+        osc.start(time);
+        osc.stop(time + 0.25);
+    }
+    
+    // Metal shatter noise
+    const bufferSize = this.audioContext.sampleRate * 0.5;
+    const noiseBuffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    
+    for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+    }
+    
+    const noise = this.audioContext.createBufferSource();
+    noise.buffer = noiseBuffer;
+    
+    const noiseFilter = this.audioContext.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.setValueAtTime(2000, now);
+    noiseFilter.frequency.exponentialRampToValueAtTime(500, now + 0.5);
+    noiseFilter.Q.value = 3;
+    
+    const noiseGain = this.audioContext.createGain();
+    noiseGain.gain.setValueAtTime(0.2, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+    
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(this.masterGain);
+    
+    noise.start(now);
+    noise.stop(now + 0.5);
+};
 
 // === COMBO MILESTONE SOUND ===
 // Celebratory ascending tone for combo milestones
