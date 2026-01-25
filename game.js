@@ -40,6 +40,12 @@ const BOSS_HEALTH_PER_TIER = 3;
 const BOSS_POINTS = 2000;
 const BOSS_SHOOT_INTERVAL = 60;
 const BOSS_BULLET_SPEED = 3.5;
+// Combo system constants
+const COMBO_TIMEOUT = 120; // 2 seconds at 60fps before combo breaks
+const COMBO_MULTIPLIER_CAP = 2.0; // Maximum score multiplier from combo
+const COMBO_MULTIPLIER_STEP = 0.1; // Multiplier increase per kill (reaches 2x at 11 kills)
+const COMBO_MILESTONES = [5, 10, 15, 20, 25, 50, 100]; // Trigger celebration at these counts
+
 
 // Color palette - Neon cyberpunk theme
 const COLORS = {
@@ -61,7 +67,11 @@ const COLORS = {
     ufoPrimary: '#00ff00',
     ufoSecondary: '#88ff88',
     ufoGlow: '#00ff44',
-    ufoBullet: '#88ff00'
+    ufoBullet: '#88ff00',
+    // Combo colors
+    combo: '#ff00ff',
+    comboGlow: '#ff66ff',
+    comboMax: '#ffff00'
 };
 
 // Power-up types
@@ -1220,6 +1230,13 @@ class Game {
         this.scoreMultiplierTimer = 0;
         this.freezeActive = false;
         this.freezeTimer = 0;
+        // Combo system
+        this.comboCount = 0;
+        this.comboTimer = 0;
+        this.comboDisplayTimer = 0;
+        this.maxCombo = 0;
+        this.lastKillX = 0;
+        this.lastKillY = 0;
 
         // Animation timers
         this.time = 0;
@@ -1295,6 +1312,10 @@ class Game {
         this.scoreMultiplierTimer = 0;
         this.freezeActive = false;
         this.freezeTimer = 0;
+        this.comboCount = 0;
+        this.comboTimer = 0;
+        this.comboDisplayTimer = 0;
+        this.maxCombo = 0;
 
         this.spawnAsteroids(4);
         this.updateUI();
@@ -1409,9 +1430,39 @@ class Game {
     }
 
     addScore(points) {
-        this.score += points * this.scoreMultiplier;
+        const comboMult = this.getComboMultiplier();
+        this.score += Math.floor(points * this.scoreMultiplier * comboMult);
         this.updateUI();
     }
+
+    // Register a kill for combo system
+    registerKill(x, y) {
+        this.comboCount++;
+        this.comboTimer = COMBO_TIMEOUT;
+        this.comboDisplayTimer = 60; // Show combo for 1 second
+        this.lastKillX = x;
+        this.lastKillY = y;
+        
+        // Track max combo
+        if (this.comboCount > this.maxCombo) {
+            this.maxCombo = this.comboCount;
+        }
+        
+        // Check for milestone celebrations
+        if (COMBO_MILESTONES.includes(this.comboCount)) {
+            soundManager.playComboMilestone(this.comboCount);
+            this.triggerFlash(COLORS.combo, 0.3);
+            this.screenShake.trigger(this.comboCount >= 10 ? 10 : 5);
+        }
+    }
+    
+    // Get current combo multiplier
+    getComboMultiplier() {
+        if (this.comboCount <= 1) return 1;
+        const mult = 1 + (this.comboCount - 1) * COMBO_MULTIPLIER_STEP;
+        return Math.min(mult, COMBO_MULTIPLIER_CAP);
+    }
+
 
     spawnPowerUp(x, y) {
         if (Math.random() < POWERUP_SPAWN_CHANCE) {
@@ -1587,6 +1638,24 @@ class Game {
         }
     }
 
+    updateCombo() {
+        if (this.comboTimer > 0) {
+            this.comboTimer--;
+            if (this.comboTimer === 0) {
+                // Combo broken
+                if (this.comboCount >= 3) {
+                    soundManager.playComboBreak();
+                }
+                this.comboCount = 0;
+            }
+        }
+        
+        if (this.comboDisplayTimer > 0) {
+            this.comboDisplayTimer--;
+        }
+    }
+
+
     updateInventoryUI() {
         const container = document.getElementById('inventory');
         if (!container) return;
@@ -1677,6 +1746,7 @@ class Game {
         if (this.state !== 'playing') return;
 
         this.updateItemEffects();
+        this.updateCombo();
         
         // UFO spawning
         this.ufoSpawnTimer--;
@@ -1792,6 +1862,7 @@ class Game {
                     }
 
                     this.addScore((4 - asteroid.size) * 20);
+                    this.registerKill(asteroid.x, asteroid.y);
                     this.spawnPowerUp(asteroid.x, asteroid.y);
                     this.spawnItem(asteroid.x, asteroid.y, asteroid.size);
                     this.asteroids.splice(j, 1);
@@ -1812,6 +1883,7 @@ class Game {
                     const ufo = this.ufos[j];
                     this.createUfoExplosion(ufo.x, ufo.y);
                     this.addScore(UFO_POINTS);
+                    this.registerKill(ufo.x, ufo.y);
                     this.spawnUfoLoot(ufo.x, ufo.y);
                     this.ufos.splice(j, 1);
                     this.triggerFlash(COLORS.ufoPrimary, 0.2);
@@ -1997,6 +2069,7 @@ class Game {
             this.ship.drawPowerUpIndicators(ctx);
         }
 
+        this.drawComboIndicator(ctx);
         this.drawItemEffectIndicators(ctx);
         
         // Draw flash overlay
@@ -2128,6 +2201,74 @@ class Game {
             ctx.fillText(`${indicator.text}: ${timeLeft}s`, CANVAS_WIDTH - 10, y);
             ctx.restore();
         });
+    }
+
+
+
+    drawComboIndicator(ctx) {
+        if (this.comboCount < 2) return;
+        
+        const mult = this.getComboMultiplier();
+        const isMaxed = mult >= COMBO_MULTIPLIER_CAP;
+        const comboColor = isMaxed ? COLORS.comboMax : COLORS.combo;
+        
+        // Pulsing effect based on combo
+        const pulse = 1 + Math.sin(this.time * 0.2) * 0.1 * (this.comboCount / 10);
+        const alpha = this.comboDisplayTimer > 0 ? 1 : Math.max(0.4, this.comboTimer / COMBO_TIMEOUT);
+        
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        
+        // Position: top center of screen
+        const x = CANVAS_WIDTH / 2;
+        const y = 50;
+        
+        // Glow effect
+        ctx.shadowColor = comboColor;
+        ctx.shadowBlur = 20 + pulse * 10;
+        
+        // Combo count - big number
+        ctx.fillStyle = comboColor;
+        ctx.font = `bold ${32 * pulse}px "Courier New", monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${this.comboCount}x COMBO`, x, y);
+        
+        // Multiplier display
+        ctx.shadowBlur = 10;
+        ctx.font = 'bold 16px "Courier New", monospace';
+        ctx.fillStyle = isMaxed ? '#ffffff' : comboColor;
+        ctx.fillText(`SCORE x${mult.toFixed(1)}`, x, y + 28);
+        
+        // Timer bar
+        const barWidth = 100;
+        const barHeight = 4;
+        const timePercent = this.comboTimer / COMBO_TIMEOUT;
+        
+        ctx.shadowBlur = 5;
+        ctx.fillStyle = '#333333';
+        ctx.fillRect(x - barWidth / 2, y + 45, barWidth, barHeight);
+        
+        ctx.fillStyle = comboColor;
+        ctx.fillRect(x - barWidth / 2, y + 45, barWidth * timePercent, barHeight);
+        
+        ctx.restore();
+        
+        // Floating "+combo" text at kill location
+        if (this.comboDisplayTimer > 50 && this.comboCount > 1) {
+            const floatAlpha = (this.comboDisplayTimer - 50) / 10;
+            const floatY = this.lastKillY - (60 - this.comboDisplayTimer) * 2;
+            
+            ctx.save();
+            ctx.globalAlpha = floatAlpha;
+            ctx.shadowColor = comboColor;
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = comboColor;
+            ctx.font = 'bold 18px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(`+${this.comboCount}`, this.lastKillX, floatY);
+            ctx.restore();
+        }
     }
 
     gameLoop() {
@@ -3719,6 +3860,93 @@ SoundManager.prototype.playBossDefeat = function() {
         osc.start(startTime);
         osc.stop(startTime + 0.3);
     });
+};
+
+
+
+// === COMBO MILESTONE SOUND ===
+// Celebratory ascending tone for combo milestones
+SoundManager.prototype.playComboMilestone = function(comboCount) {
+    if (!this.initialized) return;
+    this.resume();
+    
+    const now = this.audioContext.currentTime;
+    
+    // Higher pitch for bigger combos
+    const baseFreq = 400 + Math.min(comboCount * 20, 400);
+    
+    // Quick ascending notes
+    const notes = [baseFreq, baseFreq * 1.25, baseFreq * 1.5];
+    
+    notes.forEach((freq, i) => {
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
+        
+        osc.type = 'square';
+        osc.frequency.value = freq;
+        
+        const startTime = now + i * 0.05;
+        
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.15, startTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.12);
+        
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        
+        osc.start(startTime);
+        osc.stop(startTime + 0.12);
+    });
+    
+    // Add sparkle for big combos
+    if (comboCount >= 10) {
+        const sparkle = this.audioContext.createOscillator();
+        const sparkleGain = this.audioContext.createGain();
+        
+        sparkle.type = 'sine';
+        sparkle.frequency.setValueAtTime(2000, now);
+        sparkle.frequency.exponentialRampToValueAtTime(3000, now + 0.2);
+        
+        sparkleGain.gain.setValueAtTime(0.1, now);
+        sparkleGain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+        
+        sparkle.connect(sparkleGain);
+        sparkleGain.connect(this.masterGain);
+        
+        sparkle.start(now);
+        sparkle.stop(now + 0.2);
+    }
+};
+
+// === COMBO BREAK SOUND ===
+// Descending tone when combo ends
+SoundManager.prototype.playComboBreak = function() {
+    if (!this.initialized) return;
+    this.resume();
+    
+    const now = this.audioContext.currentTime;
+    
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(400, now);
+    osc.frequency.exponentialRampToValueAtTime(100, now + 0.2);
+    
+    const filter = this.audioContext.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(800, now);
+    filter.frequency.exponentialRampToValueAtTime(200, now + 0.2);
+    
+    gain.gain.setValueAtTime(0.1, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+    
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+    
+    osc.start(now);
+    osc.stop(now + 0.2);
 };
 
 // Initialize game
