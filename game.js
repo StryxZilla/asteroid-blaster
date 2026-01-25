@@ -97,6 +97,73 @@ const ITEM_SPAWN_CHANCE = 0.25;
 const ITEM_SIZE = 10;
 const ITEM_LIFETIME = 480;
 
+// ============== HIGH SCORE MANAGER CLASS ==============
+// Persistent leaderboard with localStorage
+
+class HighScoreManager {
+    constructor() {
+        this.storageKey = 'asteroids_neon_highscores';
+        this.maxScores = 10;
+        this.scores = this.load();
+    }
+    
+    load() {
+        try {
+            const data = localStorage.getItem(this.storageKey);
+            if (data) {
+                return JSON.parse(data);
+            }
+        } catch (e) {
+            console.warn('Failed to load high scores:', e);
+        }
+        return [];
+    }
+    
+    save() {
+        try {
+            localStorage.setItem(this.storageKey, JSON.stringify(this.scores));
+        } catch (e) {
+            console.warn('Failed to save high scores:', e);
+        }
+    }
+    
+    isHighScore(score) {
+        if (score <= 0) return false;
+        if (this.scores.length < this.maxScores) return true;
+        return score > this.scores[this.scores.length - 1].score;
+    }
+    
+    addScore(initials, score, level) {
+        const entry = {
+            initials: initials.toUpperCase().substring(0, 3).padEnd(3, '_'),
+            score: score,
+            level: level,
+            date: new Date().toISOString().split('T')[0]
+        };
+        this.scores.push(entry);
+        this.scores.sort((a, b) => b.score - a.score);
+        this.scores = this.scores.slice(0, this.maxScores);
+        this.save();
+        return this.scores.findIndex(s => s === entry) + 1;
+    }
+    
+    getScores() { return this.scores; }
+    
+    getRank(score) {
+        for (let i = 0; i < this.scores.length; i++) {
+            if (score > this.scores[i].score) return i + 1;
+        }
+        if (this.scores.length < this.maxScores) return this.scores.length + 1;
+        return -1;
+    }
+    
+    getTopScore() {
+        return this.scores.length > 0 ? this.scores[0].score : 0;
+    }
+}
+
+const highScoreManager = new HighScoreManager();
+
 // ============== SKILL TREE SYSTEM ==============
 // Persistent progression with unlockable abilities
 
@@ -371,7 +438,7 @@ class SkillTreeUI {
         ctx.restore();
         
         ctx.fillStyle = '#666666'; ctx.font = '12px "Courier New", monospace';
-        ctx.textAlign = 'center'; ctx.fillText('Click skills to upgrade â€¢ Press K to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
+        ctx.textAlign = 'center'; ctx.fillText('Click skills to upgrade ├óΓé¼┬ó Press K to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
     }
     drawCategoryTabs(ctx) {
         const tabY = 80;
@@ -941,7 +1008,7 @@ class SaveLoadUI {
                 ctx.fillText(`SLOT ${slot.slot}`, textX, slotY + 30);
                 ctx.fillStyle = '#444444';
                 ctx.font = '14px "Courier New", monospace';
-                ctx.fillText('â€” Empty â€”', textX, slotY + 55);
+                ctx.fillText('├óΓé¼ΓÇ¥ Empty ├óΓé¼ΓÇ¥', textX, slotY + 55);
             } else {
                 ctx.fillStyle = '#ffffff';
                 ctx.font = 'bold 18px "Courier New", monospace';
@@ -949,12 +1016,12 @@ class SaveLoadUI {
                 
                 ctx.fillStyle = '#00ffff';
                 ctx.font = '14px "Courier New", monospace';
-                ctx.fillText(`Level ${slot.level}  â€¢  Score: ${slot.score.toLocaleString()}`, textX, slotY + 48);
+                ctx.fillText(`Level ${slot.level}  ├óΓé¼┬ó  Score: ${slot.score.toLocaleString()}`, textX, slotY + 48);
                 
                 ctx.fillStyle = '#888888';
                 ctx.font = '12px "Courier New", monospace';
                 const dateStr = slot.date.toLocaleDateString() + ' ' + slot.date.toLocaleTimeString();
-                ctx.fillText(`${dateStr}  â€¢  ${slot.skillPoints} skill pts`, textX, slotY + 68);
+                ctx.fillText(`${dateStr}  ├óΓé¼┬ó  ${slot.skillPoints} skill pts`, textX, slotY + 68);
                 
                 const deleteX = centerX + slotWidth / 2 - 35;
                 const deleteY = slotY + slotHeight / 2;
@@ -2571,7 +2638,12 @@ class Game {
         this.regenTimer = 0;
         
         // Save/Load system
-        this.saveLoadUI = new SaveLoadUI(this);
+                this.saveLoadUI = new SaveLoadUI(this);
+
+        // High score entry state
+        this.isEnteringInitials = false;
+        this.newHighScoreRank = 0;
+        this.initials = '';
 
         this.setupEventListeners();
         this.gameLoop();
@@ -2590,8 +2662,24 @@ class Game {
             musicManager.init();
 
             if (e.key === 'Enter') {
-                if (this.state === 'start' || this.state === 'gameover') {
+                if (this.state === 'gameover' && this.isEnteringInitials) {
+                    // Submit high score
+                    if (this.initials.length > 0) {
+                        highScoreManager.addScore(this.initials, this.score, this.level);
+                        this.isEnteringInitials = false;
+                        soundManager.playItemCollect();
+                    }
+                } else if (this.state === 'start' || this.state === 'gameover') {
                     this.startGame();
+                }
+            }
+            
+            // Handle initials input for high score entry
+            if (this.state === 'gameover' && this.isEnteringInitials) {
+                if (e.key === 'Backspace' && this.initials.length > 0) {
+                    this.initials = this.initials.slice(0, -1);
+                } else if (e.key.length === 1 && e.key.match(/[a-zA-Z]/) && this.initials.length < 3) {
+                    this.initials += e.key.toUpperCase();
                 }
             }
 
@@ -2821,6 +2909,17 @@ class Game {
         
         // Stop background music
         musicManager.stop();
+        
+        // Check for high score
+        if (highScoreManager.isHighScore(this.score)) {
+            this.isEnteringInitials = true;
+            this.newHighScoreRank = highScoreManager.getRank(this.score);
+            this.initials = '';
+            soundManager.playLevelComplete(); // Celebratory sound!
+        } else {
+            this.isEnteringInitials = false;
+            this.newHighScoreRank = 0;
+        }
     }
 
     loseLife() {
@@ -3592,6 +3691,31 @@ class Game {
             ctx.stroke();
         }
         ctx.restore();
+        
+        // Draw high scores on right side
+        const scores = highScoreManager.getScores();
+        if (scores.length > 0) {
+            ctx.save();
+            ctx.textAlign = 'right';
+            
+            // Title
+            ctx.shadowColor = '#ffff00';
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = '#ffff00';
+            ctx.font = 'bold 18px "Courier New", monospace';
+            ctx.fillText('HIGH SCORES', CANVAS_WIDTH - 30, 40);
+            
+            // Scores list
+            ctx.shadowBlur = 5;
+            ctx.font = '14px "Courier New", monospace';
+            scores.slice(0, 5).forEach((entry, i) => {
+                const y = 65 + i * 22;
+                const color = i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : '#888888';
+                ctx.fillStyle = color;
+                ctx.fillText(`${i + 1}. ${entry.initials} ${entry.score.toLocaleString()}`, CANVAS_WIDTH - 30, y);
+            });
+            ctx.restore();
+        }
     }
 
     drawGameOverScreen(ctx) {
@@ -3602,7 +3726,7 @@ class Game {
         ctx.fillStyle = '#ff0000';
         ctx.font = 'bold 48px "Courier New", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50);
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80);
         ctx.restore();
         
         // Score
@@ -3611,15 +3735,80 @@ class Game {
         ctx.shadowBlur = 15;
         ctx.fillStyle = '#ffffff';
         ctx.font = '24px "Courier New", monospace';
-        ctx.fillText(`Final Score: ${this.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
+        ctx.textAlign = 'center';
+        ctx.fillText(`Final Score: ${this.score.toLocaleString()}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
         ctx.restore();
         
-        // Restart prompt
-        if (Math.floor(this.time / 30) % 2 === 0) {
-            ctx.fillStyle = '#aaaaaa';
+        // High score entry or celebration
+        if (this.isEnteringInitials) {
+            // New high score celebration!
+            const pulse = Math.sin(this.time * 0.1) * 0.3 + 1;
+            ctx.save();
+            ctx.shadowColor = '#ffff00';
+            ctx.shadowBlur = 20 * pulse;
+            ctx.fillStyle = '#ffff00';
+            ctx.font = `bold ${24 * pulse}px "Courier New", monospace`;
+            ctx.fillText(`NEW HIGH SCORE! #${this.newHighScoreRank}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25);
+            ctx.restore();
+            
+            // Initials entry
+            ctx.save();
+            ctx.fillStyle = '#ffffff';
             ctx.font = '20px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('Press ENTER to Restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
+            ctx.fillText('Enter your initials:', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
+            
+            // Draw initials boxes
+            const boxWidth = 40;
+            const startX = CANVAS_WIDTH / 2 - boxWidth * 1.5;
+            for (let i = 0; i < 3; i++) {
+                const x = startX + i * (boxWidth + 10);
+                const y = CANVAS_HEIGHT / 2 + 75;
+                
+                // Box background
+                ctx.strokeStyle = i < this.initials.length ? '#00ffff' : '#444444';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, boxWidth, 45);
+                
+                // Letter
+                if (i < this.initials.length) {
+                    ctx.shadowColor = '#00ffff';
+                    ctx.shadowBlur = 10;
+                    ctx.fillStyle = '#00ffff';
+                    ctx.font = 'bold 32px "Courier New", monospace';
+                    ctx.fillText(this.initials[i], x + boxWidth/2, y + 34);
+                }
+                
+                // Cursor blink
+                if (i === this.initials.length && Math.floor(this.time / 20) % 2 === 0) {
+                    ctx.fillStyle = '#00ffff';
+                    ctx.fillRect(x + 10, y + 35, boxWidth - 20, 3);
+                }
+            }
+            ctx.restore();
+            
+            ctx.fillStyle = '#888888';
+            ctx.font = '14px "Courier New", monospace';
+            ctx.fillText('Press ENTER to confirm', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 145);
+        } else {
+            // Show rank if just submitted
+            const topScore = highScoreManager.getTopScore();
+            if (this.score === topScore && topScore > 0) {
+                ctx.save();
+                ctx.shadowColor = '#ffd700';
+                ctx.shadowBlur = 15;
+                ctx.fillStyle = '#ffd700';
+                ctx.font = 'bold 20px "Courier New", monospace';
+                ctx.fillText('TOP SCORE!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25);
+                ctx.restore();
+            }
+            
+            // Restart prompt
+            if (Math.floor(this.time / 30) % 2 === 0) {
+                ctx.fillStyle = '#aaaaaa';
+                ctx.font = '20px "Courier New", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('Press ENTER to Restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
+            }
         }
     }
 
