@@ -1385,6 +1385,17 @@ class Game {
         // Engine sound state tracking
         this.wasThrusting = false;
 
+        // ============== COMBO SYSTEM ==============
+        // Geometry Wars-style kill combo tracking
+        this.combo = 0;                  // Current kill streak
+        this.comboTimer = 0;             // Frames until combo resets
+        this.comboMultiplier = 1;        // Score multiplier from combo
+        this.comboDisplayTimer = 0;      // How long to show combo popup
+        this.comboAnimScale = 0;         // Scale animation for juicy feedback
+        this.lastComboX = 0;             // Position for combo popup
+        this.lastComboY = 0;
+        this.maxComboThisGame = 0;       // Track best combo this session
+
         this.setupEventListeners();
         this.gameLoop();
     }
@@ -1459,6 +1470,14 @@ class Game {
         this.scoreMultiplierTimer = 0;
         this.freezeActive = false;
         this.freezeTimer = 0;
+
+        // Reset combo system
+        this.combo = 0;
+        this.comboTimer = 0;
+        this.comboMultiplier = 1;
+        this.comboDisplayTimer = 0;
+        this.comboAnimScale = 0;
+        this.maxComboThisGame = 0;
 
         this.spawnAsteroids(4);
         this.updateUI();
@@ -1567,8 +1586,47 @@ class Game {
         }
     }
 
-    addScore(points) {
-        this.score += points * this.scoreMultiplier;
+    addScore(points, x = null, y = null) {
+        // ============== COMBO SYSTEM ==============
+        // Increment combo on every kill
+        this.combo++;
+        this.comboTimer = 120; // 2 seconds at 60fps to keep combo alive
+        this.comboDisplayTimer = 60; // Show popup for 1 second
+        this.comboAnimScale = 1.5; // Start big for juicy pop effect
+        
+        // Store position for combo popup
+        if (x !== null) {
+            this.lastComboX = x;
+            this.lastComboY = y;
+        }
+        
+        // Calculate combo multiplier (1x, 1.5x, 2x, 2.5x, 3x max)
+        // Combos: 1-4 = 1x, 5-9 = 1.5x, 10-19 = 2x, 20-29 = 2.5x, 30+ = 3x
+        if (this.combo >= 30) {
+            this.comboMultiplier = 3;
+        } else if (this.combo >= 20) {
+            this.comboMultiplier = 2.5;
+        } else if (this.combo >= 10) {
+            this.comboMultiplier = 2;
+        } else if (this.combo >= 5) {
+            this.comboMultiplier = 1.5;
+        } else {
+            this.comboMultiplier = 1;
+        }
+        
+        // Track max combo for stats
+        if (this.combo > this.maxComboThisGame) {
+            this.maxComboThisGame = this.combo;
+            // Update stats manager if we beat our best
+            if (this.combo > statsManager.stats.highestCombo) {
+                statsManager.stats.highestCombo = this.combo;
+                statsManager.saveStats();
+            }
+        }
+        
+        // Apply both item multiplier AND combo multiplier
+        const totalMultiplier = this.scoreMultiplier * this.comboMultiplier;
+        this.score += Math.floor(points * totalMultiplier);
         this.updateUI();
     }
 
@@ -1641,16 +1699,16 @@ class Game {
                 break;
 
             case 'BOMB':
-                // Destroy all asteroids
+                // Destroy all asteroids - MASSIVE COMBO POTENTIAL!
                 this.asteroids.forEach(asteroid => {
                     this.createExplosion(asteroid.x, asteroid.y, asteroid.size * 8);
-                    this.addScore((4 - asteroid.size) * 10);
+                    this.addScore((4 - asteroid.size) * 10, asteroid.x, asteroid.y);
                 });
                 this.asteroids = [];
                 // Also destroy UFOs!
                 this.ufos.forEach(ufo => {
                     this.createExplosion(ufo.x, ufo.y, 20);
-                    this.addScore(UFO_POINTS / 2);
+                    this.addScore(UFO_POINTS / 2, ufo.x, ufo.y);
                 });
                 this.ufos = [];
                 this.enemyBullets = [];
@@ -1718,6 +1776,28 @@ class Game {
             if (this.scoreMultiplierTimer <= 0) {
                 this.scoreMultiplier = 1;
             }
+        }
+
+        // ============== COMBO DECAY ==============
+        // Combo timer counts down - no kills = combo lost
+        if (this.comboTimer > 0) {
+            this.comboTimer--;
+            if (this.comboTimer <= 0 && this.combo > 0) {
+                // Combo broken! Reset everything
+                this.combo = 0;
+                this.comboMultiplier = 1;
+            }
+        }
+        
+        // Animate combo display
+        if (this.comboDisplayTimer > 0) {
+            this.comboDisplayTimer--;
+        }
+        
+        // Smooth scale animation
+        if (this.comboAnimScale > 1) {
+            this.comboAnimScale -= 0.05;
+            if (this.comboAnimScale < 1) this.comboAnimScale = 1;
         }
 
         if (this.freezeActive) {
@@ -1952,7 +2032,7 @@ class Game {
                         }
                     }
 
-                    this.addScore((4 - asteroid.size) * 20);
+                    this.addScore((4 - asteroid.size) * 20, asteroid.x, asteroid.y);
                     this.spawnPowerUp(asteroid.x, asteroid.y);
                     this.spawnItem(asteroid.x, asteroid.y, asteroid.size);
                     this.asteroids.splice(j, 1);
@@ -1972,7 +2052,7 @@ class Game {
                     
                     const ufo = this.ufos[j];
                     this.createUfoExplosion(ufo.x, ufo.y);
-                    this.addScore(UFO_POINTS);
+                    this.addScore(UFO_POINTS, ufo.x, ufo.y);
                     statsManager.recordUfoDestroyed();
                     this.spawnUfoLoot(ufo.x, ufo.y);
                     this.ufos.splice(j, 1);
@@ -2031,9 +2111,10 @@ class Game {
                         this.loseLife();
                         break;
                     } else {
-                        this.createUfoExplosion(this.ufos[i].x, this.ufos[i].y);
+                        const ufo = this.ufos[i];
+                        this.createUfoExplosion(ufo.x, ufo.y);
                         soundManager.playShieldHit();
-                        this.addScore(UFO_POINTS / 2);
+                        this.addScore(UFO_POINTS / 2, ufo.x, ufo.y);
                         this.ufos.splice(i, 1);
                     }
                 }
@@ -2152,6 +2233,7 @@ class Game {
         }
 
         this.drawItemEffectIndicators(ctx);
+        this.drawComboDisplay(ctx);
         
         // Draw flash overlay
         if (this.flashAlpha > 0) {
@@ -2282,6 +2364,100 @@ class Game {
             ctx.fillText(`${indicator.text}: ${timeLeft}s`, CANVAS_WIDTH - 10, y);
             ctx.restore();
         });
+    }
+
+    // ============== COMBO DISPLAY ==============
+    // Geometry Wars-style juicy combo indicator
+    drawComboDisplay(ctx) {
+        if (this.combo <= 0) return;
+        
+        // Main combo counter in top-center
+        const comboAlpha = this.comboDisplayTimer > 0 ? 1 : Math.max(0, this.comboTimer / 60);
+        
+        // Color based on multiplier tier - more vibrant at higher combos
+        let comboColor, glowColor;
+        if (this.comboMultiplier >= 3) {
+            comboColor = '#ff00ff';  // Magenta for max combo
+            glowColor = '#ff44ff';
+        } else if (this.comboMultiplier >= 2.5) {
+            comboColor = '#ff4400';  // Orange-red
+            glowColor = '#ff6622';
+        } else if (this.comboMultiplier >= 2) {
+            comboColor = '#ffff00';  // Yellow
+            glowColor = '#ffff44';
+        } else if (this.comboMultiplier >= 1.5) {
+            comboColor = '#00ff88';  // Green
+            glowColor = '#44ffaa';
+        } else {
+            comboColor = '#00ffff';  // Cyan (base combo)
+            glowColor = '#44ffff';
+        }
+        
+        // Draw combo counter at top center with scale animation
+        ctx.save();
+        ctx.globalAlpha = comboAlpha;
+        
+        const scale = this.comboAnimScale;
+        const centerX = CANVAS_WIDTH / 2;
+        const centerY = 40;
+        
+        ctx.translate(centerX, centerY);
+        ctx.scale(scale, scale);
+        
+        // Glow effect
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 20 + (this.comboMultiplier - 1) * 10;
+        ctx.fillStyle = comboColor;
+        ctx.font = 'bold 28px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Draw multiplier text
+        const multiplierText = this.comboMultiplier > 1 ? ` x${this.comboMultiplier}` : '';
+        ctx.fillText(`${this.combo} HIT COMBO${multiplierText}`, 0, 0);
+        
+        ctx.restore();
+        
+        // Draw combo timer bar below the text
+        if (this.comboTimer > 0) {
+            const barWidth = 150;
+            const barHeight = 4;
+            const barX = centerX - barWidth / 2;
+            const barY = centerY + 18;
+            const fillRatio = this.comboTimer / 120;
+            
+            ctx.save();
+            ctx.globalAlpha = comboAlpha * 0.8;
+            
+            // Background bar
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+            
+            // Fill bar with gradient
+            const gradient = ctx.createLinearGradient(barX, barY, barX + barWidth * fillRatio, barY);
+            gradient.addColorStop(0, comboColor);
+            gradient.addColorStop(1, glowColor);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(barX, barY, barWidth * fillRatio, barHeight);
+            
+            ctx.restore();
+        }
+        
+        // Floating combo popup at kill location (for extra juice!)
+        if (this.comboDisplayTimer > 45 && this.combo >= 5) {
+            const popupAlpha = (this.comboDisplayTimer - 45) / 15;
+            const popupY = this.lastComboY - (60 - this.comboDisplayTimer) * 1.5;
+            
+            ctx.save();
+            ctx.globalAlpha = popupAlpha * 0.9;
+            ctx.shadowColor = comboColor;
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = comboColor;
+            ctx.font = 'bold 20px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(`+${this.combo}!`, this.lastComboX, popupY);
+            ctx.restore();
+        }
     }
 
     gameLoop() {
