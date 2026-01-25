@@ -438,7 +438,7 @@ class SkillTreeUI {
         ctx.restore();
         
         ctx.fillStyle = '#666666'; ctx.font = '12px "Courier New", monospace';
-        ctx.textAlign = 'center'; ctx.fillText('Click skills to upgrade Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•Î“Ã¶Â¼â”œâ”‚ Press K to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
+        ctx.textAlign = 'center'; ctx.fillText('Click skills to upgrade ├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├ÄΓÇ£├â┬╢├é┬╝├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ Press K to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
     }
     drawCategoryTabs(ctx) {
         const tabY = 80;
@@ -1008,7 +1008,7 @@ class SaveLoadUI {
                 ctx.fillText(`SLOT ${slot.slot}`, textX, slotY + 30);
                 ctx.fillStyle = '#444444';
                 ctx.font = '14px "Courier New", monospace';
-                ctx.fillText('Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•â•¬Ã´â”œÃ§â”¬Ã‘ Empty Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•â•¬Ã´â”œÃ§â”¬Ã‘', textX, slotY + 55);
+                ctx.fillText('├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├â┬º├óΓÇ¥┬¼├âΓÇÿ Empty ├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├â┬º├óΓÇ¥┬¼├âΓÇÿ', textX, slotY + 55);
             } else {
                 ctx.fillStyle = '#ffffff';
                 ctx.font = 'bold 18px "Courier New", monospace';
@@ -1016,12 +1016,12 @@ class SaveLoadUI {
                 
                 ctx.fillStyle = '#00ffff';
                 ctx.font = '14px "Courier New", monospace';
-                ctx.fillText(`Level ${slot.level}  Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•Î“Ã¶Â¼â”œâ”‚  Score: ${slot.score.toLocaleString()}`, textX, slotY + 48);
+                ctx.fillText(`Level ${slot.level}  ├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├ÄΓÇ£├â┬╢├é┬╝├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ  Score: ${slot.score.toLocaleString()}`, textX, slotY + 48);
                 
                 ctx.fillStyle = '#888888';
                 ctx.font = '12px "Courier New", monospace';
                 const dateStr = slot.date.toLocaleDateString() + ' ' + slot.date.toLocaleTimeString();
-                ctx.fillText(`${dateStr}  Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•Î“Ã¶Â¼â”œâ”‚  ${slot.skillPoints} skill pts`, textX, slotY + 68);
+                ctx.fillText(`${dateStr}  ├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├ÄΓÇ£├â┬╢├é┬╝├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ  ${slot.skillPoints} skill pts`, textX, slotY + 68);
                 
                 const deleteX = centerX + slotWidth / 2 - 35;
                 const deleteY = slotY + slotHeight / 2;
@@ -2584,6 +2584,151 @@ class TrailParticle {
     }
 }
 
+// ============== MUZZLE FLASH CLASS ==============
+// Geometry Wars-style bright flash when firing
+class MuzzleFlash {
+    constructor(x, y, angle, game) {
+        this.x = x;
+        this.y = y;
+        this.angle = angle;
+        this.game = game;
+        this.lifetime = 8;
+        this.maxLifetime = 8;
+        this.size = 12;
+        // Color cycling through hot colors
+        this.colors = ['#ffffff', '#ff00ff', '#ff44ff', '#ff88ff'];
+    }
+    
+    update() {
+        this.lifetime--;
+        this.size *= 0.85;
+    }
+    
+    draw(ctx) {
+        const alpha = this.lifetime / this.maxLifetime;
+        const progress = 1 - alpha;
+        const colorIndex = Math.floor(progress * (this.colors.length - 1));
+        const color = this.colors[colorIndex];
+        
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+        ctx.globalAlpha = alpha;
+        
+        // Outer glow burst
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 25 * alpha;
+        
+        // Central flash
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size);
+        gradient.addColorStop(0, '#ffffff');
+        gradient.addColorStop(0.3, color);
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Directional flash lines
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2 * alpha;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(this.size * 1.5, 0);
+        ctx.stroke();
+        
+        // Side sparks
+        for (let i = -1; i <= 1; i += 2) {
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(this.size * 0.8, i * this.size * 0.5);
+            ctx.stroke();
+        }
+        
+        ctx.restore();
+    }
+}
+
+// ============== IMPACT SPARK CLASS ==============
+// Sparks when bullets hit targets
+class ImpactSpark {
+    constructor(x, y, color, intensity = 1) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        
+        // Random direction with some spread
+        const angle = Math.random() * Math.PI * 2;
+        const speed = (2 + Math.random() * 4) * intensity;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        
+        this.lifetime = 15 + Math.random() * 10;
+        this.maxLifetime = this.lifetime;
+        this.size = 2 + Math.random() * 2;
+        this.trail = [];
+        this.maxTrail = 5;
+    }
+    
+    update() {
+        // Store trail position
+        this.trail.push({ x: this.x, y: this.y });
+        if (this.trail.length > this.maxTrail) {
+            this.trail.shift();
+        }
+        
+        this.x += this.vx;
+        this.y += this.vy;
+        
+        // Slow down
+        this.vx *= 0.95;
+        this.vy *= 0.95;
+        
+        // Gravity-like effect
+        this.vy += 0.1;
+        
+        this.lifetime--;
+        this.size *= 0.97;
+    }
+    
+    draw(ctx) {
+        const alpha = this.lifetime / this.maxLifetime;
+        
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        
+        // Draw trail
+        if (this.trail.length > 1) {
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = this.size * 0.5;
+            ctx.shadowColor = this.color;
+            ctx.shadowBlur = 5;
+            ctx.beginPath();
+            ctx.moveTo(this.trail[0].x, this.trail[0].y);
+            for (let i = 1; i < this.trail.length; i++) {
+                ctx.lineTo(this.trail[i].x, this.trail[i].y);
+            }
+            ctx.lineTo(this.x, this.y);
+            ctx.stroke();
+        }
+        
+        // Draw spark head
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+    }
+}
+
 // ============== EXPLOSION PARTICLE CLASS ==============
 class ExplosionParticle {
     constructor(x, y, color, isCore = false) {
@@ -2983,6 +3128,8 @@ class Game {
         this.particles = [];
         this.trailParticles = [];
         this.explosionParticles = [];
+        this.muzzleFlashes = [];
+        this.impactSparks = [];
         this.powerUps = [];
         this.items = [];
         this.inventory = [];
@@ -3189,6 +3336,8 @@ class Game {
         this.particles = [];
         this.trailParticles = [];
         this.explosionParticles = [];
+        this.muzzleFlashes = [];
+        this.impactSparks = [];
         this.powerUps = [];
         this.items = [];
         this.inventory = [];
@@ -3659,6 +3808,49 @@ class Game {
         this.particles.push(new ShockwaveParticle(x, y, 60));
     }
 
+    // Create muzzle flash when ship fires
+    createMuzzleFlash(x, y, angle) {
+        this.muzzleFlashes.push(new MuzzleFlash(x, y, angle, this));
+        
+        // Also spawn some quick trail particles for extra juice
+        for (let i = 0; i < 5; i++) {
+            const spread = (Math.random() - 0.5) * 0.5;
+            const speed = 2 + Math.random() * 3;
+            this.trailParticles.push(new TrailParticle(
+                x,
+                y,
+                Math.random() > 0.5 ? '#ff00ff' : '#ffffff',
+                2 + Math.random() * 2,
+                8 + Math.random() * 5,
+                Math.cos(angle + spread) * speed,
+                Math.sin(angle + spread) * speed
+            ));
+        }
+    }
+    
+    // Create impact sparks when bullets hit targets
+    createImpactSparks(x, y, color, count = 8) {
+        // Spawn sparks
+        for (let i = 0; i < count; i++) {
+            this.impactSparks.push(new ImpactSpark(x, y, color, 1));
+        }
+        
+        // Add some extra flash particles
+        for (let i = 0; i < 4; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 1 + Math.random() * 2;
+            this.trailParticles.push(new TrailParticle(
+                x,
+                y,
+                '#ffffff',
+                3 + Math.random() * 2,
+                6 + Math.random() * 4,
+                Math.cos(angle) * speed,
+                Math.sin(angle) * speed
+            ));
+        }
+    }
+
     update() {
         this.time++;
         this.titlePulse += 0.05;
@@ -3753,6 +3945,16 @@ class Game {
             return particle.lifetime > 0;
         });
 
+        this.muzzleFlashes = this.muzzleFlashes.filter(flash => {
+            flash.update();
+            return flash.lifetime > 0;
+        });
+
+        this.impactSparks = this.impactSparks.filter(spark => {
+            spark.update();
+            return spark.lifetime > 0;
+        });
+
         this.particles = this.particles.filter(particle => {
             particle.update();
             return particle.lifetime > 0;
@@ -3799,9 +4001,14 @@ class Game {
                     this.bullets[i].x, this.bullets[i].y, 4,
                     this.asteroids[j].x, this.asteroids[j].y, this.asteroids[j].radius
                 )) {
+                    const bullet = this.bullets[i];
                     this.bullets.splice(i, 1);
 
                     const asteroid = this.asteroids[j];
+                    
+                    // Create impact sparks at bullet position (orange for asteroids)
+                    this.createImpactSparks(bullet.x, bullet.y, COLORS.asteroidGlow, 10);
+                    
                     this.createExplosion(asteroid.x, asteroid.y, asteroid.size * 6);
 
                     if (asteroid.size > 1) {
@@ -3829,7 +4036,11 @@ class Game {
                     this.bullets[i].x, this.bullets[i].y, 4,
                     this.ufos[j].x, this.ufos[j].y, UFO_SIZE
                 )) {
+                    const bullet = this.bullets[i];
                     this.bullets.splice(i, 1);
+                    
+                    // Create impact sparks (green for UFOs)
+                    this.createImpactSparks(bullet.x, bullet.y, COLORS.ufoPrimary, 12);
                     
                     const ufo = this.ufos[j];
                     this.createUfoExplosion(ufo.x, ufo.y);
@@ -3850,7 +4061,12 @@ class Game {
                     this.bullets[i].x, this.bullets[i].y, 4,
                     this.boss.x, this.boss.y, BOSS_SIZE
                 )) {
+                    const bullet = this.bullets[i];
                     this.bullets.splice(i, 1);
+                    
+                    // Create impact sparks (pink/magenta for boss)
+                    this.createImpactSparks(bullet.x, bullet.y, '#ff44aa', 15);
+                    
                     this.boss.takeDamage();
                     break;
                 }
@@ -4023,6 +4239,8 @@ class Game {
             // Draw game objects dimmed in background
             this.trailParticles.forEach(particle => particle.draw(ctx));
             this.explosionParticles.forEach(particle => particle.draw(ctx));
+            this.muzzleFlashes.forEach(flash => flash.draw(ctx));
+            this.impactSparks.forEach(spark => spark.draw(ctx));
             this.particles.forEach(particle => particle.draw(ctx));
             this.items.forEach(item => item.draw(ctx));
             this.powerUps.forEach(powerUp => powerUp.draw(ctx));
@@ -4041,6 +4259,8 @@ class Game {
         // Draw game objects in order (back to front)
         this.trailParticles.forEach(particle => particle.draw(ctx));
         this.explosionParticles.forEach(particle => particle.draw(ctx));
+        this.muzzleFlashes.forEach(flash => flash.draw(ctx));
+        this.impactSparks.forEach(spark => spark.draw(ctx));
         this.particles.forEach(particle => particle.draw(ctx));
         this.items.forEach(item => item.draw(ctx));
         this.powerUps.forEach(powerUp => powerUp.draw(ctx));
@@ -4864,13 +5084,19 @@ class Ship {
         const angles = this.hasTripleShot ? [-0.2, 0, 0.2] : [0];
         
         angles.forEach(angleOffset => {
+            const muzzleX = this.x + Math.cos(this.angle + angleOffset) * SHIP_SIZE;
+            const muzzleY = this.y + Math.sin(this.angle + angleOffset) * SHIP_SIZE;
+            
             const bullet = new Bullet(
-                this.x + Math.cos(this.angle + angleOffset) * SHIP_SIZE,
-                this.y + Math.sin(this.angle + angleOffset) * SHIP_SIZE,
+                muzzleX,
+                muzzleY,
                 this.angle + angleOffset,
                 this.game
             );
             this.game.bullets.push(bullet);
+            
+            // Create muzzle flash at each gun position
+            this.game.createMuzzleFlash(muzzleX, muzzleY, this.angle + angleOffset);
         });
 
         this.shootCooldown = this.hasRapidFire ? 3 : 10;
@@ -5274,15 +5500,22 @@ class Asteroid {
 }
 
 // ============== BULLET CLASS ==============
+// Enhanced with Geometry Wars-style color cycling trails
 class Bullet {
     constructor(x, y, angle, game) {
         this.x = x;
         this.y = y;
         this.game = game;
+        this.angle = angle;
         this.vx = Math.cos(angle) * BULLET_SPEED;
         this.vy = Math.sin(angle) * BULLET_SPEED;
         this.lifetime = BULLET_LIFETIME;
         this.trailCounter = 0;
+        this.pulsePhase = Math.random() * Math.PI * 2;
+        
+        // Color cycling for Geometry Wars-style trails
+        this.trailColors = ['#ff00ff', '#ff44ff', '#ff88ff', '#ffffff', '#ff88ff', '#ff44ff'];
+        this.colorIndex = 0;
     }
 
     update() {
@@ -5290,18 +5523,39 @@ class Bullet {
         this.y += this.vy;
         this.lifetime--;
         this.trailCounter++;
+        this.pulsePhase += 0.3;
+        
+        // Cycle through colors
+        this.colorIndex = (this.colorIndex + 0.15) % this.trailColors.length;
 
-        // Spawn trail particles
+        // Spawn enhanced trail particles with color cycling
         if (this.trailCounter % 2 === 0) {
+            const colorIdx = Math.floor(this.colorIndex);
+            const trailColor = this.trailColors[colorIdx];
+            
+            // Main trail particle
             this.game.trailParticles.push(new TrailParticle(
                 this.x,
                 this.y,
-                COLORS.bullet,
-                2,
-                10,
-                -this.vx * 0.1,
-                -this.vy * 0.1
+                trailColor,
+                2.5,
+                12,
+                -this.vx * 0.1 + (Math.random() - 0.5) * 0.3,
+                -this.vy * 0.1 + (Math.random() - 0.5) * 0.3
             ));
+            
+            // Secondary sparkle trail for extra juice
+            if (this.trailCounter % 4 === 0) {
+                this.game.trailParticles.push(new TrailParticle(
+                    this.x + (Math.random() - 0.5) * 4,
+                    this.y + (Math.random() - 0.5) * 4,
+                    '#ffffff',
+                    1.5,
+                    8,
+                    (Math.random() - 0.5) * 1,
+                    (Math.random() - 0.5) * 1
+                ));
+            }
         }
 
         // Wrap
@@ -5312,18 +5566,22 @@ class Bullet {
     }
 
     draw(ctx) {
+        const pulse = 1 + Math.sin(this.pulsePhase) * 0.2;
+        const colorIdx = Math.floor(this.colorIndex);
+        const currentColor = this.trailColors[colorIdx];
+        
         ctx.save();
         
-        // Outer glow
-        ctx.shadowColor = COLORS.bullet;
-        ctx.shadowBlur = 15;
-        ctx.fillStyle = COLORS.bullet;
+        // Outer glow with pulsing
+        ctx.shadowColor = currentColor;
+        ctx.shadowBlur = 18 * pulse;
+        ctx.fillStyle = currentColor;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+        ctx.arc(this.x, this.y, 4 * pulse, 0, Math.PI * 2);
         ctx.fill();
         
         // Bright core
-        ctx.shadowBlur = 5;
+        ctx.shadowBlur = 8;
         ctx.fillStyle = COLORS.bulletCore;
         ctx.beginPath();
         ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
