@@ -1,4 +1,4 @@
-// Game constants
+﻿// Game constants
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const FPS = 60;
@@ -438,7 +438,7 @@ class SkillTreeUI {
         ctx.restore();
         
         ctx.fillStyle = '#666666'; ctx.font = '12px "Courier New", monospace';
-        ctx.textAlign = 'center'; ctx.fillText('Click skills to upgrade Γö£├│╬ô├⌐┬╝Γö¼├│ Press K to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
+        ctx.textAlign = 'center'; ctx.fillText('Click skills to upgrade Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•Î“Ã¶Â¼â”œâ”‚ Press K to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
     }
     drawCategoryTabs(ctx) {
         const tabY = 80;
@@ -1008,7 +1008,7 @@ class SaveLoadUI {
                 ctx.fillText(`SLOT ${slot.slot}`, textX, slotY + 30);
                 ctx.fillStyle = '#444444';
                 ctx.font = '14px "Courier New", monospace';
-                ctx.fillText('Γö£├│╬ô├⌐┬╝╬ô├ç┬Ñ Empty Γö£├│╬ô├⌐┬╝╬ô├ç┬Ñ', textX, slotY + 55);
+                ctx.fillText('Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•â•¬Ã´â”œÃ§â”¬Ã‘ Empty Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•â•¬Ã´â”œÃ§â”¬Ã‘', textX, slotY + 55);
             } else {
                 ctx.fillStyle = '#ffffff';
                 ctx.font = 'bold 18px "Courier New", monospace';
@@ -1016,12 +1016,12 @@ class SaveLoadUI {
                 
                 ctx.fillStyle = '#00ffff';
                 ctx.font = '14px "Courier New", monospace';
-                ctx.fillText(`Level ${slot.level}  Γö£├│╬ô├⌐┬╝Γö¼├│  Score: ${slot.score.toLocaleString()}`, textX, slotY + 48);
+                ctx.fillText(`Level ${slot.level}  Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•Î“Ã¶Â¼â”œâ”‚  Score: ${slot.score.toLocaleString()}`, textX, slotY + 48);
                 
                 ctx.fillStyle = '#888888';
                 ctx.font = '12px "Courier New", monospace';
                 const dateStr = slot.date.toLocaleDateString() + ' ' + slot.date.toLocaleTimeString();
-                ctx.fillText(`${dateStr}  Γö£├│╬ô├⌐┬╝Γö¼├│  ${slot.skillPoints} skill pts`, textX, slotY + 68);
+                ctx.fillText(`${dateStr}  Î“Ã¶Â£â”œâ”‚â•¬Ã´â”œâŒâ”¬â•Î“Ã¶Â¼â”œâ”‚  ${slot.skillPoints} skill pts`, textX, slotY + 68);
                 
                 const deleteX = centerX + slotWidth / 2 - 35;
                 const deleteY = slotY + slotHeight / 2;
@@ -2573,6 +2573,295 @@ class ScreenShake {
 }
 
 // ============== GAME CLASS ==============
+// ============== MOBILE TOUCH CONTROLS ==============
+// Virtual joystick and fire button for touch devices
+
+class TouchControlManager {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.isTouchDevice = this.detectTouch();
+        this.enabled = this.isTouchDevice;
+        
+        // Virtual joystick state (left side)
+        this.joystick = {
+            active: false,
+            touchId: null,
+            baseX: 0,
+            baseY: 0,
+            currentX: 0,
+            currentY: 0,
+            dx: 0,  // -1 to 1
+            dy: 0,  // -1 to 1
+            radius: 50,
+            deadzone: 0.15
+        };
+        
+        // Fire button state (right side)
+        this.fireButton = {
+            active: false,
+            touchId: null,
+            x: 0,
+            y: 0,
+            radius: 45,
+            firing: false
+        };
+        
+        // Visual positions (updated on resize)
+        this.updateLayout();
+        
+        // Touch state for game integration
+        this.virtualKeys = {
+            'ArrowLeft': false,
+            'ArrowRight': false,
+            'ArrowUp': false,
+            ' ': false  // Space for shooting
+        };
+        
+        if (this.isTouchDevice) {
+            this.setupTouchEvents();
+            // Prevent scrolling/zooming on canvas
+            this.canvas.style.touchAction = 'none';
+        }
+        
+        // Handle resize
+        window.addEventListener('resize', () => this.updateLayout());
+    }
+    
+    detectTouch() {
+        return ('ontouchstart' in window) || 
+               (navigator.maxTouchPoints > 0) || 
+               (navigator.msMaxTouchPoints > 0);
+    }
+    
+    updateLayout() {
+        const rect = this.canvas.getBoundingClientRect();
+        const padding = 30;
+        const bottomOffset = 100;
+        
+        // Joystick base position (bottom-left)
+        this.joystick.baseX = padding + this.joystick.radius + 20;
+        this.joystick.baseY = rect.height - bottomOffset;
+        this.joystick.currentX = this.joystick.baseX;
+        this.joystick.currentY = this.joystick.baseY;
+        
+        // Fire button position (bottom-right)
+        this.fireButton.x = rect.width - padding - this.fireButton.radius - 20;
+        this.fireButton.y = rect.height - bottomOffset;
+    }
+    
+    setupTouchEvents() {
+        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
+        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
+        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
+        this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e), { passive: false });
+    }
+    
+    handleTouchStart(e) {
+        e.preventDefault();
+        
+        for (const touch of e.changedTouches) {
+            const pos = this.getTouchPos(touch);
+            
+            // Check if touching left half (joystick zone)
+            if (pos.x < this.canvas.width / 2 && this.joystick.touchId === null) {
+                this.joystick.active = true;
+                this.joystick.touchId = touch.identifier;
+                this.joystick.baseX = pos.x;
+                this.joystick.baseY = pos.y;
+                this.joystick.currentX = pos.x;
+                this.joystick.currentY = pos.y;
+            }
+            // Check if touching right half (fire zone)
+            else if (pos.x >= this.canvas.width / 2 && this.fireButton.touchId === null) {
+                this.fireButton.active = true;
+                this.fireButton.touchId = touch.identifier;
+                this.fireButton.firing = true;
+            }
+        }
+        
+        this.updateVirtualKeys();
+    }
+    
+    handleTouchMove(e) {
+        e.preventDefault();
+        
+        for (const touch of e.changedTouches) {
+            if (touch.identifier === this.joystick.touchId) {
+                const pos = this.getTouchPos(touch);
+                const dx = pos.x - this.joystick.baseX;
+                const dy = pos.y - this.joystick.baseY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const maxDist = this.joystick.radius * 1.5;
+                
+                // Clamp joystick position
+                if (distance > maxDist) {
+                    const angle = Math.atan2(dy, dx);
+                    this.joystick.currentX = this.joystick.baseX + Math.cos(angle) * maxDist;
+                    this.joystick.currentY = this.joystick.baseY + Math.sin(angle) * maxDist;
+                } else {
+                    this.joystick.currentX = pos.x;
+                    this.joystick.currentY = pos.y;
+                }
+                
+                // Normalize to -1 to 1
+                this.joystick.dx = (this.joystick.currentX - this.joystick.baseX) / maxDist;
+                this.joystick.dy = (this.joystick.currentY - this.joystick.baseY) / maxDist;
+            }
+        }
+        
+        this.updateVirtualKeys();
+    }
+    
+    handleTouchEnd(e) {
+        for (const touch of e.changedTouches) {
+            if (touch.identifier === this.joystick.touchId) {
+                this.joystick.active = false;
+                this.joystick.touchId = null;
+                this.joystick.currentX = this.joystick.baseX;
+                this.joystick.currentY = this.joystick.baseY;
+                this.joystick.dx = 0;
+                this.joystick.dy = 0;
+            }
+            if (touch.identifier === this.fireButton.touchId) {
+                this.fireButton.active = false;
+                this.fireButton.touchId = null;
+                this.fireButton.firing = false;
+            }
+        }
+        
+        this.updateVirtualKeys();
+    }
+    
+    getTouchPos(touch) {
+        const rect = this.canvas.getBoundingClientRect();
+        return {
+            x: (touch.clientX - rect.left) * (this.canvas.width / rect.width),
+            y: (touch.clientY - rect.top) * (this.canvas.height / rect.height)
+        };
+    }
+    
+    updateVirtualKeys() {
+        const deadzone = this.joystick.deadzone;
+        
+        // Horizontal movement (turn left/right)
+        this.virtualKeys['ArrowLeft'] = this.joystick.dx < -deadzone;
+        this.virtualKeys['ArrowRight'] = this.joystick.dx > deadzone;
+        
+        // Vertical movement (thrust) - pushing UP (negative Y) means thrust
+        this.virtualKeys['ArrowUp'] = this.joystick.dy < -deadzone;
+        
+        // Fire button
+        this.virtualKeys[' '] = this.fireButton.firing;
+    }
+    
+    // Merge virtual keys with physical keys
+    getKeys(physicalKeys) {
+        if (!this.enabled) return physicalKeys;
+        
+        return {
+            ...physicalKeys,
+            'ArrowLeft': physicalKeys['ArrowLeft'] || physicalKeys['a'] || physicalKeys['A'] || this.virtualKeys['ArrowLeft'],
+            'ArrowRight': physicalKeys['ArrowRight'] || physicalKeys['d'] || physicalKeys['D'] || this.virtualKeys['ArrowRight'],
+            'ArrowUp': physicalKeys['ArrowUp'] || physicalKeys['w'] || physicalKeys['W'] || this.virtualKeys['ArrowUp'],
+            ' ': physicalKeys[' '] || this.virtualKeys[' ']
+        };
+    }
+    
+    draw(ctx) {
+        if (!this.enabled || !this.isTouchDevice) return;
+        
+        ctx.save();
+        
+        // === DRAW VIRTUAL JOYSTICK ===
+        const jx = this.joystick.baseX;
+        const jy = this.joystick.baseY;
+        const jr = this.joystick.radius;
+        
+        // Outer ring (base)
+        ctx.beginPath();
+        ctx.arc(jx, jy, jr, 0, Math.PI * 2);
+        ctx.strokeStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.6)' : 'rgba(0, 255, 255, 0.25)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        // Base fill
+        ctx.fillStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.15)' : 'rgba(0, 255, 255, 0.05)';
+        ctx.fill();
+        
+        // Inner nub
+        const nubX = this.joystick.currentX;
+        const nubY = this.joystick.currentY;
+        const nubRadius = jr * 0.5;
+        
+        ctx.beginPath();
+        ctx.arc(nubX, nubY, nubRadius, 0, Math.PI * 2);
+        ctx.fillStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.8)' : 'rgba(0, 255, 255, 0.4)';
+        ctx.fill();
+        
+        // Nub glow
+        if (this.joystick.active) {
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.arc(nubX, nubY, nubRadius * 0.7, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 255, 255, 0.6)';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+        
+        // Direction indicators
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.4)';
+        ctx.fillText('^', jx, jy - jr - 8);  // Up = thrust
+        
+        // === DRAW FIRE BUTTON ===
+        const fx = this.fireButton.x;
+        const fy = this.fireButton.y;
+        const fr = this.fireButton.radius;
+        
+        // Outer ring
+        ctx.beginPath();
+        ctx.arc(fx, fy, fr, 0, Math.PI * 2);
+        ctx.strokeStyle = this.fireButton.active ? 'rgba(255, 0, 255, 0.8)' : 'rgba(255, 0, 255, 0.3)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        // Button fill
+        ctx.fillStyle = this.fireButton.active ? 'rgba(255, 0, 255, 0.4)' : 'rgba(255, 0, 255, 0.1)';
+        ctx.fill();
+        
+        // Button glow when active
+        if (this.fireButton.active) {
+            ctx.shadowColor = '#ff00ff';
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.arc(fx, fy, fr * 0.8, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 0, 255, 0.5)';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+        
+        // Fire label
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = this.fireButton.active ? '#ff88ff' : 'rgba(255, 0, 255, 0.5)';
+        ctx.fillText('FIRE', fx, fy);
+        
+        // === TOUCH HINT (show briefly on start screen) ===
+        
+        ctx.restore();
+    }
+    
+    // Handle auto-fire when button held
+    shouldAutoFire() {
+        return this.enabled && this.fireButton.firing;
+    }
+}
+
+
+
 class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
@@ -2644,6 +2933,9 @@ class Game {
         this.isEnteringInitials = false;
         this.newHighScoreRank = 0;
         this.initials = '';
+
+                // Mobile touch controls
+        this.touchControls = new TouchControlManager(this.canvas);
 
         this.setupEventListeners();
         this.gameLoop();
@@ -3304,10 +3596,16 @@ class Game {
         }
 
         if (this.ship) {
-            this.ship.update(this.keys);
+            const mergedKeys = this.touchControls.getKeys(this.keys);
+            this.ship.update(mergedKeys);
             
-            // Handle engine sound
-            const isThrusting = this.keys['ArrowUp'] || this.keys['w'] || this.keys['W'];
+                        // Handle touch auto-fire
+            if (this.touchControls.shouldAutoFire()) {
+                this.ship.shoot();
+            }
+            
+            // Handle engine sound (check both keyboard and touch)
+            const isThrusting = mergedKeys['ArrowUp'];
             if (isThrusting && !this.wasThrusting) {
                 soundManager.startEngine();
             } else if (!isThrusting && this.wasThrusting) {
@@ -4049,6 +4347,11 @@ class Game {
             ctx.textAlign = 'center';
             ctx.fillText(`+${this.comboCount}`, this.lastKillX, floatY);
             ctx.restore();
+        }        }
+        
+        // Draw mobile touch controls overlay
+        if (this.touchControls) {
+            this.touchControls.draw(ctx);
         }
     }
 
