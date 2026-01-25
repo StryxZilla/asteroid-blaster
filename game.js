@@ -1,4 +1,4 @@
-﻿// Game constants
+// Game constants
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const FPS = 60;
@@ -2446,10 +2446,31 @@ class Game {
             if (e.key === 'm' || e.key === 'M') {
                 soundManager.toggleMute();
             }
+            
+            // Weapon switching with Q/E or Tab
+            if (this.state === 'playing' && this.ship) {
+                if (e.key === 'q' || e.key === 'Q') {
+                    this.ship.cycleWeapon(-1);
+                }
+                if (e.key === 'e' || e.key === 'E' || e.key === 'Tab') {
+                    e.preventDefault();
+                    this.ship.cycleWeapon(1);
+                }
+                
+                // Beam weapon - start on space down
+                if (e.key === ' ' && this.ship.getCurrentWeaponType() === 'BEAM') {
+                    this.ship.startBeam();
+                }
+            }
         });
 
         window.addEventListener('keyup', (e) => {
             this.keys[e.key] = false;
+            
+            // Stop beam on space release
+            if (e.key === ' ' && this.ship && this.ship.getCurrentWeaponType() === 'BEAM') {
+                this.ship.stopBeam();
+            }
         });
     }
 
@@ -3025,6 +3046,7 @@ class Game {
 
         if (this.ship) {
             this.ship.update(this.keys);
+            this.ship.updateBeam(); // Update laser beam if active
             
             // Handle engine sound
             const isThrusting = this.keys['ArrowUp'] || this.keys['w'] || this.keys['W'];
@@ -3332,10 +3354,12 @@ class Game {
         
         if (this.ship) {
             this.ship.draw(ctx);
+            this.ship.drawBeam(ctx); // Draw laser beam
             this.ship.drawPowerUpIndicators(ctx);
         }
 
         this.drawItemEffectIndicators(ctx);
+        this.drawWeaponIndicator(ctx);
         
         // Draw flash overlay
         if (this.flashAlpha > 0) {
@@ -3590,6 +3614,76 @@ class Game {
             ctx.fillText(`${indicator.text}: ${timeLeft}s`, CANVAS_WIDTH - 10, y);
             ctx.restore();
         });
+    }
+    
+    drawWeaponIndicator(ctx) {
+        if (!this.ship || this.state !== 'playing') return;
+        
+        const weaponType = this.ship.getCurrentWeaponType();
+        const weaponInfo = this.ship.getCurrentWeaponInfo();
+        
+        const x = CANVAS_WIDTH / 2;
+        const y = CANVAS_HEIGHT - 30;
+        
+        ctx.save();
+        
+        // Draw weapon slots
+        const slotWidth = 60;
+        const totalWidth = WEAPON_ORDER.length * slotWidth;
+        const startX = x - totalWidth / 2;
+        
+        WEAPON_ORDER.forEach((wType, index) => {
+            const wInfo = WEAPON_TYPES[wType];
+            const slotX = startX + index * slotWidth + slotWidth / 2;
+            const isSelected = index === this.ship.currentWeapon;
+            
+            // Slot background
+            ctx.fillStyle = isSelected ? wInfo.color + '40' : '#00000060';
+            ctx.strokeStyle = isSelected ? wInfo.color : '#333333';
+            ctx.lineWidth = isSelected ? 2 : 1;
+            
+            ctx.beginPath();
+            ctx.roundRect(slotX - 25, y - 15, 50, 30, 5);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Weapon icon/name
+            ctx.fillStyle = isSelected ? wInfo.color : '#666666';
+            ctx.font = isSelected ? 'bold 10px "Courier New", monospace' : '9px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            if (isSelected) {
+                ctx.shadowColor = wInfo.color;
+                ctx.shadowBlur = 10;
+            }
+            
+            // Show short name
+            const shortNames = { BLASTER: 'BLT', SPREAD: 'SPR', BEAM: 'BEM', MISSILES: 'MSL', WAVE: 'WAV' };
+            ctx.fillText(shortNames[wType], slotX, y);
+            
+            // Key hint
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#444444';
+            ctx.font = '8px "Courier New", monospace';
+            ctx.fillText(index + 1, slotX, y + 18);
+        });
+        
+        // Current weapon name above
+        ctx.shadowColor = weaponInfo.color;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = weaponInfo.color;
+        ctx.font = 'bold 12px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(weaponInfo.name.toUpperCase(), x, y - 28);
+        
+        // Controls hint
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#444444';
+        ctx.font = '10px "Courier New", monospace';
+        ctx.fillText('Q/E to switch weapons', x, y + 30);
+        
+        ctx.restore();
     }
 
     gameLoop() {
@@ -3904,10 +3998,33 @@ class Ship {
         this.hasSpeedBoost = false;
         this.powerUpTimers = { shield: 0, rapidFire: 0, tripleShot: 0, speedBoost: 0 };
         
+        // Weapon system
+        this.currentWeapon = 0; // Index into WEAPON_ORDER
+        this.laserBeam = null; // Active beam weapon
+        this.beamFiring = false;
+        
         // Invulnerability on spawn
         this.invulnerable = true;
         this.invulnerableTimer = 120;
         this.spawnAnimation = 0;
+    }
+    
+    cycleWeapon(direction) {
+        this.currentWeapon = (this.currentWeapon + direction + WEAPON_ORDER.length) % WEAPON_ORDER.length;
+        // Stop beam if switching away from it
+        if (this.laserBeam) {
+            this.laserBeam.deactivate();
+            this.laserBeam = null;
+        }
+        soundManager.playItemCollect();
+    }
+    
+    getCurrentWeaponType() {
+        return WEAPON_ORDER[this.currentWeapon];
+    }
+    
+    getCurrentWeaponInfo() {
+        return WEAPON_TYPES[this.getCurrentWeaponType()];
     }
 
     update(keys) {
@@ -3979,24 +4096,194 @@ class Ship {
     }
 
     shoot() {
+        const weaponType = this.getCurrentWeaponType();
+        const weaponInfo = this.getCurrentWeaponInfo();
+        
+        // Beam weapon is continuous - handled separately
+        if (weaponType === 'BEAM') {
+            return; // Beam is handled in startBeam/stopBeam
+        }
+        
         if (this.shootCooldown > 0) return;
-
-        const angles = this.hasTripleShot ? [-0.2, 0, 0.2] : [0];
         
-        angles.forEach(angleOffset => {
-            const bullet = new Bullet(
-                this.x + Math.cos(this.angle + angleOffset) * SHIP_SIZE,
-                this.y + Math.sin(this.angle + angleOffset) * SHIP_SIZE,
-                this.angle + angleOffset,
-                this.game
-            );
-            this.game.bullets.push(bullet);
-        });
-
-        this.shootCooldown = this.hasRapidFire ? 3 : 10;
+        const baseFireRate = weaponInfo.fireRate;
+        const fireRateMultiplier = this.hasRapidFire ? 0.5 : 1;
         
-        // Play laser sound
-        soundManager.playLaser();
+        switch(weaponType) {
+            case 'BLASTER':
+                // Standard blaster with optional triple shot
+                const angles = this.hasTripleShot ? [-0.2, 0, 0.2] : [0];
+                angles.forEach(angleOffset => {
+                    const bullet = new Bullet(
+                        this.x + Math.cos(this.angle + angleOffset) * SHIP_SIZE,
+                        this.y + Math.sin(this.angle + angleOffset) * SHIP_SIZE,
+                        this.angle + angleOffset,
+                        this.game
+                    );
+                    this.game.bullets.push(bullet);
+                });
+                soundManager.playLaser();
+                break;
+                
+            case 'SPREAD':
+                // 5-shot spread pattern
+                const spreadAngles = [-0.4, -0.2, 0, 0.2, 0.4];
+                spreadAngles.forEach(angleOffset => {
+                    const bullet = new SpreadBullet(
+                        this.x + Math.cos(this.angle + angleOffset) * SHIP_SIZE,
+                        this.y + Math.sin(this.angle + angleOffset) * SHIP_SIZE,
+                        this.angle + angleOffset,
+                        this.game
+                    );
+                    this.game.bullets.push(bullet);
+                });
+                this.playSpreadSound();
+                break;
+                
+            case 'MISSILES':
+                // Single homing missile
+                const missile = new HomingMissile(
+                    this.x + Math.cos(this.angle) * SHIP_SIZE,
+                    this.y + Math.sin(this.angle) * SHIP_SIZE,
+                    this.angle,
+                    this.game
+                );
+                this.game.bullets.push(missile);
+                this.playMissileSound();
+                break;
+                
+            case 'WAVE':
+                // Sine wave projectile
+                const wave = new WaveBullet(
+                    this.x + Math.cos(this.angle) * SHIP_SIZE,
+                    this.y + Math.sin(this.angle) * SHIP_SIZE,
+                    this.angle,
+                    this.game
+                );
+                this.game.bullets.push(wave);
+                this.playWaveSound();
+                break;
+        }
+
+        this.shootCooldown = Math.floor(baseFireRate * fireRateMultiplier);
+    }
+    
+    startBeam() {
+        if (this.getCurrentWeaponType() !== 'BEAM') return;
+        if (!this.laserBeam) {
+            this.laserBeam = new LaserBeam(this, this.game);
+            this.beamFiring = true;
+            this.playBeamSound();
+        }
+    }
+    
+    stopBeam() {
+        if (this.laserBeam) {
+            this.laserBeam.deactivate();
+            this.laserBeam = null;
+            this.beamFiring = false;
+        }
+    }
+    
+    updateBeam() {
+        if (this.laserBeam && this.laserBeam.active) {
+            this.laserBeam.update();
+        }
+    }
+    
+    drawBeam(ctx) {
+        if (this.laserBeam && this.laserBeam.active) {
+            this.laserBeam.draw(ctx);
+        }
+    }
+    
+    // Weapon-specific sounds
+    playSpreadSound() {
+        if (!soundManager.initialized) return;
+        soundManager.resume();
+        const now = soundManager.audioContext.currentTime;
+        
+        const osc = soundManager.audioContext.createOscillator();
+        const gain = soundManager.audioContext.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(600, now);
+        osc.frequency.exponentialRampToValueAtTime(200, now + 0.1);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        osc.connect(gain);
+        gain.connect(soundManager.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.1);
+    }
+    
+    playMissileSound() {
+        if (!soundManager.initialized) return;
+        soundManager.resume();
+        const now = soundManager.audioContext.currentTime;
+        
+        const osc = soundManager.audioContext.createOscillator();
+        const gain = soundManager.audioContext.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(80, now + 0.2);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+        
+        const noise = soundManager.audioContext.createOscillator();
+        const noiseGain = soundManager.audioContext.createGain();
+        noise.type = 'sawtooth';
+        noise.frequency.value = 100;
+        noiseGain.gain.setValueAtTime(0.1, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+        
+        osc.connect(gain);
+        gain.connect(soundManager.masterGain);
+        noise.connect(noiseGain);
+        noiseGain.connect(soundManager.masterGain);
+        
+        osc.start(now);
+        osc.stop(now + 0.2);
+        noise.start(now);
+        noise.stop(now + 0.15);
+    }
+    
+    playWaveSound() {
+        if (!soundManager.initialized) return;
+        soundManager.resume();
+        const now = soundManager.audioContext.currentTime;
+        
+        const osc = soundManager.audioContext.createOscillator();
+        const gain = soundManager.audioContext.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.setValueAtTime(600, now + 0.05);
+        osc.frequency.setValueAtTime(400, now + 0.1);
+        osc.frequency.setValueAtTime(600, now + 0.15);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+        osc.connect(gain);
+        gain.connect(soundManager.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.2);
+    }
+    
+    playBeamSound() {
+        if (!soundManager.initialized) return;
+        soundManager.resume();
+        const now = soundManager.audioContext.currentTime;
+        
+        const osc = soundManager.audioContext.createOscillator();
+        const gain = soundManager.audioContext.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(200, now);
+        osc.frequency.linearRampToValueAtTime(400, now + 0.3);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.setValueAtTime(0.1, now + 0.25);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+        osc.connect(gain);
+        gain.connect(soundManager.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.3);
     }
 
     draw(ctx) {
@@ -4500,7 +4787,577 @@ class Asteroid {
                 ctx.font = 'bold ' + (this.radius * 0.5) + 'px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText('
+                ctx.fillText('$', 0, 0);
+                break;
+                
+            case 'ARMORED':
+                ctx.strokeStyle = '#ccccdd';
+                ctx.lineWidth = 1;
+                ctx.shadowBlur = 0;
+                for (let i = 0; i < 3; i++) {
+                    const lineAngle = this.rotation * -1 + (i * Math.PI / 3);
+                    ctx.beginPath();
+                    ctx.moveTo(Math.cos(lineAngle) * this.radius * 0.3, Math.sin(lineAngle) * this.radius * 0.3);
+                    ctx.lineTo(Math.cos(lineAngle) * this.radius * 0.8, Math.sin(lineAngle) * this.radius * 0.8);
+                    ctx.stroke();
+                }
+                break;
+        }
+    }
+    
+    drawArmorIndicator(ctx) {
+        const indicatorRadius = this.radius + 8;
+        ctx.strokeStyle = '#ffffff80';
+        ctx.lineWidth = 2;
+        
+        for (let i = 0; i < this.typeInfo.hitsRequired; i++) {
+            const angle = -Math.PI / 2 + (i / this.typeInfo.hitsRequired) * Math.PI * 0.5;
+            const filled = i < this.hitsRemaining;
+            
+            ctx.beginPath();
+            ctx.arc(
+                Math.cos(angle) * indicatorRadius,
+                Math.sin(angle) * indicatorRadius,
+                3, 0, Math.PI * 2
+            );
+            
+            if (filled) {
+                ctx.fillStyle = '#aaaacc';
+                ctx.fill();
+            }
+            ctx.stroke();
+        }
+    }
+}
+
+// ============== WEAPON SYSTEM ==============
+// Five distinct weapon types with unique behaviors
+
+const WEAPON_TYPES = {
+    BLASTER: { 
+        name: 'Blaster', 
+        color: '#ff00ff', 
+        coreColor: '#ffffff',
+        fireRate: 10, 
+        description: 'Standard energy weapon'
+    },
+    SPREAD: { 
+        name: 'Spread Shot', 
+        color: '#ffff00', 
+        coreColor: '#ffffff',
+        fireRate: 20, 
+        description: '5-shot cone pattern'
+    },
+    BEAM: { 
+        name: 'Laser Beam', 
+        color: '#00ffff', 
+        coreColor: '#ffffff',
+        fireRate: 1, 
+        description: 'Continuous piercing laser'
+    },
+    MISSILES: { 
+        name: 'Missiles', 
+        color: '#ff8800', 
+        coreColor: '#ffff00',
+        fireRate: 30, 
+        description: 'Homing projectiles'
+    },
+    WAVE: { 
+        name: 'Wave Cannon', 
+        color: '#00ff88', 
+        coreColor: '#aaffaa',
+        fireRate: 15, 
+        description: 'Piercing sine wave'
+    }
+};
+
+const WEAPON_ORDER = ['BLASTER', 'SPREAD', 'BEAM', 'MISSILES', 'WAVE'];
+
+// ============== HOMING MISSILE CLASS ==============
+class HomingMissile {
+    constructor(x, y, angle, game) {
+        this.x = x;
+        this.y = y;
+        this.game = game;
+        this.angle = angle;
+        this.speed = 4;
+        this.vx = Math.cos(angle) * this.speed;
+        this.vy = Math.sin(angle) * this.speed;
+        this.lifetime = 180;
+        this.turnRate = 0.06;
+        this.target = null;
+        this.trailCounter = 0;
+        this.pulsePhase = Math.random() * Math.PI * 2;
+        this.acquireTarget();
+    }
+    
+    acquireTarget() {
+        let closestDist = 400;
+        let closest = null;
+        
+        this.game.asteroids.forEach(asteroid => {
+            const dx = asteroid.x - this.x;
+            const dy = asteroid.y - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < closestDist) {
+                closestDist = dist;
+                closest = asteroid;
+            }
+        });
+        
+        this.game.ufos.forEach(ufo => {
+            const dx = ufo.x - this.x;
+            const dy = ufo.y - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < closestDist + 100) {
+                closestDist = dist;
+                closest = ufo;
+            }
+        });
+        
+        this.target = closest;
+    }
+    
+    update() {
+        this.lifetime--;
+        this.pulsePhase += 0.2;
+        this.trailCounter++;
+        
+        if (!this.target || this.lifetime % 30 === 0) {
+            this.acquireTarget();
+        }
+        
+        if (this.target) {
+            const dx = this.target.x - this.x;
+            const dy = this.target.y - this.y;
+            const targetAngle = Math.atan2(dy, dx);
+            
+            let angleDiff = targetAngle - this.angle;
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+            
+            if (Math.abs(angleDiff) < this.turnRate) {
+                this.angle = targetAngle;
+            } else {
+                this.angle += Math.sign(angleDiff) * this.turnRate;
+            }
+        }
+        
+        this.vx = Math.cos(this.angle) * this.speed;
+        this.vy = Math.sin(this.angle) * this.speed;
+        this.x += this.vx;
+        this.y += this.vy;
+        
+        if (this.trailCounter % 3 === 0) {
+            this.game.trailParticles.push(new TrailParticle(
+                this.x - this.vx * 0.5, this.y - this.vy * 0.5,
+                '#ff6600', 3 + Math.random() * 2, 15,
+                -this.vx * 0.1 + (Math.random() - 0.5),
+                -this.vy * 0.1 + (Math.random() - 0.5)
+            ));
+        }
+        
+        if (this.x < 0) this.x = CANVAS_WIDTH;
+        if (this.x > CANVAS_WIDTH) this.x = 0;
+        if (this.y < 0) this.y = CANVAS_HEIGHT;
+        if (this.y > CANVAS_HEIGHT) this.y = 0;
+    }
+    
+    draw(ctx) {
+        const pulse = 1 + Math.sin(this.pulsePhase) * 0.1;
+        
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+        
+        ctx.shadowColor = WEAPON_TYPES.MISSILES.color;
+        ctx.shadowBlur = 12;
+        
+        ctx.fillStyle = '#aa4400';
+        ctx.strokeStyle = WEAPON_TYPES.MISSILES.color;
+        ctx.lineWidth = 1;
+        
+        ctx.beginPath();
+        ctx.moveTo(8 * pulse, 0);
+        ctx.lineTo(3, -3 * pulse);
+        ctx.lineTo(-6, -3 * pulse);
+        ctx.lineTo(-8, 0);
+        ctx.lineTo(-6, 3 * pulse);
+        ctx.lineTo(3, 3 * pulse);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        ctx.fillStyle = WEAPON_TYPES.MISSILES.color;
+        ctx.beginPath();
+        ctx.moveTo(12 * pulse, 0);
+        ctx.lineTo(8 * pulse, -2);
+        ctx.lineTo(8 * pulse, 2);
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.fillStyle = '#663300';
+        ctx.beginPath();
+        ctx.moveTo(-6, -3);
+        ctx.lineTo(-10, -6);
+        ctx.lineTo(-8, -3);
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.beginPath();
+        ctx.moveTo(-6, 3);
+        ctx.lineTo(-10, 6);
+        ctx.lineTo(-8, 3);
+        ctx.closePath();
+        ctx.fill();
+        
+        const flicker = Math.random() * 0.3;
+        ctx.fillStyle = `rgba(255, 200, 0, ${0.7 + flicker})`;
+        ctx.shadowColor = '#ffaa00';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(-8, 0, 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+        
+        if (this.target) {
+            ctx.save();
+            ctx.strokeStyle = '#ff880040';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(this.target.x, this.target.y);
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+}
+
+// ============== WAVE BULLET CLASS ==============
+class WaveBullet {
+    constructor(x, y, angle, game) {
+        this.x = x;
+        this.y = y;
+        this.startX = x;
+        this.startY = y;
+        this.game = game;
+        this.angle = angle;
+        this.speed = 6;
+        this.baseVx = Math.cos(angle) * this.speed;
+        this.baseVy = Math.sin(angle) * this.speed;
+        this.lifetime = 80;
+        this.phase = 0;
+        this.waveAmplitude = 25;
+        this.waveFrequency = 0.15;
+        this.piercing = true;
+        this.hitEntities = new Set();
+        this.trailCounter = 0;
+    }
+    
+    update() {
+        this.lifetime--;
+        this.phase += this.waveFrequency;
+        this.trailCounter++;
+        
+        const baseX = this.startX + this.baseVx * (80 - this.lifetime);
+        const baseY = this.startY + this.baseVy * (80 - this.lifetime);
+        
+        const perpX = -Math.sin(this.angle);
+        const perpY = Math.cos(this.angle);
+        const waveOffset = Math.sin(this.phase * Math.PI * 2) * this.waveAmplitude;
+        
+        this.x = baseX + perpX * waveOffset;
+        this.y = baseY + perpY * waveOffset;
+        
+        if (this.trailCounter % 2 === 0) {
+            this.game.trailParticles.push(new TrailParticle(
+                this.x, this.y, WEAPON_TYPES.WAVE.color, 3, 12,
+                (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.5
+            ));
+        }
+        
+        if (this.x < -50 || this.x > CANVAS_WIDTH + 50 ||
+            this.y < -50 || this.y > CANVAS_HEIGHT + 50) {
+            this.lifetime = 0;
+        }
+    }
+    
+    draw(ctx) {
+        ctx.save();
+        
+        ctx.shadowColor = WEAPON_TYPES.WAVE.color;
+        ctx.shadowBlur = 20;
+        
+        const perpAngle = this.angle + Math.PI / 2;
+        const waveWidth = 15 + Math.sin(this.phase * Math.PI * 4) * 5;
+        
+        ctx.strokeStyle = WEAPON_TYPES.WAVE.color;
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        
+        ctx.beginPath();
+        ctx.moveTo(
+            this.x - Math.cos(perpAngle) * waveWidth,
+            this.y - Math.sin(perpAngle) * waveWidth
+        );
+        ctx.lineTo(
+            this.x + Math.cos(perpAngle) * waveWidth,
+            this.y + Math.sin(perpAngle) * waveWidth
+        );
+        ctx.stroke();
+        
+        ctx.strokeStyle = WEAPON_TYPES.WAVE.coreColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(
+            this.x - Math.cos(perpAngle) * waveWidth * 0.7,
+            this.y - Math.sin(perpAngle) * waveWidth * 0.7
+        );
+        ctx.lineTo(
+            this.x + Math.cos(perpAngle) * waveWidth * 0.7,
+            this.y + Math.sin(perpAngle) * waveWidth * 0.7
+        );
+        ctx.stroke();
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+    }
+}
+
+// ============== SPREAD BULLET CLASS ==============
+class SpreadBullet {
+    constructor(x, y, angle, game) {
+        this.x = x;
+        this.y = y;
+        this.game = game;
+        this.vx = Math.cos(angle) * (BULLET_SPEED * 0.9);
+        this.vy = Math.sin(angle) * (BULLET_SPEED * 0.9);
+        this.lifetime = BULLET_LIFETIME * 0.6;
+        this.maxLifetime = this.lifetime;
+        this.trailCounter = 0;
+        this.size = 3;
+    }
+    
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.lifetime--;
+        this.trailCounter++;
+        this.size = 3 * (this.lifetime / this.maxLifetime);
+        
+        if (this.trailCounter % 3 === 0) {
+            this.game.trailParticles.push(new TrailParticle(
+                this.x, this.y, WEAPON_TYPES.SPREAD.color, 2, 8,
+                -this.vx * 0.05, -this.vy * 0.05
+            ));
+        }
+        
+        if (this.x < 0) this.x = CANVAS_WIDTH;
+        if (this.x > CANVAS_WIDTH) this.x = 0;
+        if (this.y < 0) this.y = CANVAS_HEIGHT;
+        if (this.y > CANVAS_HEIGHT) this.y = 0;
+    }
+    
+    draw(ctx) {
+        ctx.save();
+        ctx.shadowColor = WEAPON_TYPES.SPREAD.color;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = WEAPON_TYPES.SPREAD.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, Math.max(1, this.size), 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, Math.max(0.5, this.size * 0.5), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+// ============== LASER BEAM CLASS ==============
+class LaserBeam {
+    constructor(ship, game) {
+        this.ship = ship;
+        this.game = game;
+        this.active = true;
+        this.length = 0;
+        this.maxLength = 500;
+        this.width = 4;
+        this.pulsePhase = 0;
+        this.damageTimer = 0;
+        this.hitPoints = [];
+    }
+    
+    update() {
+        if (!this.ship || !this.active) return;
+        
+        this.pulsePhase += 0.3;
+        this.damageTimer++;
+        
+        if (this.length < this.maxLength) {
+            this.length += 30;
+        }
+        
+        const startX = this.ship.x + Math.cos(this.ship.angle) * SHIP_SIZE;
+        const startY = this.ship.y + Math.sin(this.ship.angle) * SHIP_SIZE;
+        
+        this.hitPoints = [];
+        
+        for (let idx = this.game.asteroids.length - 1; idx >= 0; idx--) {
+            const asteroid = this.game.asteroids[idx];
+            const hit = this.lineCircleIntersect(
+                startX, startY,
+                startX + Math.cos(this.ship.angle) * this.length,
+                startY + Math.sin(this.ship.angle) * this.length,
+                asteroid.x, asteroid.y, asteroid.radius
+            );
+            
+            if (hit) {
+                this.hitPoints.push({ x: hit.x, y: hit.y, color: WEAPON_TYPES.BEAM.color });
+                
+                if (this.damageTimer % 6 === 0) {
+                    const destroyed = asteroid.takeDamage();
+                    if (destroyed) {
+                        this.game.createExplosion(asteroid.x, asteroid.y, asteroid.size * 6);
+                        
+                        if (asteroid.size > 1) {
+                            const childType = asteroid.asteroidType === 'NORMAL' ? null : 
+                                (Math.random() > 0.5 ? asteroid.asteroidType : 'NORMAL');
+                            for (let k = 0; k < 2; k++) {
+                                this.game.asteroids.push(
+                                    new Asteroid(asteroid.x, asteroid.y, asteroid.size - 1, this.game, childType)
+                                );
+                            }
+                        }
+                        
+                        this.game.addScore((4 - asteroid.size) * 15 * asteroid.typeInfo.pointMultiplier);
+                        this.game.spawnPowerUp(asteroid.x, asteroid.y);
+                        this.game.asteroids.splice(idx, 1);
+                        achievementManager.trackAsteroidDestroyed();
+                    }
+                }
+            }
+        }
+        
+        for (let idx = this.game.ufos.length - 1; idx >= 0; idx--) {
+            const ufo = this.game.ufos[idx];
+            const hit = this.lineCircleIntersect(
+                startX, startY,
+                startX + Math.cos(this.ship.angle) * this.length,
+                startY + Math.sin(this.ship.angle) * this.length,
+                ufo.x, ufo.y, UFO_SIZE
+            );
+            
+            if (hit) {
+                this.hitPoints.push({ x: hit.x, y: hit.y, color: '#00ff00' });
+                
+                if (this.damageTimer % 10 === 0) {
+                    this.game.createUfoExplosion(ufo.x, ufo.y);
+                    this.game.addScore(UFO_POINTS);
+                    this.game.spawnUfoLoot(ufo.x, ufo.y);
+                    this.game.ufos.splice(idx, 1);
+                    achievementManager.trackUfoDestroyed();
+                }
+            }
+        }
+    }
+    
+    lineCircleIntersect(x1, y1, x2, y2, cx, cy, r) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const fx = x1 - cx;
+        const fy = y1 - cy;
+        
+        const a = dx * dx + dy * dy;
+        const b = 2 * (fx * dx + fy * dy);
+        const c = fx * fx + fy * fy - r * r;
+        
+        let discriminant = b * b - 4 * a * c;
+        if (discriminant < 0) return null;
+        
+        discriminant = Math.sqrt(discriminant);
+        const t1 = (-b - discriminant) / (2 * a);
+        const t2 = (-b + discriminant) / (2 * a);
+        
+        if (t1 >= 0 && t1 <= 1) {
+            return { x: x1 + t1 * dx, y: y1 + t1 * dy };
+        }
+        if (t2 >= 0 && t2 <= 1) {
+            return { x: x1 + t2 * dx, y: y1 + t2 * dy };
+        }
+        return null;
+    }
+    
+    draw(ctx) {
+        if (!this.ship || !this.active || this.length <= 0) return;
+        
+        const startX = this.ship.x + Math.cos(this.ship.angle) * SHIP_SIZE;
+        const startY = this.ship.y + Math.sin(this.ship.angle) * SHIP_SIZE;
+        const endX = startX + Math.cos(this.ship.angle) * this.length;
+        const endY = startY + Math.sin(this.ship.angle) * this.length;
+        
+        const pulse = 1 + Math.sin(this.pulsePhase) * 0.3;
+        
+        ctx.save();
+        
+        ctx.shadowColor = WEAPON_TYPES.BEAM.color;
+        ctx.shadowBlur = 25;
+        ctx.strokeStyle = WEAPON_TYPES.BEAM.color + '60';
+        ctx.lineWidth = this.width * 3 * pulse;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+        
+        ctx.shadowBlur = 15;
+        ctx.strokeStyle = WEAPON_TYPES.BEAM.color;
+        ctx.lineWidth = this.width * pulse;
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+        
+        ctx.shadowBlur = 5;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = this.width * 0.5 * pulse;
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+        
+        this.hitPoints.forEach(hit => {
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = hit.color;
+            ctx.shadowBlur = 15;
+            
+            for (let i = 0; i < 3; i++) {
+                const sparkAngle = Math.random() * Math.PI * 2;
+                const sparkDist = Math.random() * 10;
+                ctx.beginPath();
+                ctx.arc(
+                    hit.x + Math.cos(sparkAngle) * sparkDist,
+                    hit.y + Math.sin(sparkAngle) * sparkDist,
+                    2 + Math.random() * 2, 0, Math.PI * 2
+                );
+                ctx.fill();
+            }
+        });
+        
+        ctx.restore();
+    }
+    
+    deactivate() {
+        this.active = false;
+    }
+}
 
 // ============== BULLET CLASS ==============
 class Bullet {
@@ -4744,288 +5601,3 @@ class Item {
 window.addEventListener('DOMContentLoaded', () => {
     new Game();
 });
-
-, 0, 0);
-                break;
-                
-            case 'ARMORED':
-                ctx.strokeStyle = '#ccccdd';
-                ctx.lineWidth = 1;
-                ctx.shadowBlur = 0;
-                for (let i = 0; i < 3; i++) {
-                    const lineAngle = this.rotation * -1 + (i * Math.PI / 3);
-                    ctx.beginPath();
-                    ctx.moveTo(Math.cos(lineAngle) * this.radius * 0.3, Math.sin(lineAngle) * this.radius * 0.3);
-                    ctx.lineTo(Math.cos(lineAngle) * this.radius * 0.8, Math.sin(lineAngle) * this.radius * 0.8);
-                    ctx.stroke();
-                }
-                break;
-        }
-    }
-    
-    drawArmorIndicator(ctx) {
-        const indicatorRadius = this.radius + 8;
-        ctx.strokeStyle = '#ffffff80';
-        ctx.lineWidth = 2;
-        
-        for (let i = 0; i < this.typeInfo.hitsRequired; i++) {
-            const angle = -Math.PI / 2 + (i / this.typeInfo.hitsRequired) * Math.PI * 0.5;
-            const filled = i < this.hitsRemaining;
-            
-            ctx.beginPath();
-            ctx.arc(
-                Math.cos(angle) * indicatorRadius,
-                Math.sin(angle) * indicatorRadius,
-                3, 0, Math.PI * 2
-            );
-            
-            if (filled) {
-                ctx.fillStyle = '#aaaacc';
-                ctx.fill();
-            }
-            ctx.stroke();
-        }
-    }
-}
-
-// ============== BULLET CLASS ==============
-class Bullet {
-    constructor(x, y, angle, game) {
-        this.x = x;
-        this.y = y;
-        this.game = game;
-        this.vx = Math.cos(angle) * BULLET_SPEED;
-        this.vy = Math.sin(angle) * BULLET_SPEED;
-        this.lifetime = BULLET_LIFETIME;
-        this.trailCounter = 0;
-    }
-
-    update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.lifetime--;
-        this.trailCounter++;
-
-        // Spawn trail particles
-        if (this.trailCounter % 2 === 0) {
-            this.game.trailParticles.push(new TrailParticle(
-                this.x,
-                this.y,
-                COLORS.bullet,
-                2,
-                10,
-                -this.vx * 0.1,
-                -this.vy * 0.1
-            ));
-        }
-
-        // Wrap
-        if (this.x < 0) this.x = CANVAS_WIDTH;
-        if (this.x > CANVAS_WIDTH) this.x = 0;
-        if (this.y < 0) this.y = CANVAS_HEIGHT;
-        if (this.y > CANVAS_HEIGHT) this.y = 0;
-    }
-
-    draw(ctx) {
-        ctx.save();
-        
-        // Outer glow
-        ctx.shadowColor = COLORS.bullet;
-        ctx.shadowBlur = 15;
-        ctx.fillStyle = COLORS.bullet;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Bright core
-        ctx.shadowBlur = 5;
-        ctx.fillStyle = COLORS.bulletCore;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.restore();
-    }
-}
-
-// ============== POWERUP CLASS ==============
-class PowerUp {
-    constructor(x, y, type, game) {
-        this.x = x;
-        this.y = y;
-        this.type = type;
-        this.game = game;
-        this.lifetime = POWERUP_LIFETIME;
-        this.pulsePhase = 0;
-        this.rotationPhase = 0;
-
-        const angle = Math.random() * Math.PI * 2;
-        this.vx = Math.cos(angle) * 0.3;
-        this.vy = Math.sin(angle) * 0.3;
-    }
-
-    update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.lifetime--;
-        this.pulsePhase += 0.1;
-        this.rotationPhase += 0.02;
-
-        if (this.x < 0) this.x = CANVAS_WIDTH;
-        if (this.x > CANVAS_WIDTH) this.x = 0;
-        if (this.y < 0) this.y = CANVAS_HEIGHT;
-        if (this.y > CANVAS_HEIGHT) this.y = 0;
-    }
-
-    draw(ctx) {
-        const powerUpInfo = POWERUP_TYPES[this.type];
-        const pulse = Math.sin(this.pulsePhase) * 3 + POWERUP_SIZE;
-
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.rotationPhase);
-
-        // Outer ring glow
-        ctx.shadowColor = powerUpInfo.color;
-        ctx.shadowBlur = 20;
-        ctx.strokeStyle = powerUpInfo.color;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(0, 0, pulse + 3, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Inner filled circle
-        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, pulse);
-        gradient.addColorStop(0, powerUpInfo.color);
-        gradient.addColorStop(1, powerUpInfo.color + '40');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(0, 0, pulse - 2, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Symbol
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#000';
-        ctx.font = 'bold 14px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(powerUpInfo.symbol, 0, 1);
-
-        ctx.restore();
-
-        // Warning flicker when expiring
-        if (this.lifetime < 120) {
-            const flicker = Math.sin(this.lifetime * 0.3) > 0;
-            if (flicker) {
-                ctx.save();
-                ctx.strokeStyle = powerUpInfo.color + '60';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, POWERUP_SIZE + 10, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.restore();
-            }
-        }
-    }
-}
-
-// ============== ITEM CLASS ==============
-class Item {
-    constructor(x, y, type, game) {
-        this.x = x;
-        this.y = y;
-        this.type = type;
-        this.game = game;
-        this.lifetime = ITEM_LIFETIME;
-        this.pulsePhase = Math.random() * Math.PI * 2;
-        this.bobPhase = Math.random() * Math.PI * 2;
-        this.rotationPhase = 0;
-
-        const angle = Math.random() * Math.PI * 2;
-        this.vx = Math.cos(angle) * 0.4;
-        this.vy = Math.sin(angle) * 0.4;
-    }
-
-    update() {
-        if (this.game.ship && this.game.magnetActive) {
-            const dx = this.game.ship.x - this.x;
-            const dy = this.game.ship.y - this.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist > 10) {
-                this.vx = (dx / dist) * 3;
-                this.vy = (dy / dist) * 3;
-            }
-        }
-
-        this.x += this.vx;
-        this.y += this.vy;
-        this.lifetime--;
-        this.pulsePhase += 0.08;
-        this.bobPhase += 0.1;
-        this.rotationPhase += 0.03;
-
-        if (this.x < 0) this.x = CANVAS_WIDTH;
-        if (this.x > CANVAS_WIDTH) this.x = 0;
-        if (this.y < 0) this.y = CANVAS_HEIGHT;
-        if (this.y > CANVAS_HEIGHT) this.y = 0;
-    }
-
-    draw(ctx) {
-        const itemInfo = ITEM_TYPES[this.type];
-        const pulse = Math.sin(this.pulsePhase) * 2 + ITEM_SIZE;
-        const bob = Math.sin(this.bobPhase) * 2;
-
-        ctx.save();
-        ctx.translate(this.x, this.y + bob);
-        ctx.rotate(this.rotationPhase);
-
-        // Outer glow
-        ctx.shadowColor = itemInfo.color;
-        ctx.shadowBlur = 15;
-
-        // Hexagon shape
-        ctx.strokeStyle = itemInfo.color;
-        ctx.fillStyle = itemInfo.color + '30';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        for (let i = 0; i < 6; i++) {
-            const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
-            const x = Math.cos(angle) * pulse;
-            const y = Math.sin(angle) * pulse;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-
-        // Symbol
-        ctx.shadowBlur = 5;
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 12px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(itemInfo.symbol, 0, 0);
-
-        ctx.restore();
-
-        // Expiry warning
-        if (this.lifetime < 120) {
-            const alpha = (this.lifetime % 20) / 20;
-            ctx.save();
-            ctx.globalAlpha = alpha;
-            ctx.strokeStyle = itemInfo.color;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, ITEM_SIZE + 12, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.restore();
-        }
-    }
-}
-
-// Initialize game
-window.addEventListener('DOMContentLoaded', () => {
-    new Game();
-});
-
