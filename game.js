@@ -23,6 +23,15 @@ const GLOW_INTENSITY = 15;
 const SCREEN_SHAKE_DECAY = 0.9;
 const TRAIL_SPAWN_RATE = 2;
 
+// UFO constants
+const UFO_SPAWN_INTERVAL_MIN = 900;  // 15 seconds at 60fps
+const UFO_SPAWN_INTERVAL_MAX = 1800; // 30 seconds at 60fps
+const UFO_SPEED = 2;
+const UFO_SIZE = 20;
+const UFO_SHOOT_INTERVAL = 90; // 1.5 seconds
+const UFO_BULLET_SPEED = 4;
+const UFO_POINTS = 500;
+
 // Color palette - Neon cyberpunk theme
 const COLORS = {
     shipPrimary: '#00ffff',
@@ -38,7 +47,12 @@ const COLORS = {
     stars: ['#ffffff', '#aaccff', '#ffccaa', '#aaffcc'],
     background: '#0a0015',
     nebula1: '#1a0033',
-    nebula2: '#001133'
+    nebula2: '#001133',
+    // UFO colors
+    ufoPrimary: '#00ff00',
+    ufoSecondary: '#88ff88',
+    ufoGlow: '#00ff44',
+    ufoBullet: '#88ff00'
 };
 
 // Power-up types
@@ -169,6 +183,161 @@ class SoundManager {
         
         osc2.start(now);
         osc2.stop(now + 0.05);
+    }
+    
+    // === UFO LASER SOUND ===
+    // Alien-sounding descending warble
+    playUfoLaser() {
+        if (!this.initialized) return;
+        this.resume();
+        
+        const now = this.audioContext.currentTime;
+        
+        // Warbling alien laser
+        const osc1 = this.audioContext.createOscillator();
+        const gain1 = this.audioContext.createGain();
+        
+        osc1.type = 'square';
+        osc1.frequency.setValueAtTime(600, now);
+        osc1.frequency.exponentialRampToValueAtTime(150, now + 0.2);
+        
+        // Add vibrato LFO
+        const lfo = this.audioContext.createOscillator();
+        const lfoGain = this.audioContext.createGain();
+        lfo.type = 'sine';
+        lfo.frequency.value = 30;
+        lfoGain.gain.value = 50;
+        lfo.connect(lfoGain);
+        lfoGain.connect(osc1.frequency);
+        lfo.start(now);
+        lfo.stop(now + 0.2);
+        
+        gain1.gain.setValueAtTime(0.2, now);
+        gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+        
+        osc1.connect(gain1);
+        gain1.connect(this.masterGain);
+        
+        osc1.start(now);
+        osc1.stop(now + 0.2);
+    }
+    
+    // === UFO HUM SOUND ===
+    // Eerie hovering sound when UFO appears
+    playUfoAppear() {
+        if (!this.initialized) return;
+        this.resume();
+        
+        const now = this.audioContext.currentTime;
+        
+        // Spooky ascending tone
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(100, now);
+        osc.frequency.exponentialRampToValueAtTime(400, now + 0.5);
+        
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.15, now + 0.1);
+        gain.gain.setValueAtTime(0.15, now + 0.4);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+        
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        
+        osc.start(now);
+        osc.stop(now + 0.6);
+        
+        // Add eerie harmonic
+        const osc2 = this.audioContext.createOscillator();
+        const gain2 = this.audioContext.createGain();
+        
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(150, now);
+        osc2.frequency.exponentialRampToValueAtTime(600, now + 0.5);
+        
+        gain2.gain.setValueAtTime(0, now);
+        gain2.gain.linearRampToValueAtTime(0.08, now + 0.1);
+        gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+        
+        osc2.connect(gain2);
+        gain2.connect(this.masterGain);
+        
+        osc2.start(now);
+        osc2.stop(now + 0.5);
+    }
+    
+    // === UFO DESTROYED SOUND ===
+    // Satisfying alien destruction
+    playUfoDestroyed() {
+        if (!this.initialized) return;
+        this.resume();
+        
+        const now = this.audioContext.currentTime;
+        
+        // Big descending explosion with warble
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
+        
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(800, now);
+        osc.frequency.exponentialRampToValueAtTime(50, now + 0.6);
+        
+        // Warble effect
+        const lfo = this.audioContext.createOscillator();
+        const lfoGain = this.audioContext.createGain();
+        lfo.type = 'sine';
+        lfo.frequency.value = 20;
+        lfoGain.gain.value = 100;
+        lfo.connect(lfoGain);
+        lfoGain.connect(osc.frequency);
+        lfo.start(now);
+        lfo.stop(now + 0.6);
+        
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+        
+        const filter = this.audioContext.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(2000, now);
+        filter.frequency.exponentialRampToValueAtTime(200, now + 0.6);
+        
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+        
+        osc.start(now);
+        osc.stop(now + 0.6);
+        
+        // Noise burst
+        const bufferSize = this.audioContext.sampleRate * 0.5;
+        const noiseBuffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        
+        for (let i = 0; i < bufferSize; i++) {
+            output[i] = Math.random() * 2 - 1;
+        }
+        
+        const noise = this.audioContext.createBufferSource();
+        noise.buffer = noiseBuffer;
+        
+        const noiseFilter = this.audioContext.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.setValueAtTime(1000, now);
+        noiseFilter.frequency.exponentialRampToValueAtTime(100, now + 0.5);
+        noiseFilter.Q.value = 2;
+        
+        const noiseGain = this.audioContext.createGain();
+        noiseGain.gain.setValueAtTime(0.25, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+        
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(this.masterGain);
+        
+        noise.start(now);
+        noise.stop(now + 0.5);
     }
     
     // === EXPLOSION SOUND ===
@@ -1017,6 +1186,11 @@ class Game {
         this.powerUps = [];
         this.items = [];
         this.inventory = [];
+        
+        // UFO system
+        this.ufos = [];
+        this.enemyBullets = [];
+        this.ufoSpawnTimer = this.getRandomUfoSpawnTime();
 
         // Visual systems
         this.starField = new StarField();
@@ -1043,6 +1217,10 @@ class Game {
 
         this.setupEventListeners();
         this.gameLoop();
+    }
+    
+    getRandomUfoSpawnTime() {
+        return UFO_SPAWN_INTERVAL_MIN + Math.random() * (UFO_SPAWN_INTERVAL_MAX - UFO_SPAWN_INTERVAL_MIN);
     }
 
     setupEventListeners() {
@@ -1093,6 +1271,9 @@ class Game {
         this.powerUps = [];
         this.items = [];
         this.inventory = [];
+        this.ufos = [];
+        this.enemyBullets = [];
+        this.ufoSpawnTimer = this.getRandomUfoSpawnTime();
         this.magnetActive = false;
         this.magnetTimer = 0;
         this.scoreMultiplier = 1;
@@ -1126,6 +1307,39 @@ class Game {
 
             this.asteroids.push(new Asteroid(x, y, 3, this));
         }
+    }
+    
+    spawnUfo() {
+        // Spawn from a random edge
+        const side = Math.floor(Math.random() * 4);
+        let x, y, direction;
+        
+        switch(side) {
+            case 0: // Top
+                x = Math.random() * CANVAS_WIDTH;
+                y = -UFO_SIZE;
+                direction = Math.PI / 2 + (Math.random() - 0.5) * 0.5;
+                break;
+            case 1: // Right
+                x = CANVAS_WIDTH + UFO_SIZE;
+                y = Math.random() * CANVAS_HEIGHT;
+                direction = Math.PI + (Math.random() - 0.5) * 0.5;
+                break;
+            case 2: // Bottom
+                x = Math.random() * CANVAS_WIDTH;
+                y = CANVAS_HEIGHT + UFO_SIZE;
+                direction = -Math.PI / 2 + (Math.random() - 0.5) * 0.5;
+                break;
+            case 3: // Left
+                x = -UFO_SIZE;
+                y = Math.random() * CANVAS_HEIGHT;
+                direction = 0 + (Math.random() - 0.5) * 0.5;
+                break;
+        }
+        
+        this.ufos.push(new UFO(x, y, direction, this));
+        soundManager.playUfoAppear();
+        this.triggerFlash(COLORS.ufoPrimary, 0.15);
     }
 
     nextLevel() {
@@ -1183,6 +1397,21 @@ class Game {
             this.powerUps.push(new PowerUp(x, y, randomType, this));
         }
     }
+    
+    // UFOs always drop good loot!
+    spawnUfoLoot(x, y) {
+        // Always spawn a power-up
+        const types = Object.keys(POWERUP_TYPES);
+        const randomType = types[Math.floor(Math.random() * types.length)];
+        this.powerUps.push(new PowerUp(x, y, randomType, this));
+        
+        // 50% chance for a bonus item
+        if (Math.random() < 0.5) {
+            const itemTypes = Object.keys(ITEM_TYPES);
+            const randomItem = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+            this.items.push(new Item(x, y, randomItem, this));
+        }
+    }
 
     spawnItem(x, y, asteroidSize) {
         const dropChance = ITEM_SPAWN_CHANCE * (4 - asteroidSize);
@@ -1230,11 +1459,19 @@ class Game {
                 break;
 
             case 'BOMB':
+                // Destroy all asteroids
                 this.asteroids.forEach(asteroid => {
                     this.createExplosion(asteroid.x, asteroid.y, asteroid.size * 8);
                     this.addScore((4 - asteroid.size) * 10);
                 });
                 this.asteroids = [];
+                // Also destroy UFOs!
+                this.ufos.forEach(ufo => {
+                    this.createExplosion(ufo.x, ufo.y, 20);
+                    this.addScore(UFO_POINTS / 2);
+                });
+                this.ufos = [];
+                this.enemyBullets = [];
                 this.screenShake.trigger(30);
                 this.triggerFlash('#ff8c00', 0.5);
                 soundManager.playBomb();
@@ -1251,6 +1488,12 @@ class Game {
                     asteroid.vx = 0;
                     asteroid.vy = 0;
                     asteroid.rotationSpeed = 0;
+                });
+                // Freeze UFOs too
+                this.ufos.forEach(ufo => {
+                    ufo.frozen = true;
+                    ufo.frozenVx = ufo.vx;
+                    ufo.frozenVy = ufo.vy;
                 });
                 this.triggerFlash('#87ceeb', 0.3);
                 soundManager.playFreeze();
@@ -1309,6 +1552,14 @@ class Game {
                         delete asteroid.frozenRotSpeed;
                     }
                 });
+                // Unfreeze UFOs
+                this.ufos.forEach(ufo => {
+                    if (ufo.frozen) {
+                        ufo.frozen = false;
+                        ufo.vx = ufo.frozenVx;
+                        ufo.vy = ufo.frozenVy;
+                    }
+                });
             }
         }
     }
@@ -1362,6 +1613,25 @@ class Game {
         // Shockwave ring effect
         this.particles.push(new ShockwaveParticle(x, y, intensity * 3));
     }
+    
+    // Create green UFO explosion
+    createUfoExplosion(x, y) {
+        this.screenShake.trigger(15);
+        soundManager.playUfoDestroyed();
+        
+        // Green core particles
+        for (let i = 0; i < 15; i++) {
+            this.explosionParticles.push(new ExplosionParticle(x, y, COLORS.ufoPrimary, true));
+        }
+        
+        // Mixed debris
+        for (let i = 0; i < 25; i++) {
+            const color = Math.random() > 0.5 ? COLORS.ufoPrimary : COLORS.ufoSecondary;
+            this.explosionParticles.push(new ExplosionParticle(x, y, color, false));
+        }
+        
+        this.particles.push(new ShockwaveParticle(x, y, 60));
+    }
 
     update() {
         this.time++;
@@ -1384,6 +1654,13 @@ class Game {
         if (this.state !== 'playing') return;
 
         this.updateItemEffects();
+        
+        // UFO spawning
+        this.ufoSpawnTimer--;
+        if (this.ufoSpawnTimer <= 0 && this.ufos.length < 2) {
+            this.spawnUfo();
+            this.ufoSpawnTimer = this.getRandomUfoSpawnTime();
+        }
 
         if (this.ship) {
             this.ship.update(this.keys);
@@ -1407,6 +1684,15 @@ class Game {
             // Frozen asteroids still get visual updates
             this.asteroids.forEach(asteroid => asteroid.updateFrozenVisuals());
         }
+        
+        // Update UFOs
+        this.ufos.forEach(ufo => ufo.update());
+        
+        // Update enemy bullets
+        this.enemyBullets = this.enemyBullets.filter(bullet => {
+            bullet.update();
+            return bullet.lifetime > 0;
+        });
 
         this.bullets = this.bullets.filter(bullet => {
             bullet.update();
@@ -1437,6 +1723,9 @@ class Game {
             item.update();
             return item.lifetime > 0;
         });
+        
+        // Remove UFOs that went off-screen
+        this.ufos = this.ufos.filter(ufo => !ufo.offScreen);
 
         this.checkCollisions();
 
@@ -1474,9 +1763,29 @@ class Game {
                 }
             }
         }
+        
+        // Bullet vs UFO
+        for (let i = this.bullets.length - 1; i >= 0; i--) {
+            for (let j = this.ufos.length - 1; j >= 0; j--) {
+                if (this.circleCollision(
+                    this.bullets[i].x, this.bullets[i].y, 4,
+                    this.ufos[j].x, this.ufos[j].y, UFO_SIZE
+                )) {
+                    this.bullets.splice(i, 1);
+                    
+                    const ufo = this.ufos[j];
+                    this.createUfoExplosion(ufo.x, ufo.y);
+                    this.addScore(UFO_POINTS);
+                    this.spawnUfoLoot(ufo.x, ufo.y);
+                    this.ufos.splice(j, 1);
+                    this.triggerFlash(COLORS.ufoPrimary, 0.2);
+                    break;
+                }
+            }
+        }
 
         // Ship vs Asteroid
-        if (this.ship) {
+        if (this.ship && !this.ship.invulnerable) {
             for (let i = this.asteroids.length - 1; i >= 0; i--) {
                 if (this.circleCollision(
                     this.ship.x, this.ship.y, SHIP_SIZE,
@@ -1506,7 +1815,55 @@ class Game {
                     }
                 }
             }
+        }
+        
+        // Ship vs UFO
+        if (this.ship && !this.ship.invulnerable) {
+            for (let i = this.ufos.length - 1; i >= 0; i--) {
+                if (this.circleCollision(
+                    this.ship.x, this.ship.y, SHIP_SIZE,
+                    this.ufos[i].x, this.ufos[i].y, UFO_SIZE
+                )) {
+                    if (!this.ship.hasShield) {
+                        this.createExplosion(this.ship.x, this.ship.y, 25);
+                        this.createUfoExplosion(this.ufos[i].x, this.ufos[i].y);
+                        this.ufos.splice(i, 1);
+                        this.ship = null;
+                        this.loseLife();
+                        break;
+                    } else {
+                        this.createUfoExplosion(this.ufos[i].x, this.ufos[i].y);
+                        soundManager.playShieldHit();
+                        this.addScore(UFO_POINTS / 2);
+                        this.ufos.splice(i, 1);
+                    }
+                }
+            }
+        }
+        
+        // Ship vs Enemy Bullets
+        if (this.ship && !this.ship.invulnerable) {
+            for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
+                if (this.circleCollision(
+                    this.ship.x, this.ship.y, SHIP_SIZE,
+                    this.enemyBullets[i].x, this.enemyBullets[i].y, 4
+                )) {
+                    this.enemyBullets.splice(i, 1);
+                    
+                    if (!this.ship.hasShield) {
+                        this.createExplosion(this.ship.x, this.ship.y, 25);
+                        this.ship = null;
+                        this.loseLife();
+                        break;
+                    } else {
+                        soundManager.playShieldHit();
+                        this.triggerFlash(COLORS.ufoPrimary, 0.1);
+                    }
+                }
+            }
+        }
 
+        if (this.ship) {
             // Ship vs PowerUp
             for (let i = this.powerUps.length - 1; i >= 0; i--) {
                 if (this.circleCollision(
@@ -1580,6 +1937,8 @@ class Game {
         this.items.forEach(item => item.draw(ctx));
         this.powerUps.forEach(powerUp => powerUp.draw(ctx));
         this.asteroids.forEach(asteroid => asteroid.draw(ctx));
+        this.ufos.forEach(ufo => ufo.draw(ctx));
+        this.enemyBullets.forEach(bullet => bullet.draw(ctx));
         this.bullets.forEach(bullet => bullet.draw(ctx));
         
         if (this.ship) {
@@ -1753,6 +2112,261 @@ class ShockwaveParticle {
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.stroke();
+        ctx.restore();
+    }
+}
+
+// ============== UFO CLASS ==============
+class UFO {
+    constructor(x, y, direction, game) {
+        this.x = x;
+        this.y = y;
+        this.game = game;
+        this.direction = direction;
+        this.vx = Math.cos(direction) * UFO_SPEED;
+        this.vy = Math.sin(direction) * UFO_SPEED;
+        
+        // Sinusoidal movement
+        this.baseY = y;
+        this.waveOffset = Math.random() * Math.PI * 2;
+        this.waveAmplitude = 50 + Math.random() * 30;
+        this.waveFrequency = 0.02 + Math.random() * 0.01;
+        this.travelDistance = 0;
+        
+        // Shooting
+        this.shootTimer = UFO_SHOOT_INTERVAL / 2 + Math.random() * UFO_SHOOT_INTERVAL / 2;
+        
+        // Animation
+        this.pulsePhase = Math.random() * Math.PI * 2;
+        this.rotationPhase = 0;
+        this.lightPhase = 0;
+        
+        // State
+        this.frozen = false;
+        this.frozenVx = 0;
+        this.frozenVy = 0;
+        this.offScreen = false;
+    }
+    
+    update() {
+        if (this.frozen) {
+            // Just update visuals when frozen
+            this.pulsePhase += 0.05;
+            this.lightPhase += 0.1;
+            return;
+        }
+        
+        // Move forward
+        this.x += this.vx;
+        this.travelDistance += Math.abs(this.vx);
+        
+        // Sinusoidal vertical movement
+        const waveY = Math.sin(this.travelDistance * this.waveFrequency + this.waveOffset) * this.waveAmplitude;
+        this.y = this.baseY + waveY;
+        this.baseY += this.vy * 0.1; // Slight vertical drift
+        
+        // Animation
+        this.pulsePhase += 0.05;
+        this.rotationPhase += 0.03;
+        this.lightPhase += 0.15;
+        
+        // Shooting logic - aim at player
+        this.shootTimer--;
+        if (this.shootTimer <= 0 && this.game.ship) {
+            this.shoot();
+            this.shootTimer = UFO_SHOOT_INTERVAL + (Math.random() - 0.5) * 30;
+        }
+        
+        // Check if off-screen (with margin for despawn)
+        const margin = 100;
+        if (this.x < -margin || this.x > CANVAS_WIDTH + margin ||
+            this.y < -margin || this.y > CANVAS_HEIGHT + margin) {
+            // Give it some time to potentially come back
+            if (this.travelDistance > CANVAS_WIDTH * 1.5) {
+                this.offScreen = true;
+            }
+        }
+    }
+    
+    shoot() {
+        if (!this.game.ship) return;
+        
+        // Calculate angle to player with some inaccuracy
+        const dx = this.game.ship.x - this.x;
+        const dy = this.game.ship.y - this.y;
+        const angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.3; // Add inaccuracy
+        
+        this.game.enemyBullets.push(new EnemyBullet(this.x, this.y, angle, this.game));
+        soundManager.playUfoLaser();
+    }
+    
+    draw(ctx) {
+        const pulse = 1 + Math.sin(this.pulsePhase) * 0.05;
+        const frozen = this.frozen;
+        
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.scale(pulse, pulse);
+        
+        const glowColor = frozen ? '#87ceeb' : COLORS.ufoGlow;
+        const primaryColor = frozen ? '#aaddee' : COLORS.ufoPrimary;
+        const secondaryColor = frozen ? '#cceeee' : COLORS.ufoSecondary;
+        
+        // Outer glow
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 20;
+        
+        // === CLASSIC UFO SHAPE ===
+        
+        // Bottom dome (darker)
+        const bottomGradient = ctx.createRadialGradient(0, 3, 0, 0, 3, UFO_SIZE * 0.6);
+        bottomGradient.addColorStop(0, primaryColor + '60');
+        bottomGradient.addColorStop(1, primaryColor + '20');
+        
+        ctx.fillStyle = bottomGradient;
+        ctx.beginPath();
+        ctx.ellipse(0, 3, UFO_SIZE * 0.5, UFO_SIZE * 0.25, 0, 0, Math.PI);
+        ctx.fill();
+        
+        // Main saucer body
+        const bodyGradient = ctx.createLinearGradient(0, -UFO_SIZE * 0.4, 0, UFO_SIZE * 0.2);
+        bodyGradient.addColorStop(0, secondaryColor);
+        bodyGradient.addColorStop(0.5, primaryColor);
+        bodyGradient.addColorStop(1, primaryColor + '80');
+        
+        ctx.fillStyle = bodyGradient;
+        ctx.strokeStyle = primaryColor;
+        ctx.lineWidth = 2;
+        
+        ctx.beginPath();
+        ctx.ellipse(0, 0, UFO_SIZE, UFO_SIZE * 0.35, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Top dome (cockpit)
+        const domeGradient = ctx.createRadialGradient(0, -3, 0, 0, -3, UFO_SIZE * 0.45);
+        domeGradient.addColorStop(0, '#ffffff');
+        domeGradient.addColorStop(0.3, secondaryColor);
+        domeGradient.addColorStop(1, primaryColor + '80');
+        
+        ctx.fillStyle = domeGradient;
+        ctx.beginPath();
+        ctx.ellipse(0, -3, UFO_SIZE * 0.4, UFO_SIZE * 0.35, 0, Math.PI, 0);
+        ctx.fill();
+        
+        ctx.strokeStyle = primaryColor;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.ellipse(0, -3, UFO_SIZE * 0.4, UFO_SIZE * 0.35, 0, Math.PI, 0);
+        ctx.stroke();
+        
+        // Rotating lights around the rim
+        ctx.shadowBlur = 10;
+        const numLights = 6;
+        for (let i = 0; i < numLights; i++) {
+            const lightAngle = (i / numLights) * Math.PI * 2 + this.lightPhase;
+            const lightX = Math.cos(lightAngle) * UFO_SIZE * 0.85;
+            const lightY = Math.sin(lightAngle) * UFO_SIZE * 0.3;
+            
+            // Alternating colors
+            const lightOn = Math.sin(this.lightPhase * 2 + i * Math.PI / 3) > 0;
+            ctx.fillStyle = lightOn ? '#ffffff' : primaryColor + '60';
+            ctx.shadowColor = lightOn ? '#ffffff' : glowColor;
+            
+            ctx.beginPath();
+            ctx.arc(lightX, lightY, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // Center bottom light (targeting beam hint)
+        if (!frozen) {
+            const beamPulse = (Math.sin(this.pulsePhase * 3) + 1) * 0.5;
+            ctx.shadowColor = COLORS.ufoBullet;
+            ctx.shadowBlur = 15 * beamPulse;
+            ctx.fillStyle = COLORS.ufoBullet + Math.floor(beamPulse * 255).toString(16).padStart(2, '0');
+            ctx.beginPath();
+            ctx.arc(0, UFO_SIZE * 0.2, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        ctx.restore();
+        
+        // Warning indicator if UFO is targeting
+        if (!frozen && this.game.ship && this.shootTimer < 30) {
+            const warningAlpha = (30 - this.shootTimer) / 30;
+            ctx.save();
+            ctx.strokeStyle = `rgba(255, 0, 0, ${warningAlpha * 0.5})`;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(this.game.ship.x, this.game.ship.y);
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+}
+
+// ============== ENEMY BULLET CLASS ==============
+class EnemyBullet {
+    constructor(x, y, angle, game) {
+        this.x = x;
+        this.y = y;
+        this.game = game;
+        this.vx = Math.cos(angle) * UFO_BULLET_SPEED;
+        this.vy = Math.sin(angle) * UFO_BULLET_SPEED;
+        this.lifetime = 120; // Longer than player bullets
+        this.trailCounter = 0;
+        this.pulsePhase = Math.random() * Math.PI * 2;
+    }
+    
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.lifetime--;
+        this.trailCounter++;
+        this.pulsePhase += 0.2;
+        
+        // Spawn trail particles (green)
+        if (this.trailCounter % 3 === 0) {
+            this.game.trailParticles.push(new TrailParticle(
+                this.x,
+                this.y,
+                COLORS.ufoBullet,
+                2,
+                8,
+                -this.vx * 0.05,
+                -this.vy * 0.05
+            ));
+        }
+        
+        // Wrap around screen
+        if (this.x < 0) this.x = CANVAS_WIDTH;
+        if (this.x > CANVAS_WIDTH) this.x = 0;
+        if (this.y < 0) this.y = CANVAS_HEIGHT;
+        if (this.y > CANVAS_HEIGHT) this.y = 0;
+    }
+    
+    draw(ctx) {
+        const pulse = 1 + Math.sin(this.pulsePhase) * 0.2;
+        
+        ctx.save();
+        
+        // Outer glow - green
+        ctx.shadowColor = COLORS.ufoBullet;
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = COLORS.ufoBullet;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 4 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Bright core
+        ctx.shadowBlur = 5;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 2 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        
         ctx.restore();
     }
 }
