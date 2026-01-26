@@ -2980,17 +2980,11 @@ class TouchControlManager {
     }
     
     draw(ctx) {
-        // DEBUG: Always draw on mobile viewports, regardless of touch detection
+        // Show controls on touch devices or narrow viewports (mobile)
         const isMobile = window.innerWidth < 820;
         if (!isMobile && !this.isTouchDevice) return;
         
         ctx.save();
-        
-        // DEBUG: Show touch detection status
-        ctx.font = '12px Arial';
-        ctx.fillStyle = '#ffff00';
-        ctx.textAlign = 'left';
-        ctx.fillText(`Touch: ${this.isTouchDevice ? 'YES' : 'NO'} | W:${window.innerWidth}`, 10, 20);
         
         // === DRAW VIRTUAL JOYSTICK ===
         const jx = this.joystick.baseX;
@@ -4675,28 +4669,6 @@ class Game {
         
         // Draw starfield
         this.starField.draw(ctx);
-
-        // DEBUG: Draw test circles ON TOP of background
-        if (window.innerWidth < 820) {
-            ctx.fillStyle = 'red';
-            ctx.beginPath();
-            ctx.arc(400, 300, 80, 0, Math.PI * 2);
-            ctx.fill();
-            
-            ctx.fillStyle = 'lime';
-            ctx.beginPath();
-            ctx.arc(100, 300, 60, 0, Math.PI * 2);
-            ctx.fill();
-            
-            ctx.fillStyle = 'blue';
-            ctx.beginPath();
-            ctx.arc(700, 300, 60, 0, Math.PI * 2);
-            ctx.fill();
-            
-            ctx.fillStyle = 'yellow';
-            ctx.font = 'bold 24px Arial';
-            ctx.fillText('MOBILE TEST', 300, 50);
-        }
 
         if (this.state === 'start') {
             this.drawStartScreen(ctx);
