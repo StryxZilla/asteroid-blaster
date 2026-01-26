@@ -3475,6 +3475,11 @@ class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
+        
+        // Force canvas to fit mobile viewport
+        this.resizeCanvasForMobile();
+        window.addEventListener('resize', () => this.resizeCanvasForMobile());
+        
         this.keys = {};
         this.state = 'start';
         this.score = 0;
@@ -3555,6 +3560,24 @@ class Game {
 
         this.setupEventListeners();
         this.gameLoop();
+    }
+    
+    resizeCanvasForMobile() {
+        // Check if on mobile (narrow viewport)
+        const viewportWidth = window.innerWidth;
+        if (viewportWidth < 820) {
+            // Scale canvas to fit viewport width with small margin
+            const targetWidth = viewportWidth - 10;
+            const scale = targetWidth / CANVAS_WIDTH;
+            const targetHeight = CANVAS_HEIGHT * scale;
+            
+            this.canvas.style.width = targetWidth + 'px';
+            this.canvas.style.height = targetHeight + 'px';
+            
+            // Prevent any overflow
+            document.body.style.overflowX = 'hidden';
+            document.documentElement.style.overflowX = 'hidden';
+        }
     }
     
     getRandomUfoSpawnTime() {
