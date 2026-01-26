@@ -2980,9 +2980,17 @@ class TouchControlManager {
     }
     
     draw(ctx) {
-        if (!this.enabled || !this.isTouchDevice) return;
+        // DEBUG: Always draw on mobile viewports, regardless of touch detection
+        const isMobile = window.innerWidth < 820;
+        if (!isMobile && !this.isTouchDevice) return;
         
         ctx.save();
+        
+        // DEBUG: Show touch detection status
+        ctx.font = '12px Arial';
+        ctx.fillStyle = '#ffff00';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Touch: ${this.isTouchDevice ? 'YES' : 'NO'} | W:${window.innerWidth}`, 10, 20);
         
         // === DRAW VIRTUAL JOYSTICK ===
         const jx = this.joystick.baseX;
