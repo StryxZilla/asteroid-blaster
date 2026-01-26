@@ -2838,18 +2838,17 @@ class TouchControlManager {
         const canvasWidth = this.canvas.width;
         const canvasHeight = this.canvas.height;
         
-        // Position controls in lower third but not too close to edge
-        // This ensures visibility on mobile screens
-        const controlY = canvasHeight - 100;  // 500 on 600px canvas
+        // Position controls in middle-lower area for mobile visibility
+        const controlY = canvasHeight * 0.65;  // 390 on 600px canvas - higher up
         
-        // Joystick on left side
-        this.joystick.baseX = 100;
+        // Joystick on left side (with enough padding from edge)
+        this.joystick.baseX = 90;
         this.joystick.baseY = controlY;
         this.joystick.currentX = this.joystick.baseX;
         this.joystick.currentY = this.joystick.baseY;
         
         // Fire button on right side  
-        this.fireButton.x = canvasWidth - 100;
+        this.fireButton.x = canvasWidth - 90;
         this.fireButton.y = controlY;
     }
     
