@@ -3021,10 +3021,16 @@ class TouchControlManager {
             ctx.shadowBlur = 0;
         }
         
-        // Direction indicators
-        ctx.font = '12px Arial';
+        // MOVE label (like FIRE button)
+        ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'center';
-        ctx.fillStyle = 'rgba(0, 255, 255, 0.4)';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = this.joystick.active ? '#88ffff' : 'rgba(0, 255, 255, 0.6)';
+        ctx.fillText('MOVE', jx, jy + jr + 20);
+        
+        // Direction indicator
+        ctx.font = '12px Arial';
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
         ctx.fillText('^', jx, jy - jr - 8);  // Up = thrust
         
         // === DRAW FIRE BUTTON ===
