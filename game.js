@@ -2776,8 +2776,9 @@ class ScreenShake {
 // Virtual joystick and fire button for touch devices
 
 class TouchControlManager {
-    constructor(canvas) {
+    constructor(canvas, game = null) {
         this.canvas = canvas;
+        this.game = game;  // Reference to game for tap-to-start
         this.isTouchDevice = this.detectTouch();
         this.enabled = this.isTouchDevice;
         
@@ -2859,6 +2860,15 @@ class TouchControlManager {
     
     handleTouchStart(e) {
         e.preventDefault();
+        
+        // Tap to start/restart - check game state first
+        if (this.game && (this.game.state === 'start' || this.game.state === 'gameover')) {
+            // Don't start if entering initials on game over
+            if (!(this.game.state === 'gameover' && this.game.isEnteringInitials)) {
+                this.game.startGame();
+                return;
+            }
+        }
         
         for (const touch of e.changedTouches) {
             const pos = this.getTouchPos(touch);
@@ -3531,7 +3541,7 @@ class Game {
         this.showHelp = false;
 
                 // Mobile touch controls
-        this.touchControls = new TouchControlManager(this.canvas);
+        this.touchControls = new TouchControlManager(this.canvas, this);
 
         // Wave announcement system
         this.waveAnnouncement = new WaveAnnouncement(this);
