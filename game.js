@@ -4658,32 +4658,6 @@ class Game {
     draw() {
         const ctx = this.ctx;
         
-        // DEBUG: Draw obvious test elements FIRST, before any transforms
-        if (window.innerWidth < 820) {
-            // Big red circle in center
-            ctx.fillStyle = 'red';
-            ctx.beginPath();
-            ctx.arc(400, 300, 80, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Big green circle on left
-            ctx.fillStyle = 'lime';
-            ctx.beginPath();
-            ctx.arc(100, 300, 60, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Big blue circle on right
-            ctx.fillStyle = 'blue';
-            ctx.beginPath();
-            ctx.arc(700, 300, 60, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Yellow text
-            ctx.fillStyle = 'yellow';
-            ctx.font = 'bold 24px Arial';
-            ctx.fillText('MOBILE TEST', 300, 50);
-        }
-        
         ctx.save();
         
         // Apply screen shake
@@ -4701,6 +4675,28 @@ class Game {
         
         // Draw starfield
         this.starField.draw(ctx);
+
+        // DEBUG: Draw test circles ON TOP of background
+        if (window.innerWidth < 820) {
+            ctx.fillStyle = 'red';
+            ctx.beginPath();
+            ctx.arc(400, 300, 80, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'lime';
+            ctx.beginPath();
+            ctx.arc(100, 300, 60, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'blue';
+            ctx.beginPath();
+            ctx.arc(700, 300, 60, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'yellow';
+            ctx.font = 'bold 24px Arial';
+            ctx.fillText('MOBILE TEST', 300, 50);
+        }
 
         if (this.state === 'start') {
             this.drawStartScreen(ctx);
