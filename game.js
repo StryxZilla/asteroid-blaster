@@ -2838,17 +2838,17 @@ class TouchControlManager {
         const canvasWidth = this.canvas.width;
         const canvasHeight = this.canvas.height;
         
-        // Position controls in middle-lower area for mobile visibility
-        const controlY = canvasHeight * 0.65;  // 390 on 600px canvas - higher up
+        // Position controls well inside canvas for mobile visibility
+        const controlY = canvasHeight * 0.7;  // 420 on 600px canvas
         
-        // Joystick on left side (with enough padding from edge)
-        this.joystick.baseX = 90;
+        // Joystick on left side - move further from edge
+        this.joystick.baseX = 120;
         this.joystick.baseY = controlY;
         this.joystick.currentX = this.joystick.baseX;
         this.joystick.currentY = this.joystick.baseY;
         
-        // Fire button on right side  
-        this.fireButton.x = canvasWidth - 90;
+        // Fire button on right side - move further from edge
+        this.fireButton.x = canvasWidth - 120;
         this.fireButton.y = controlY;
     }
     
@@ -2989,15 +2989,15 @@ class TouchControlManager {
         const jy = this.joystick.baseY;
         const jr = this.joystick.radius;
         
-        // Outer ring (base)
+        // Outer ring (base) - brighter for visibility
         ctx.beginPath();
         ctx.arc(jx, jy, jr, 0, Math.PI * 2);
-        ctx.strokeStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.6)' : 'rgba(0, 255, 255, 0.25)';
-        ctx.lineWidth = 3;
+        ctx.strokeStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.8)' : 'rgba(0, 255, 255, 0.5)';
+        ctx.lineWidth = 4;
         ctx.stroke();
         
-        // Base fill
-        ctx.fillStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.15)' : 'rgba(0, 255, 255, 0.05)';
+        // Base fill - more visible
+        ctx.fillStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.25)' : 'rgba(0, 255, 255, 0.15)';
         ctx.fill();
         
         // Inner nub
@@ -3007,7 +3007,7 @@ class TouchControlManager {
         
         ctx.beginPath();
         ctx.arc(nubX, nubY, nubRadius, 0, Math.PI * 2);
-        ctx.fillStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.8)' : 'rgba(0, 255, 255, 0.4)';
+        ctx.fillStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.9)' : 'rgba(0, 255, 255, 0.6)';
         ctx.fill();
         
         // Nub glow
