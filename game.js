@@ -4680,8 +4680,10 @@ class Game {
             this.drawStartScreen(ctx);
             this.skillTreeUI.draw(ctx);
             this.saveLoadUI.draw(ctx);
-            // Draw touch controls on start screen too
+            // Draw touch controls on start screen - reset transform first!
             if (this.touchControls) {
+                ctx.restore();  // Remove screen shake transform
+                ctx.save();
                 this.touchControls.draw(ctx);
             }
             ctx.restore();
@@ -5296,9 +5298,12 @@ class Game {
             ctx.restore();
         }
         
-        // Draw mobile touch controls overlay
+        // Draw mobile touch controls overlay - reset transform to avoid screen shake offset
         if (this.touchControls) {
+            ctx.restore();  // Remove screen shake transform
+            ctx.save();
             this.touchControls.draw(ctx);
+            ctx.restore();
         }
     }
 
