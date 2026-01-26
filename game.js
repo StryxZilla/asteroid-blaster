@@ -2837,18 +2837,20 @@ class TouchControlManager {
         // Use canvas internal dimensions (800x600), not CSS display size
         const canvasWidth = this.canvas.width;
         const canvasHeight = this.canvas.height;
-        const padding = 30;
-        const bottomOffset = 120;
         
-        // Joystick base position (bottom-left)
-        this.joystick.baseX = padding + this.joystick.radius + 30;
-        this.joystick.baseY = canvasHeight - bottomOffset;
+        // Position controls in lower third but not too close to edge
+        // This ensures visibility on mobile screens
+        const controlY = canvasHeight - 100;  // 500 on 600px canvas
+        
+        // Joystick on left side
+        this.joystick.baseX = 100;
+        this.joystick.baseY = controlY;
         this.joystick.currentX = this.joystick.baseX;
         this.joystick.currentY = this.joystick.baseY;
         
-        // Fire button position (bottom-right)
-        this.fireButton.x = canvasWidth - padding - this.fireButton.radius - 30;
-        this.fireButton.y = canvasHeight - bottomOffset;
+        // Fire button on right side  
+        this.fireButton.x = canvasWidth - 100;
+        this.fireButton.y = controlY;
     }
     
     setupTouchEvents() {
