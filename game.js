@@ -3087,9 +3087,9 @@ class TouchControlManager {
         // Refresh enabled state (in case viewport changed)
         this.updateEnabledState();
         
-        // Only show during gameplay (not title, pause, or game over)
+        // Only draw if enabled and during gameplay
         if (!this.enabled) return;
-        if (!this.game || this.game.state !== 'playing') return;
+        // Note: game state check handled by caller (only called during 'playing')
         
         ctx.save();
         
@@ -4921,6 +4921,13 @@ class Game {
             this.waveAnnouncement.draw(ctx);
         }
         
+        // Draw mobile touch controls overlay (on top of everything during gameplay)
+        if (this.touchControls) {
+            ctx.restore();  // Remove screen shake transform
+            ctx.save();
+            this.touchControls.draw(ctx);
+        }
+        
         ctx.restore();
     }
     
@@ -5451,14 +5458,6 @@ class Game {
             ctx.font = 'bold 18px "Courier New", monospace';
             ctx.textAlign = 'center';
             ctx.fillText(`+${this.comboCount}`, this.lastKillX, floatY);
-            ctx.restore();
-        }
-        
-        // Draw mobile touch controls overlay - reset transform to avoid screen shake offset
-        if (this.touchControls) {
-            ctx.restore();  // Remove screen shake transform
-            ctx.save();
-            this.touchControls.draw(ctx);
             ctx.restore();
         }
     }
