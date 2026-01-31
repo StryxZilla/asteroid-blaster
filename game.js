@@ -2899,18 +2899,15 @@ class TouchControlManager {
         const canvasWidth = this.canvas.width;
         const canvasHeight = this.canvas.height;
         
-        // Position controls VERY central for mobile - 25% from edges
-        const controlY = canvasHeight * 0.5;  // 300 - dead center vertically
-        
-        // Joystick at 25% from left
-        this.joystick.baseX = canvasWidth * 0.2;  // 160
-        this.joystick.baseY = controlY;
+        // Joystick at bottom left
+        this.joystick.baseX = 100;
+        this.joystick.baseY = canvasHeight - 100;
         this.joystick.currentX = this.joystick.baseX;
         this.joystick.currentY = this.joystick.baseY;
         
-        // Fire button at 25% from right
-        this.fireButton.x = canvasWidth * 0.8;  // 640
-        this.fireButton.y = controlY;
+        // Fire button at bottom right
+        this.fireButton.x = canvasWidth - 100;
+        this.fireButton.y = canvasHeight - 100;
         
         // Pause button at top center
         this.pauseButton.x = canvasWidth / 2 - this.pauseButton.width / 2;
@@ -3090,7 +3087,9 @@ class TouchControlManager {
         // Refresh enabled state (in case viewport changed)
         this.updateEnabledState();
         
+        // Only show during gameplay (not title, pause, or game over)
         if (!this.enabled) return;
+        if (!this.game || this.game.state !== 'playing') return;
         
         ctx.save();
         
@@ -4837,12 +4836,6 @@ class Game {
             this.drawStartScreen(ctx);
             this.skillTreeUI.draw(ctx);
             this.saveLoadUI.draw(ctx);
-            // Draw touch controls on start screen - reset transform first!
-            if (this.touchControls) {
-                ctx.restore();  // Remove screen shake transform
-                ctx.save();
-                this.touchControls.draw(ctx);
-            }
             ctx.restore();
             return;
         }
