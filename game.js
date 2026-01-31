@@ -2809,6 +2809,14 @@ class TouchControlManager {
             firing: false
         };
         
+        // Pause button (top center)
+        this.pauseButton = {
+            x: 0,
+            y: 0,
+            width: 50,
+            height: 35
+        };
+        
         // Visual positions (updated on resize)
         this.updateLayout();
         
@@ -2899,6 +2907,10 @@ class TouchControlManager {
         // Fire button at 25% from right
         this.fireButton.x = canvasWidth * 0.8;  // 640
         this.fireButton.y = controlY;
+        
+        // Pause button at top center
+        this.pauseButton.x = canvasWidth / 2 - this.pauseButton.width / 2;
+        this.pauseButton.y = 10;
     }
     
     setupTouchEvents() {
@@ -2925,6 +2937,16 @@ class TouchControlManager {
         
         for (const touch of e.changedTouches) {
             const pos = this.getTouchPos(touch);
+            
+            // Check if touching pause button (top center)
+            const pb = this.pauseButton;
+            if (pos.x >= pb.x && pos.x <= pb.x + pb.width && 
+                pos.y >= pb.y && pos.y <= pb.y + pb.height) {
+                if (this.game && this.game.state === 'playing') {
+                    this.game.togglePause();
+                    return; // Don't process other touches
+                }
+            }
             
             // Check if touching left half (joystick zone)
             if (pos.x < this.canvas.width / 2 && this.joystick.touchId === null) {
@@ -3123,7 +3145,25 @@ class TouchControlManager {
         ctx.fillStyle = this.fireButton.active ? '#ff88ff' : 'rgba(255, 0, 255, 0.5)';
         ctx.fillText('FIRE', fx, fy);
         
-        // === TOUCH HINT (show briefly on start screen) ===
+        // === PAUSE BUTTON (top center) ===
+        const pb = this.pauseButton;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(pb.x, pb.y, pb.width, pb.height, 6);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Pause icon (two bars)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        const barWidth = 6;
+        const barHeight = 18;
+        const barGap = 6;
+        const barsX = pb.x + pb.width / 2 - barGap / 2 - barWidth;
+        const barsY = pb.y + (pb.height - barHeight) / 2;
+        ctx.fillRect(barsX, barsY, barWidth, barHeight);
+        ctx.fillRect(barsX + barWidth + barGap, barsY, barWidth, barHeight);
         
         ctx.restore();
     }
