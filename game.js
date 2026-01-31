@@ -3032,35 +3032,39 @@ class TouchControlManager {
         const dy = this.joystick.dy;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
+        // Reset all
+        this.virtualKeys['ArrowLeft'] = false;
+        this.virtualKeys['ArrowRight'] = false;
+        this.virtualKeys['ArrowUp'] = false;
+        
         // Only process if joystick moved enough from center
         const activeThreshold = 0.25;
         
-        if (distance > activeThreshold) {
-            // Calculate angle of joystick direction
+        if (distance > activeThreshold && this.game && this.game.ship) {
+            // Point-to-aim: joystick direction = desired ship direction
             const joystickAngle = Math.atan2(dy, dx);
+            const shipAngle = this.game.ship.angle;
             
-            // Thrust: any forward component (upper half of joystick)
-            // Thrust strength based on how far "up" you're pushing
-            this.virtualKeys['ArrowUp'] = dy < -0.2;
+            // Calculate angle difference (-PI to PI)
+            let angleDiff = joystickAngle - shipAngle;
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
             
-            // Rotation: based on horizontal component, but with wider deadzone
-            // Only rotate if clearly pushing left or right (not mostly up/down)
-            const horizontalDominance = Math.abs(dx) / (Math.abs(dy) + 0.01);
-            const rotationThreshold = 0.35;
-            
-            if (horizontalDominance > 0.5 || Math.abs(dx) > rotationThreshold) {
-                this.virtualKeys['ArrowLeft'] = dx < -rotationThreshold;
-                this.virtualKeys['ArrowRight'] = dx > rotationThreshold;
-            } else {
-                // Pushing mostly up/down - don't rotate
-                this.virtualKeys['ArrowLeft'] = false;
-                this.virtualKeys['ArrowRight'] = false;
+            // Rotate toward joystick direction (with deadzone to prevent jitter)
+            const rotationDeadzone = 0.15; // ~8 degrees
+            if (angleDiff < -rotationDeadzone) {
+                this.virtualKeys['ArrowLeft'] = true;
+            } else if (angleDiff > rotationDeadzone) {
+                this.virtualKeys['ArrowRight'] = true;
             }
-        } else {
-            // Joystick near center - no input
-            this.virtualKeys['ArrowLeft'] = false;
-            this.virtualKeys['ArrowRight'] = false;
-            this.virtualKeys['ArrowUp'] = false;
+            
+            // Thrust when pointing roughly in the joystick direction
+            // (within ~60 degrees and pushing far enough)
+            const thrustThreshold = 0.4;
+            const alignmentThreshold = Math.PI / 3; // 60 degrees
+            if (distance > thrustThreshold && Math.abs(angleDiff) < alignmentThreshold) {
+                this.virtualKeys['ArrowUp'] = true;
+            }
         }
         
         // Fire button
