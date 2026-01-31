@@ -4928,7 +4928,6 @@ class Game {
             this.touchControls.draw(ctx);
         }
     }
-    }
     
     drawHelpScreen(ctx) {
         // Semi-transparent overlay
