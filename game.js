@@ -4921,14 +4921,13 @@ class Game {
             this.waveAnnouncement.draw(ctx);
         }
         
-        // Draw mobile touch controls overlay (on top of everything during gameplay)
+        ctx.restore();  // End screen shake transform
+        
+        // Draw mobile touch controls overlay (on top of everything, no screen shake)
         if (this.touchControls) {
-            ctx.restore();  // Remove screen shake transform
-            ctx.save();
             this.touchControls.draw(ctx);
         }
-        
-        ctx.restore();
+    }
     }
     
     drawHelpScreen(ctx) {
