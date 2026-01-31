@@ -19,7 +19,7 @@ const POWERUP_DURATION = 300;
 const STAR_LAYERS = 4;
 const STARS_PER_LAYER = [80, 60, 40, 20];
 const STAR_SPEEDS = [0.1, 0.25, 0.5, 0.8];
-const GLOW_INTENSITY = 15;
+const GLOW_INTENSITY = 8;
 const SCREEN_SHAKE_DECAY = 0.9;
 const TRAIL_SPAWN_RATE = 2;
 
@@ -2389,35 +2389,35 @@ class StarField {
     }
 
     draw(ctx) {
-        // Draw nebula clouds first
+        // Draw nebula clouds - static, no pulsing
         this.nebulae.forEach(nebula => {
-            const pulseFactor = 0.8 + Math.sin(nebula.phase) * 0.2;
             const gradient = ctx.createRadialGradient(
                 nebula.x, nebula.y, 0,
-                nebula.x, nebula.y, nebula.radius * pulseFactor
+                nebula.x, nebula.y, nebula.radius
             );
-            gradient.addColorStop(0, nebula.color + '30');
-            gradient.addColorStop(0.5, nebula.color + '15');
+            gradient.addColorStop(0, nebula.color + '20');
+            gradient.addColorStop(0.5, nebula.color + '10');
             gradient.addColorStop(1, 'transparent');
             
             ctx.fillStyle = gradient;
             ctx.beginPath();
-            ctx.arc(nebula.x, nebula.y, nebula.radius * pulseFactor, 0, Math.PI * 2);
+            ctx.arc(nebula.x, nebula.y, nebula.radius, 0, Math.PI * 2);
             ctx.fill();
         });
         
         // Draw star layers (back to front)
         this.layers.forEach((layer, layerIndex) => {
+            // Reduced twinkle - more subtle
+            const twinkle = 0.7 + Math.sin(star.twinklePhase) * 0.3;
             layer.stars.forEach(star => {
-                const twinkle = 0.5 + Math.sin(star.twinklePhase) * 0.5;
                 const alpha = star.brightness * twinkle;
                 
                 ctx.save();
                 
-                // Glow effect for brighter/closer stars
-                if (layerIndex >= 2) {
+                // Subtle glow for closest stars only
+                if (layerIndex === 3) {
                     ctx.shadowColor = star.color;
-                    ctx.shadowBlur = star.size * 3;
+                    ctx.shadowBlur = star.size * 2;
                 }
                 
                 ctx.fillStyle = star.color;
@@ -3941,7 +3941,8 @@ class Game {
 
     triggerFlash(color, alpha) {
         this.flashColor = color;
-        this.flashAlpha = alpha;
+        // Reduce flash intensity globally (less visual noise)
+        this.flashAlpha = Math.min(alpha * 0.4, 0.15);
     }
 
     spawnAsteroids(count) {
@@ -5038,40 +5039,34 @@ class Game {
     }
 
     drawStartScreen(ctx) {
-        // Animated title
-        const pulse = Math.sin(this.titlePulse) * 0.2 + 1;
-        const glowIntensity = 20 + Math.sin(this.titlePulse * 2) * 10;
-        
+        // Title - subtle glow, no pulsing size
         ctx.save();
         ctx.shadowColor = COLORS.shipPrimary;
-        ctx.shadowBlur = glowIntensity;
+        ctx.shadowBlur = 15;
         ctx.fillStyle = COLORS.shipPrimary;
-        ctx.font = `bold ${48 * pulse}px 'Courier New', monospace`;
+        ctx.font = 'bold 48px "Courier New", monospace';
         ctx.textAlign = 'center';
         ctx.fillText('ASTEROIDS', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50);
         ctx.restore();
         
-        // Subtitle with different glow
+        // Subtitle with subtle glow
         ctx.save();
         ctx.shadowColor = COLORS.bullet;
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 8;
         ctx.fillStyle = COLORS.bullet;
         ctx.font = '20px "Courier New", monospace';
         ctx.textAlign = 'center';
         ctx.fillText('N E O N   E D I T I O N', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10);
         ctx.restore();
         
-        // Blinking start text
-        if (Math.floor(this.time / 30) % 2 === 0) {
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '24px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            // Show touch-friendly start message on mobile
-            if (this.touchControls && this.touchControls.isTouchDevice) {
-                ctx.fillText('Tap to Start', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
-            } else {
-                ctx.fillText('Press ENTER to Start', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
-            }
+        // Start text - static, no blinking
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '24px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        if (this.touchControls && this.touchControls.isTouchDevice) {
+            ctx.fillText('Tap to Start', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
+        } else {
+            ctx.fillText('Press ENTER to Start', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
         }
         
         // Sound instructions / Touch hint
@@ -5160,15 +5155,12 @@ class Game {
         ctx.fillRect(-20, -20, CANVAS_WIDTH + 40, CANVAS_HEIGHT + 40);
         ctx.restore();
         
-        // Animated PAUSED title
-        const pulse = Math.sin(this.time * 0.08) * 0.15 + 1;
-        const glowIntensity = 25 + Math.sin(this.time * 0.1) * 10;
-        
+        // PAUSED title - static, subtle glow
         ctx.save();
         ctx.shadowColor = '#00ffff';
-        ctx.shadowBlur = glowIntensity;
+        ctx.shadowBlur = 12;
         ctx.fillStyle = '#00ffff';
-        ctx.font = `bold ${48 * pulse}px "Courier New", monospace`;
+        ctx.font = 'bold 48px "Courier New", monospace';
         ctx.textAlign = 'center';
         ctx.fillText('PAUSED', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 100);
         ctx.restore();
@@ -5224,17 +5216,11 @@ class Game {
         ctx.textAlign = 'center';
         ctx.font = '20px "Courier New", monospace';
         
-        // Resume - blinking
-        if (Math.floor(this.time / 25) % 2 === 0) {
-            ctx.shadowColor = '#00ff88';
-            ctx.shadowBlur = 15;
-            ctx.fillStyle = '#00ff88';
-            ctx.fillText('Press ESC or P to Resume', CANVAS_WIDTH / 2, menuY);
-        }
+        // Resume - static
+        ctx.fillStyle = '#00ff88';
+        ctx.fillText('Press ESC or P to Resume', CANVAS_WIDTH / 2, menuY);
         
         // Restart option
-        ctx.shadowColor = '#ff8800';
-        ctx.shadowBlur = 10;
         ctx.fillStyle = '#ff8800';
         ctx.fillText('Press R to Restart', CANVAS_WIDTH / 2, menuY + 35);
         
@@ -5298,13 +5284,12 @@ class Game {
         
         // High score entry or celebration
         if (this.isEnteringInitials) {
-            // New high score celebration!
-            const pulse = Math.sin(this.time * 0.1) * 0.3 + 1;
+            // New high score - subtle glow, no pulsing
             ctx.save();
             ctx.shadowColor = '#ffff00';
-            ctx.shadowBlur = 20 * pulse;
+            ctx.shadowBlur = 10;
             ctx.fillStyle = '#ffff00';
-            ctx.font = `bold ${24 * pulse}px "Courier New", monospace`;
+            ctx.font = 'bold 24px "Courier New", monospace';
             ctx.fillText(`NEW HIGH SCORE! #${this.newHighScoreRank}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25);
             ctx.restore();
             
@@ -5361,13 +5346,11 @@ class Game {
                 ctx.restore();
             }
             
-            // Restart prompt
-            if (Math.floor(this.time / 30) % 2 === 0) {
-                ctx.fillStyle = '#aaaaaa';
-                ctx.font = '20px "Courier New", monospace';
-                ctx.textAlign = 'center';
-                ctx.fillText('Press ENTER to Restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
-            }
+            // Restart prompt - static
+            ctx.fillStyle = '#aaaaaa';
+            ctx.font = '20px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('Press ENTER to Restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
         }
     }
 
@@ -5422,8 +5405,6 @@ class Game {
         const isMaxed = mult >= COMBO_MULTIPLIER_CAP;
         const comboColor = isMaxed ? COLORS.comboMax : COLORS.combo;
         
-        // Pulsing effect based on combo
-        const pulse = 1 + Math.sin(this.time * 0.2) * 0.1 * (this.comboCount / 10);
         const alpha = this.comboDisplayTimer > 0 ? 1 : Math.max(0.4, this.comboTimer / COMBO_TIMEOUT);
         
         ctx.save();
@@ -5433,19 +5414,19 @@ class Game {
         const x = CANVAS_WIDTH / 2;
         const y = 50;
         
-        // Glow effect
+        // Subtle glow
         ctx.shadowColor = comboColor;
-        ctx.shadowBlur = 20 + pulse * 10;
+        ctx.shadowBlur = 10;
         
-        // Combo count - big number
+        // Combo count - static size
         ctx.fillStyle = comboColor;
-        ctx.font = `bold ${32 * pulse}px "Courier New", monospace`;
+        ctx.font = 'bold 32px "Courier New", monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(`${this.comboCount}x COMBO`, x, y);
         
         // Multiplier display
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 5;
         ctx.font = 'bold 16px "Courier New", monospace';
         ctx.fillStyle = isMaxed ? '#ffffff' : comboColor;
         ctx.fillText(`SCORE x${mult.toFixed(1)}`, x, y + 28);
