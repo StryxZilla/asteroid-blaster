@@ -3028,14 +3028,40 @@ class TouchControlManager {
     }
     
     updateVirtualKeys() {
-        const deadzone = this.joystick.deadzone;
+        const dx = this.joystick.dx;
+        const dy = this.joystick.dy;
+        const distance = Math.sqrt(dx * dx + dy * dy);
         
-        // Horizontal movement (turn left/right)
-        this.virtualKeys['ArrowLeft'] = this.joystick.dx < -deadzone;
-        this.virtualKeys['ArrowRight'] = this.joystick.dx > deadzone;
+        // Only process if joystick moved enough from center
+        const activeThreshold = 0.25;
         
-        // Vertical movement (thrust) - pushing UP (negative Y) means thrust
-        this.virtualKeys['ArrowUp'] = this.joystick.dy < -deadzone;
+        if (distance > activeThreshold) {
+            // Calculate angle of joystick direction
+            const joystickAngle = Math.atan2(dy, dx);
+            
+            // Thrust: any forward component (upper half of joystick)
+            // Thrust strength based on how far "up" you're pushing
+            this.virtualKeys['ArrowUp'] = dy < -0.2;
+            
+            // Rotation: based on horizontal component, but with wider deadzone
+            // Only rotate if clearly pushing left or right (not mostly up/down)
+            const horizontalDominance = Math.abs(dx) / (Math.abs(dy) + 0.01);
+            const rotationThreshold = 0.35;
+            
+            if (horizontalDominance > 0.5 || Math.abs(dx) > rotationThreshold) {
+                this.virtualKeys['ArrowLeft'] = dx < -rotationThreshold;
+                this.virtualKeys['ArrowRight'] = dx > rotationThreshold;
+            } else {
+                // Pushing mostly up/down - don't rotate
+                this.virtualKeys['ArrowLeft'] = false;
+                this.virtualKeys['ArrowRight'] = false;
+            }
+        } else {
+            // Joystick near center - no input
+            this.virtualKeys['ArrowLeft'] = false;
+            this.virtualKeys['ArrowRight'] = false;
+            this.virtualKeys['ArrowUp'] = false;
+        }
         
         // Fire button
         this.virtualKeys[' '] = this.fireButton.firing;
