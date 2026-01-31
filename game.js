@@ -2407,9 +2407,9 @@ class StarField {
         
         // Draw star layers (back to front)
         this.layers.forEach((layer, layerIndex) => {
-            // Reduced twinkle - more subtle
-            const twinkle = 0.7 + Math.sin(star.twinklePhase) * 0.3;
             layer.stars.forEach(star => {
+                // Reduced twinkle - more subtle
+                const twinkle = 0.7 + Math.sin(star.twinklePhase) * 0.3;
                 const alpha = star.brightness * twinkle;
                 
                 ctx.save();
