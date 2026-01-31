@@ -3610,6 +3610,7 @@ class Game {
 
                 // Mobile touch controls
         this.touchControls = new TouchControlManager(this.canvas, this);
+        this.touchToggleBounds = null;  // Set during pause menu draw
 
         // Wave announcement system
         this.waveAnnouncement = new WaveAnnouncement(this);
@@ -3734,6 +3735,8 @@ class Game {
             if ((e.key === 't' || e.key === 'T') && this.state === 'paused') {
                 if (this.touchControls) {
                     this.touchControls.cycleMode();
+                    soundManager.playItemUse(); // Audio feedback
+                    console.log('Touch controls mode:', this.touchControls.mode);
                 }
             }
             
@@ -3776,6 +3779,22 @@ class Game {
             if (this.skillTreeUI.visible) {
                 this.skillTreeUI.handleClick(e.clientX, e.clientY);
                 return;
+            }
+            
+            // Handle pause menu clicks
+            if (this.state === 'paused' && this.touchToggleBounds) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = (e.clientX - rect.left) * (this.canvas.width / rect.width);
+                const y = (e.clientY - rect.top) * (this.canvas.height / rect.height);
+                const b = this.touchToggleBounds;
+                
+                if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+                    if (this.touchControls) {
+                        this.touchControls.cycleMode();
+                        soundManager.playItemUse();
+                    }
+                    return;
+                }
             }
             
             // Tap to start on touch devices (or click to start)
@@ -5137,12 +5156,31 @@ class Game {
         ctx.fillStyle = '#ff8800';
         ctx.fillText('Press R to Restart', CANVAS_WIDTH / 2, menuY + 35);
         
-        // Touch controls toggle
+        // Touch controls toggle (tappable button)
+        const touchLabel = this.touchControls ? this.touchControls.getModeLabel() : 'N/A';
+        const touchText = `Touch Controls: ${touchLabel}`;
+        const touchBtnY = menuY + 70;
+        const touchBtnWidth = 280;
+        const touchBtnHeight = 32;
+        const touchBtnX = CANVAS_WIDTH / 2 - touchBtnWidth / 2;
+        
+        // Store bounds for click detection
+        this.touchToggleBounds = { x: touchBtnX, y: touchBtnY - touchBtnHeight/2, w: touchBtnWidth, h: touchBtnHeight };
+        
+        // Button background
+        ctx.fillStyle = 'rgba(255, 0, 255, 0.15)';
+        ctx.strokeStyle = '#ff00ff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(touchBtnX, touchBtnY - touchBtnHeight/2, touchBtnWidth, touchBtnHeight, 6);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Button text
         ctx.shadowColor = '#ff00ff';
         ctx.shadowBlur = 10;
         ctx.fillStyle = '#ff00ff';
-        const touchLabel = this.touchControls ? this.touchControls.getModeLabel() : 'N/A';
-        ctx.fillText(`Press T for Touch Controls: ${touchLabel}`, CANVAS_WIDTH / 2, menuY + 70);
+        ctx.fillText(touchText, CANVAS_WIDTH / 2, touchBtnY + 5);
         ctx.restore();
         
         // Controls reminder at bottom
