@@ -2828,6 +2828,10 @@ class TouchControlManager {
             ' ': false  // Space for shooting
         };
         
+        // Direct angle control for smoother touch
+        this.targetAngle = null;
+        this.thrustAmount = 0;
+        
         // Always setup touch events (so they work when toggled on)
         this.setupTouchEvents();
         this.canvas.style.touchAction = 'none';
@@ -3036,39 +3040,37 @@ class TouchControlManager {
         this.virtualKeys['ArrowLeft'] = false;
         this.virtualKeys['ArrowRight'] = false;
         this.virtualKeys['ArrowUp'] = false;
+        this.targetAngle = null;
+        this.thrustAmount = 0;
         
         // Only process if joystick moved enough from center
-        const activeThreshold = 0.25;
+        const activeThreshold = 0.2;
         
-        if (distance > activeThreshold && this.game && this.game.ship) {
-            // Point-to-aim: joystick direction = desired ship direction
-            const joystickAngle = Math.atan2(dy, dx);
-            const shipAngle = this.game.ship.angle;
+        if (distance > activeThreshold) {
+            // Direct angle control: joystick angle = ship angle
+            this.targetAngle = Math.atan2(dy, dx);
             
-            // Calculate angle difference (-PI to PI)
-            let angleDiff = joystickAngle - shipAngle;
-            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-            
-            // Rotate toward joystick direction (with deadzone to prevent jitter)
-            const rotationDeadzone = 0.15; // ~8 degrees
-            if (angleDiff < -rotationDeadzone) {
-                this.virtualKeys['ArrowLeft'] = true;
-            } else if (angleDiff > rotationDeadzone) {
-                this.virtualKeys['ArrowRight'] = true;
-            }
-            
-            // Thrust when pointing roughly in the joystick direction
-            // (within ~60 degrees and pushing far enough)
+            // Thrust based on distance (gentler, starts at 40% push)
             const thrustThreshold = 0.4;
-            const alignmentThreshold = Math.PI / 3; // 60 degrees
-            if (distance > thrustThreshold && Math.abs(angleDiff) < alignmentThreshold) {
+            if (distance > thrustThreshold) {
+                // Scale thrust from 0 to 1 based on distance (0.4 to 1.0 maps to 0 to 1)
+                this.thrustAmount = (distance - thrustThreshold) / (1 - thrustThreshold);
                 this.virtualKeys['ArrowUp'] = true;
             }
         }
         
         // Fire button
         this.virtualKeys[' '] = this.fireButton.firing;
+    }
+    
+    // Get the target angle for direct ship control (or null if not active)
+    getTargetAngle() {
+        return this.targetAngle;
+    }
+    
+    // Get thrust amount (0-1) for gentler touch thrust
+    getThrustAmount() {
+        return this.thrustAmount || 0;
     }
     
     // Merge virtual keys with physical keys
@@ -4507,9 +4509,19 @@ class Game {
 
         if (this.ship) {
             const mergedKeys = this.touchControls.getKeys(this.keys);
+            
+            // Direct angle control from touch joystick
+            const targetAngle = this.touchControls.getTargetAngle();
+            if (targetAngle !== null) {
+                this.ship.angle = targetAngle;
+            }
+            
+            // Pass touch thrust amount for gentler acceleration
+            this.ship.touchThrustAmount = this.touchControls.getThrustAmount();
+            
             this.ship.update(mergedKeys);
             
-                        // Handle touch auto-fire
+            // Handle touch auto-fire
             if (this.touchControls.shouldAutoFire()) {
                 this.ship.shoot();
             }
@@ -5781,6 +5793,7 @@ class Ship {
         this.canShoot = true;
         this.shootCooldown = 0;
         this.thrustAmount = 0;
+        this.touchThrustAmount = 0;  // For gentler touch controls
         this.engineFlicker = 0;
 
         this.hasShield = false;
@@ -5821,8 +5834,10 @@ class Ship {
         // Thrust with trail particles
         const isThrusting = keys['ArrowUp'] || keys['w'] || keys['W'];
         if (isThrusting) {
-            this.vx += Math.cos(this.angle) * SHIP_THRUST * speedMultiplier;
-            this.vy += Math.sin(this.angle) * SHIP_THRUST * speedMultiplier;
+            // Touch controls use gentler, variable thrust (50% of keyboard)
+            const touchMod = this.touchThrustAmount > 0 ? this.touchThrustAmount * 0.5 : 1;
+            this.vx += Math.cos(this.angle) * SHIP_THRUST * speedMultiplier * touchMod;
+            this.vy += Math.sin(this.angle) * SHIP_THRUST * speedMultiplier * touchMod;
             this.thrustAmount = Math.min(1, this.thrustAmount + 0.1);
             
             // Spawn engine trail particles
