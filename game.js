@@ -2780,7 +2780,10 @@ class TouchControlManager {
         this.canvas = canvas;
         this.game = game;  // Reference to game for tap-to-start
         this.isTouchDevice = this.detectTouch();
-        this.enabled = this.isTouchDevice;
+        
+        // Setting: 'auto' | 'on' | 'off'
+        this.mode = this.loadMode();
+        this.updateEnabledState();
         
         // Virtual joystick state (left side)
         this.joystick = {
@@ -2817,14 +2820,60 @@ class TouchControlManager {
             ' ': false  // Space for shooting
         };
         
-        if (this.isTouchDevice) {
-            this.setupTouchEvents();
-            // Prevent scrolling/zooming on canvas
-            this.canvas.style.touchAction = 'none';
-        }
+        // Always setup touch events (so they work when toggled on)
+        this.setupTouchEvents();
+        this.canvas.style.touchAction = 'none';
         
         // Handle resize
         window.addEventListener('resize', () => this.updateLayout());
+    }
+    
+    loadMode() {
+        try {
+            const saved = localStorage.getItem('asteroidBlaster_touchControls');
+            if (saved === 'on' || saved === 'off' || saved === 'auto') {
+                return saved;
+            }
+        } catch (e) {}
+        return 'auto';
+    }
+    
+    saveMode() {
+        try {
+            localStorage.setItem('asteroidBlaster_touchControls', this.mode);
+        } catch (e) {}
+    }
+    
+    setMode(mode) {
+        if (mode === 'on' || mode === 'off' || mode === 'auto') {
+            this.mode = mode;
+            this.saveMode();
+            this.updateEnabledState();
+        }
+    }
+    
+    cycleMode() {
+        const modes = ['auto', 'on', 'off'];
+        const idx = modes.indexOf(this.mode);
+        this.setMode(modes[(idx + 1) % modes.length]);
+    }
+    
+    updateEnabledState() {
+        if (this.mode === 'on') {
+            this.enabled = true;
+        } else if (this.mode === 'off') {
+            this.enabled = false;
+        } else {
+            // Auto: enabled if touch device OR narrow viewport
+            this.enabled = this.isTouchDevice || window.innerWidth < 820;
+        }
+    }
+    
+    getModeLabel() {
+        if (this.mode === 'auto') {
+            return 'Auto' + (this.enabled ? ' (On)' : ' (Off)');
+        }
+        return this.mode === 'on' ? 'On' : 'Off';
     }
     
     detectTouch() {
@@ -2862,7 +2911,7 @@ class TouchControlManager {
     handleTouchStart(e) {
         e.preventDefault();
         
-        // Tap to start/restart - check game state first
+        // Tap to start/restart - always allow (even when controls disabled)
         if (this.game && (this.game.state === 'start' || this.game.state === 'gameover')) {
             // Don't start if entering initials on game over
             if (!(this.game.state === 'gameover' && this.game.isEnteringInitials)) {
@@ -2870,6 +2919,9 @@ class TouchControlManager {
                 return;
             }
         }
+        
+        // Skip joystick/fire processing if controls disabled
+        if (!this.enabled) return;
         
         for (const touch of e.changedTouches) {
             const pos = this.getTouchPos(touch);
@@ -2896,6 +2948,7 @@ class TouchControlManager {
     
     handleTouchMove(e) {
         e.preventDefault();
+        if (!this.enabled) return;
         
         for (const touch of e.changedTouches) {
             if (touch.identifier === this.joystick.touchId) {
@@ -2980,9 +3033,10 @@ class TouchControlManager {
     }
     
     draw(ctx) {
-        // Show controls on touch devices or narrow viewports (mobile)
-        const isMobile = window.innerWidth < 820;
-        if (!isMobile && !this.isTouchDevice) return;
+        // Refresh enabled state (in case viewport changed)
+        this.updateEnabledState();
+        
+        if (!this.enabled) return;
         
         ctx.save();
         
@@ -3674,6 +3728,13 @@ class Game {
             // R key to restart from pause menu
             if ((e.key === 'r' || e.key === 'R') && this.state === 'paused') {
                 this.startGame();
+            }
+            
+            // T key to toggle touch controls from pause menu
+            if ((e.key === 't' || e.key === 'T') && this.state === 'paused') {
+                if (this.touchControls) {
+                    this.touchControls.cycleMode();
+                }
             }
             
             // F5 = Quick Save (during gameplay)
@@ -5075,6 +5136,13 @@ class Game {
         ctx.shadowBlur = 10;
         ctx.fillStyle = '#ff8800';
         ctx.fillText('Press R to Restart', CANVAS_WIDTH / 2, menuY + 35);
+        
+        // Touch controls toggle
+        ctx.shadowColor = '#ff00ff';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#ff00ff';
+        const touchLabel = this.touchControls ? this.touchControls.getModeLabel() : 'N/A';
+        ctx.fillText(`Press T for Touch Controls: ${touchLabel}`, CANVAS_WIDTH / 2, menuY + 70);
         ctx.restore();
         
         // Controls reminder at bottom
