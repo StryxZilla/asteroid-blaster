@@ -5295,6 +5295,7 @@ class Game {
         ctx.restore();
         
         // Start text - static, no blinking
+        ctx.save();
         ctx.fillStyle = '#ffffff';
         ctx.font = '24px "Courier New", monospace';
         ctx.textAlign = 'center';
@@ -5303,8 +5304,10 @@ class Game {
         } else {
             ctx.fillText('Press ENTER to Start', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
         }
+        ctx.restore();
         
         // Sound instructions / Touch hint
+        ctx.save();
         ctx.fillStyle = '#666666';
         ctx.font = '14px "Courier New", monospace';
         ctx.textAlign = 'center';
@@ -5313,6 +5316,7 @@ class Game {
         } else {
             ctx.fillText('M = Toggle SFX  |  N = Toggle Music', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
         }
+        ctx.restore();
         
         // Skill tree button (tappable)
         const skillBtnY = CANVAS_HEIGHT / 2 + 110;
@@ -5613,6 +5617,7 @@ class Game {
             ctx.shadowBlur = 10;
             ctx.fillStyle = '#ffff00';
             ctx.font = 'bold 24px "Courier New", monospace';
+            ctx.textAlign = 'center';
             ctx.fillText(`NEW HIGH SCORE! #${this.newHighScoreRank}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25);
             ctx.restore();
             
@@ -5620,6 +5625,7 @@ class Game {
             ctx.save();
             ctx.fillStyle = '#ffffff';
             ctx.font = '20px "Courier New", monospace';
+            ctx.textAlign = 'center';
             ctx.fillText('Enter your initials:', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
             
             // Draw initials boxes - properly centered
@@ -5642,6 +5648,7 @@ class Game {
                     ctx.shadowBlur = 10;
                     ctx.fillStyle = '#00ffff';
                     ctx.font = 'bold 32px "Courier New", monospace';
+                    ctx.textAlign = 'center';
                     ctx.fillText(this.initials[i], x + boxWidth/2, y + 34);
                 }
                 
@@ -5659,6 +5666,7 @@ class Game {
             } else {
                 ctx.fillStyle = '#888888';
                 ctx.font = '14px "Courier New", monospace';
+                ctx.textAlign = 'center';
                 ctx.fillText('Type letters, press ENTER to confirm', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 145);
             }
         } else {
@@ -5670,11 +5678,13 @@ class Game {
                 ctx.shadowBlur = 15;
                 ctx.fillStyle = '#ffd700';
                 ctx.font = 'bold 20px "Courier New", monospace';
+                ctx.textAlign = 'center';
                 ctx.fillText('TOP SCORE!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25);
                 ctx.restore();
             }
             
             // Restart prompt - indicate tap works too
+            ctx.save();
             ctx.fillStyle = '#aaaaaa';
             ctx.font = '20px "Courier New", monospace';
             ctx.textAlign = 'center';
@@ -5683,6 +5693,7 @@ class Game {
             } else {
                 ctx.fillText('Press ENTER to Restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
             }
+            ctx.restore();
         }
     }
     
