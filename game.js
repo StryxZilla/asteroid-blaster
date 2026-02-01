@@ -3523,13 +3523,19 @@ class WaveAnnouncement {
         this.particles = [];
     }
     
-    trigger(level, isBoss = false) {
+    trigger(level, isBoss = false, isComplete = false) {
         this.active = true;
         this.timer = 0;
         this.isBossWave = isBoss;
+        this.isLevelComplete = isComplete;
         this.bossData = null; // Store boss data for drawing
         
-        if (isBoss) {
+        if (isComplete) {
+            // Level complete announcement
+            this.mainText = 'SECTOR CLEAR';
+            this.subText = `WAVE ${level} COMPLETE`;
+            this.duration = 120; // 2 seconds for level complete
+        } else if (isBoss) {
             // Get boss data from story
             this.bossData = STORY.getBoss(level);
             if (this.bossData) {
@@ -3682,8 +3688,8 @@ class WaveAnnouncement {
         const angle = Math.random() * Math.PI * 2;
         const distance = 100 + Math.random() * 150;
         
-        // Use boss-specific color if available
-        let particleColor = this.isBossWave ? '#ff0066' : '#00ffff';
+        // Use appropriate color based on announcement type
+        let particleColor = this.isLevelComplete ? '#00ff00' : (this.isBossWave ? '#ff0066' : '#00ffff');
         if (this.isBossWave && this.bossData && this.bossData.color) {
             particleColor = this.bossData.color;
         }
@@ -3726,7 +3732,7 @@ class WaveAnnouncement {
         
         // Edge glow effect
         if (this.edgeGlow > 0) {
-            let glowColor = this.isBossWave ? '#ff0066' : '#00ffff';
+            let glowColor = this.isLevelComplete ? '#00ff00' : (this.isBossWave ? '#ff0066' : '#00ffff');
             if (this.isBossWave && this.bossData && this.bossData.color) {
                 glowColor = this.bossData.color;
             }
@@ -3779,8 +3785,8 @@ class WaveAnnouncement {
         ctx.textBaseline = 'middle';
         
         // Draw main text with letter animation
-        // Use boss-specific color if available
-        let mainColor = this.isBossWave ? '#ff0066' : '#00ffff';
+        // Use appropriate color based on announcement type
+        let mainColor = this.isLevelComplete ? '#00ff00' : (this.isBossWave ? '#ff0066' : '#00ffff');
         if (this.isBossWave && this.bossData && this.bossData.color) {
             mainColor = this.bossData.color;
         }
@@ -4034,7 +4040,13 @@ class Game {
     }
     
     getRandomUfoSpawnTime() {
-        return UFO_SPAWN_INTERVAL_MIN + Math.random() * (UFO_SPAWN_INTERVAL_MAX - UFO_SPAWN_INTERVAL_MIN);
+        // UFOs spawn more frequently at higher levels
+        // Level 1-4: base rate (15-30 seconds)
+        // Level 5+: progressively faster, min 8 seconds
+        const levelFactor = Math.max(0, (this.level - 4) * 0.08); // 8% reduction per level after 4
+        const minTime = Math.max(480, UFO_SPAWN_INTERVAL_MIN * (1 - levelFactor)); // Min 8 seconds
+        const maxTime = Math.max(900, UFO_SPAWN_INTERVAL_MAX * (1 - levelFactor)); // Min 15 seconds
+        return minTime + Math.random() * (maxTime - minTime);
     }
 
     setupEventListeners() {
@@ -4269,6 +4281,88 @@ class Game {
             }
         });
         
+        // Touch handler for UI buttons (since touchstart preventDefault blocks click)
+        this.canvas.addEventListener('touchend', (e) => {
+            // Only handle single-touch taps for UI
+            if (e.changedTouches.length !== 1) return;
+            
+            const touch = e.changedTouches[0];
+            const rect = this.canvas.getBoundingClientRect();
+            const x = (touch.clientX - rect.left) * (this.canvas.width / rect.width);
+            const y = (touch.clientY - rect.top) * (this.canvas.height / rect.height);
+            
+            const hitButton = (name) => {
+                const b = this.uiButtons[name];
+                return b && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+            };
+            
+            // Handle save/load UI
+            if (this.saveLoadUI.visible) {
+                this.saveLoadUI.handleClick(touch.clientX, touch.clientY);
+                return;
+            }
+            if (this.skillTreeUI.visible) {
+                this.skillTreeUI.handleClick(touch.clientX, touch.clientY);
+                return;
+            }
+            
+            // Handle pause menu touches
+            if (this.state === 'paused') {
+                if (hitButton('touchToggle') && this.touchControls) {
+                    this.touchControls.cycleMode();
+                    soundManager.playItemUse();
+                    return;
+                }
+                if (hitButton('resume')) {
+                    this.togglePause();
+                    soundManager.playItemUse();
+                    return;
+                }
+                if (hitButton('restart')) {
+                    this.startGame();
+                    soundManager.playItemUse();
+                    return;
+                }
+            }
+            
+            // Handle start screen touches
+            if (this.state === 'start') {
+                if (hitButton('skillTree')) {
+                    this.skillTreeUI.toggle();
+                    return;
+                }
+                if (hitButton('help')) {
+                    this.showHelp = !this.showHelp;
+                    soundManager.playItemUse();
+                    return;
+                }
+                if (hitButton('load')) {
+                    this.saveLoadUI.toggle('load');
+                    return;
+                }
+            }
+            
+            // Handle help screen close
+            if (this.showHelp && hitButton('closeHelp')) {
+                this.showHelp = false;
+                soundManager.playItemUse();
+                return;
+            }
+            
+            // Handle game over touches
+            if (this.state === 'gameover' && this.isEnteringInitials) {
+                if (this.handleInitialsKeyboardClick(x, y)) {
+                    return;
+                }
+                if (hitButton('confirmInitials') && this.initials.length > 0) {
+                    highScoreManager.addScore(this.initials, this.score, this.level);
+                    this.isEnteringInitials = false;
+                    soundManager.playItemCollect();
+                    return;
+                }
+            }
+        });
+        
         this.canvas.addEventListener('mousemove', (e) => {
             this.saveLoadUI.handleMouseMove(e.clientX, e.clientY);
             this.skillTreeUI.handleMouseMove(e.clientX, e.clientY);
@@ -4278,6 +4372,7 @@ class Game {
     startGame() {
         this.state = 'playing';
         this.score = 0;
+        this.defeatMessage = null; // Reset defeat message for new game
         
         // Apply skill bonuses
         const effects = this.skillTree.getAllEffects();
@@ -5055,8 +5150,16 @@ class Game {
         if (this.boss) {
             this.boss.update();
             if (this.boss.isFinished()) {
+                const defeatedBossLevel = this.level;
                 this.boss = null;
                 this.bossLevel = false;
+                
+                // Check for victory (beat final boss at level 30)
+                if (defeatedBossLevel === 30) {
+                    this.triggerVictory();
+                    return;
+                }
+                
                 // After boss defeat, continue to next level
                 this.nextLevel();
                 return;
@@ -5826,7 +5929,19 @@ class Game {
         ctx.fillStyle = '#ff0000';
         ctx.font = 'bold 48px "Courier New", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80);
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 100);
+        ctx.restore();
+        
+        // Story defeat message
+        ctx.save();
+        ctx.fillStyle = '#ff6666';
+        ctx.font = 'italic 16px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        // Use stored defeat message or get new one
+        if (!this.defeatMessage) {
+            this.defeatMessage = STORY.getDefeatMessage();
+        }
+        ctx.fillText(this.defeatMessage, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60);
         ctx.restore();
         
         // Score
@@ -5847,6 +5962,7 @@ class Game {
             ctx.shadowBlur = 10;
             ctx.fillStyle = '#ffff00';
             ctx.font = 'bold 24px "Courier New", monospace';
+            ctx.textAlign = 'center';
             ctx.fillText(`NEW HIGH SCORE! #${this.newHighScoreRank}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25);
             ctx.restore();
             
@@ -5854,6 +5970,7 @@ class Game {
             ctx.save();
             ctx.fillStyle = '#ffffff';
             ctx.font = '20px "Courier New", monospace';
+            ctx.textAlign = 'center';
             ctx.fillText('Enter your initials:', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
             
             // Draw initials boxes - properly centered
@@ -5876,6 +5993,7 @@ class Game {
                     ctx.shadowBlur = 10;
                     ctx.fillStyle = '#00ffff';
                     ctx.font = 'bold 32px "Courier New", monospace';
+                    ctx.textAlign = 'center';
                     ctx.fillText(this.initials[i], x + boxWidth/2, y + 34);
                 }
                 
@@ -5893,6 +6011,7 @@ class Game {
             } else {
                 ctx.fillStyle = '#888888';
                 ctx.font = '14px "Courier New", monospace';
+                ctx.textAlign = 'center';
                 ctx.fillText('Type letters, press ENTER to confirm', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 145);
             }
         } else {
@@ -5904,11 +6023,13 @@ class Game {
                 ctx.shadowBlur = 15;
                 ctx.fillStyle = '#ffd700';
                 ctx.font = 'bold 20px "Courier New", monospace';
+                ctx.textAlign = 'center';
                 ctx.fillText('TOP SCORE!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25);
                 ctx.restore();
             }
             
             // Restart prompt - indicate tap works too
+            ctx.save();
             ctx.fillStyle = '#aaaaaa';
             ctx.font = '20px "Courier New", monospace';
             ctx.textAlign = 'center';
@@ -5917,6 +6038,7 @@ class Game {
             } else {
                 ctx.fillText('Press ENTER to Restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
             }
+            ctx.restore();
         }
     }
     
