@@ -5564,12 +5564,102 @@ class Game {
                 ctx.restore();
             }
             
-            // Restart prompt - static
+            // Restart prompt - indicate tap works too
             ctx.fillStyle = '#aaaaaa';
             ctx.font = '20px "Courier New", monospace';
             ctx.textAlign = 'center';
-            ctx.fillText('Press ENTER to Restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
+            if (this.touchControls && this.touchControls.enabled) {
+                ctx.fillText('Tap to Restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
+            } else {
+                ctx.fillText('Press ENTER to Restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
+            }
         }
+    }
+    
+    // Draw virtual keyboard for initials entry on touch devices
+    drawInitialsKeyboard(ctx) {
+        const keyWidth = 36;
+        const keyHeight = 40;
+        const keyGap = 6;
+        
+        // QWERTY-style layout rows with backspace
+        const rows = [
+            ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+            ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', '⌫'],
+            ['Z', 'X', 'C', 'V', 'B', 'N', 'M']
+        ];
+        
+        const totalWidth = rows[0].length * (keyWidth + keyGap) - keyGap;
+        const startX = CANVAS_WIDTH / 2 - totalWidth / 2;
+        const startY = CANVAS_HEIGHT / 2 + 150;
+        
+        // Store keyboard info for click detection
+        this.initialsKeyboard = {
+            rows: rows,
+            keyWidth: keyWidth,
+            keyHeight: keyHeight,
+            keyGap: keyGap,
+            startX: startX,
+            startY: startY,
+            totalWidth: totalWidth
+        };
+        
+        ctx.save();
+        
+        // Draw each row
+        for (let row = 0; row < rows.length; row++) {
+            const rowKeys = rows[row];
+            const rowWidth = rowKeys.length * (keyWidth + keyGap) - keyGap;
+            const rowX = startX + (totalWidth - rowWidth) / 2;
+            const rowY = startY + row * (keyHeight + keyGap);
+            
+            for (let col = 0; col < rowKeys.length; col++) {
+                const key = rowKeys[col];
+                const keyX = rowX + col * (keyWidth + keyGap);
+                
+                // Key background
+                const isBackspace = key === '⌫';
+                ctx.fillStyle = isBackspace ? 'rgba(255, 100, 100, 0.2)' : 'rgba(0, 255, 255, 0.15)';
+                ctx.strokeStyle = isBackspace ? '#ff6666' : '#00ffff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(keyX, rowY, keyWidth, keyHeight, 4);
+                ctx.fill();
+                ctx.stroke();
+                
+                // Key letter
+                ctx.fillStyle = isBackspace ? '#ff6666' : '#00ffff';
+                ctx.font = 'bold 18px "Courier New", monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(key, keyX + keyWidth / 2, rowY + keyHeight / 2);
+            }
+        }
+        
+        // Confirm button
+        const confirmBtnWidth = 160;
+        const confirmBtnHeight = 40;
+        const confirmBtnX = CANVAS_WIDTH / 2 - confirmBtnWidth / 2;
+        const confirmBtnY = startY + rows.length * (keyHeight + keyGap) + 10;
+        
+        this.uiButtons.confirmInitials = { x: confirmBtnX, y: confirmBtnY, w: confirmBtnWidth, h: confirmBtnHeight };
+        
+        const canConfirm = this.initials.length > 0;
+        ctx.fillStyle = canConfirm ? 'rgba(0, 255, 0, 0.25)' : 'rgba(100, 100, 100, 0.15)';
+        ctx.strokeStyle = canConfirm ? '#00ff00' : '#666666';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(confirmBtnX, confirmBtnY, confirmBtnWidth, confirmBtnHeight, 6);
+        ctx.fill();
+        ctx.stroke();
+        
+        ctx.fillStyle = canConfirm ? '#00ff00' : '#666666';
+        ctx.font = 'bold 18px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('CONFIRM', confirmBtnX + confirmBtnWidth / 2, confirmBtnY + confirmBtnHeight / 2);
+        
+        ctx.restore();
     }
 
     drawItemEffectIndicators(ctx) {
