@@ -4463,6 +4463,19 @@ class Game {
         for (let i = 0; i < MAX_INVENTORY_SLOTS; i++) {
             const slot = document.createElement('div');
             slot.className = 'inventory-slot';
+            
+            // Make slot tappable
+            const slotIndex = i;
+            slot.style.cursor = 'pointer';
+            slot.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent canvas click
+                if (this.state === 'playing' && slotIndex < this.inventory.length) {
+                    this.useInventoryItem(slotIndex);
+                }
+            });
+            slot.addEventListener('touchstart', (e) => {
+                e.stopPropagation(); // Prevent canvas touch
+            }, { passive: true });
 
             if (i < this.inventory.length) {
                 const itemType = this.inventory[i];
@@ -4471,7 +4484,7 @@ class Game {
                     <span class="item-symbol" style="color: ${itemInfo.color}">${itemInfo.symbol}</span>
                     <span class="slot-key">${i + 1}</span>
                 `;
-                slot.title = `${itemInfo.name}: ${itemInfo.description} (Press ${i + 1})`;
+                slot.title = `${itemInfo.name}: ${itemInfo.description} (Tap or press ${i + 1})`;
                 slot.style.borderColor = itemInfo.color;
                 slot.style.boxShadow = `0 0 10px ${itemInfo.color}40, inset 0 0 10px ${itemInfo.color}20`;
             } else {
