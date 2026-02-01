@@ -2924,6 +2924,12 @@ class TouchControlManager {
     handleTouchStart(e) {
         e.preventDefault();
         
+        // Initialize audio on first touch (iOS requires user interaction)
+        soundManager.init();
+        soundManager.resume();
+        musicManager.init();
+        musicManager.resume();
+        
         // Tap to start/restart - always allow (even when controls disabled)
         if (this.game && (this.game.state === 'start' || this.game.state === 'gameover')) {
             // Don't start if entering initials on game over
