@@ -1,0 +1,10 @@
+{
+  "name": "Asteroids Neon Edition",
+  "short_name": "Asteroids",
+  "description": "Classic asteroids with neon visuals and touch controls",
+  "start_url": "/asteroid-blaster/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0a0015",
+  "theme_color": "#00ffff"
+}
