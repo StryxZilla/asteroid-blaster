@@ -2128,6 +2128,44 @@ class SoundManager {
             beep.stop(now + time + 0.08);
         });
     }
+
+    // === BOSS ENRAGE SOUND ===
+    // Dramatic warning tone when boss appears
+    playBossEnrage() {
+        if (!this.initialized) return;
+        this.resume();
+
+        const now = this.audioContext.currentTime;
+
+        // Deep warning drone
+        const drone = this.audioContext.createOscillator();
+        const droneGain = this.audioContext.createGain();
+        drone.type = 'sawtooth';
+        drone.frequency.setValueAtTime(55, now);
+        drone.frequency.setValueAtTime(65, now + 0.3);
+        drone.frequency.setValueAtTime(55, now + 0.6);
+        droneGain.gain.setValueAtTime(0.3, now);
+        droneGain.gain.linearRampToValueAtTime(0.4, now + 0.3);
+        droneGain.gain.exponentialRampToValueAtTime(0.01, now + 1.0);
+        drone.connect(droneGain);
+        droneGain.connect(this.masterGain);
+        drone.start(now);
+        drone.stop(now + 1.0);
+
+        // Alarm beeps
+        [0, 0.2, 0.4].forEach(time => {
+            const beep = this.audioContext.createOscillator();
+            const beepGain = this.audioContext.createGain();
+            beep.type = 'square';
+            beep.frequency.value = 440;
+            beepGain.gain.setValueAtTime(0.2, now + time);
+            beepGain.gain.exponentialRampToValueAtTime(0.01, now + time + 0.1);
+            beep.connect(beepGain);
+            beepGain.connect(this.masterGain);
+            beep.start(now + time);
+            beep.stop(now + time + 0.1);
+        });
+    }
 }
 
 // Global sound manager instance
