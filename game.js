@@ -507,6 +507,16 @@ class SkillTree {
         this.skillPoints += refund;
         this.save();
     }
+    
+    // Full reset for new game - zero out everything (roguelike style)
+    fullReset() {
+        Object.keys(SKILLS).forEach(skillId => {
+            this.skillLevels[skillId] = 0;
+        });
+        this.skillPoints = 0;
+        this.totalPointsEarned = 0;
+        this.save();
+    }
 }
 
 class SkillTreeUI {
@@ -4531,7 +4541,10 @@ class Game {
         this.score = 0;
         this.defeatMessage = null; // Reset defeat message for new game
 
-        // Apply skill bonuses
+        // Reset skill tree for new game (roguelike - start fresh each run)
+        this.skillTree.fullReset();
+
+        // Apply skill bonuses (will be 0 at start, but can be upgraded between levels)
         const effects = this.skillTree.getAllEffects();
         this.lives = 3 + (effects.startingLives || 0);
         this.maxInventorySlots = MAX_INVENTORY_SLOTS + (effects.extraInventorySlots || 0);
