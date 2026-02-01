@@ -4716,6 +4716,20 @@ class Game {
             lifetime: 60
         });
     }
+    
+    // Small chance to earn skill point from kills (added by level-design subagent, method was missing)
+    checkSkillPointDrop() {
+        const effects = this.skillTree.getAllEffects();
+        const baseChance = 0.005; // 0.5% base chance
+        const xpBonus = effects.xpBonus || 0;
+        const chance = baseChance * (1 + xpBonus);
+        
+        if (Math.random() < chance) {
+            this.skillTree.addSkillPoints(1);
+            return true;
+        }
+        return false;
+    }
 
     // Handle virtual keyboard clicks for high score initials entry
     handleInitialsKeyboardClick(x, y) {
