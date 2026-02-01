@@ -4794,8 +4794,8 @@ class Game {
             
             this.ship.update(mergedKeys);
             
-            // Handle touch auto-fire
-            if (this.touchControls.shouldAutoFire()) {
+            // Handle auto-fire (touch or keyboard space held)
+            if (this.touchControls.shouldAutoFire() || mergedKeys[' ']) {
                 this.ship.shoot();
             }
             
@@ -4890,9 +4890,18 @@ class Game {
 
         this.checkCollisions();
 
+        // Handle level complete transition timer
+        if (this.levelCompleteTimer > 0) {
+            this.levelCompleteTimer--;
+            if (this.levelCompleteTimer === 0) {
+                this.nextLevel();
+            }
+            return; // Don't check for completion while transitioning
+        }
+
         // Level completion: no asteroids AND no active boss
         if (this.asteroids.length === 0 && !this.boss && !this.bossLevel) {
-            this.nextLevel();
+            this.triggerLevelComplete();
         }
     }
 
@@ -4921,6 +4930,12 @@ class Game {
                     this.registerKill(asteroid.x, asteroid.y);
                     this.spawnPowerUp(asteroid.x, asteroid.y);
                     this.spawnItem(asteroid.x, asteroid.y, asteroid.size);
+                    
+                    // Small chance to earn skill point from asteroid kills
+                    if (this.checkSkillPointDrop()) {
+                        this.showFloatingText('+1 SKILL POINT!', asteroid.x, asteroid.y - 30, '#ffff00');
+                    }
+                    
                     this.asteroids.splice(j, 1);
                     break;
                 }
