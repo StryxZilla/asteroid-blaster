@@ -359,8 +359,8 @@
             }
             
             canvas {
-                /* Fill available height minus safe areas, maintain aspect ratio */
-                height: calc(var(--app-height, 100dvh) - env(safe-area-inset-bottom, 0px)) !important;
+                /* Fill available height minus safe areas and toolbar, maintain aspect ratio */
+                height: calc(var(--app-height, 100dvh) - env(safe-area-inset-bottom, 0px) - 20px) !important;
                 width: auto !important;
                 max-width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)) !important;
                 aspect-ratio: 800 / 600;

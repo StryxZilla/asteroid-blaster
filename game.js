@@ -438,7 +438,7 @@ class SkillTreeUI {
         ctx.restore();
         
         ctx.fillStyle = '#666666'; ctx.font = '12px "Courier New", monospace';
-        ctx.textAlign = 'center'; ctx.fillText('Click skills to upgrade | Press K or ESC to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
+        ctx.textAlign = 'center'; ctx.fillText('Tap skills to upgrade | Tap X to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
     }
     drawCategoryTabs(ctx) {
         const tabY = 80;
@@ -1032,7 +1032,7 @@ class SaveLoadUI {
                     ctx.font = 'bold 10px "Courier New", monospace';
                     ctx.textAlign = 'center';
                     ctx.fillText('CONFIRM?', deleteX, deleteY - 8);
-                    ctx.fillText('CLICK', deleteX, deleteY + 8);
+                    ctx.fillText('TAP', deleteX, deleteY + 8);
                 } else {
                     ctx.strokeStyle = isDeleteHovered ? '#ff6666' : '#666666';
                     ctx.lineWidth = 2;
@@ -1052,11 +1052,11 @@ class SaveLoadUI {
         ctx.textAlign = 'center';
         const instrY = startY + 3 * (slotHeight + 10) + 30;
         if (this.mode === 'save') {
-            ctx.fillText('Click a slot to save your progress', centerX, instrY);
+            ctx.fillText('Tap a slot to save your progress', centerX, instrY);
         } else {
-            ctx.fillText('Click a saved game to load it', centerX, instrY);
+            ctx.fillText('Tap a saved game to load it', centerX, instrY);
         }
-        ctx.fillText('Press ESC to close', centerX, instrY + 25);
+        ctx.fillText('Tap X to close', centerX, instrY + 25);
     }
 }
 
@@ -2953,10 +2953,9 @@ class TouchControlManager {
             if (pos.x < this.canvas.width / 2 && this.joystick.touchId === null) {
                 this.joystick.active = true;
                 this.joystick.touchId = touch.identifier;
-                this.joystick.baseX = pos.x;
-                this.joystick.baseY = pos.y;
-                this.joystick.currentX = pos.x;
-                this.joystick.currentY = pos.y;
+                // Keep joystick fixed in bottom-left corner (don't move base to touch position)
+                this.joystick.currentX = this.joystick.baseX;
+                this.joystick.currentY = this.joystick.baseY;
             }
             // Check if touching right half (fire zone)
             else if (pos.x >= this.canvas.width / 2 && this.fireButton.touchId === null) {
