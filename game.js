@@ -3681,6 +3681,9 @@ class Game {
                 // Mobile touch controls
         this.touchControls = new TouchControlManager(this.canvas, this);
         this.touchToggleBounds = null;  // Set during pause menu draw
+        
+        // Touch UI button bounds (for tap detection)
+        this.uiButtons = {};
 
         // Wave announcement system
         this.waveAnnouncement = new WaveAnnouncement(this);
@@ -3851,26 +3854,93 @@ class Game {
                 return;
             }
             
+            // Get click position in canvas coordinates
+            const rect = this.canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (this.canvas.width / rect.width);
+            const y = (e.clientY - rect.top) * (this.canvas.height / rect.height);
+            
+            // Helper function to check button bounds
+            const hitButton = (name) => {
+                const b = this.uiButtons[name];
+                return b && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+            };
+            
             // Handle pause menu clicks
-            if (this.state === 'paused' && this.touchToggleBounds) {
-                const rect = this.canvas.getBoundingClientRect();
-                const x = (e.clientX - rect.left) * (this.canvas.width / rect.width);
-                const y = (e.clientY - rect.top) * (this.canvas.height / rect.height);
-                const b = this.touchToggleBounds;
-                
-                if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+            if (this.state === 'paused') {
+                // Touch controls toggle
+                if (hitButton('touchToggle')) {
                     if (this.touchControls) {
                         this.touchControls.cycleMode();
                         soundManager.playItemUse();
                     }
                     return;
                 }
+                // Resume button
+                if (hitButton('resume')) {
+                    this.togglePause();
+                    soundManager.playItemUse();
+                    return;
+                }
+                // Restart button
+                if (hitButton('restart')) {
+                    this.startGame();
+                    soundManager.playItemUse();
+                    return;
+                }
+            }
+            
+            // Handle start screen button clicks
+            if (this.state === 'start') {
+                // Skill tree button
+                if (hitButton('skillTree')) {
+                    this.skillTreeUI.toggle();
+                    return;
+                }
+                // Help button
+                if (hitButton('help')) {
+                    this.showHelp = !this.showHelp;
+                    soundManager.playItemUse();
+                    return;
+                }
+                // Load button
+                if (hitButton('load')) {
+                    this.saveLoadUI.toggle('load');
+                    return;
+                }
+            }
+            
+            // Handle help screen tap to close
+            if (this.showHelp) {
+                if (hitButton('closeHelp')) {
+                    this.showHelp = false;
+                    soundManager.playItemUse();
+                    return;
+                }
+            }
+            
+            // Handle game over screen
+            if (this.state === 'gameover') {
+                if (this.isEnteringInitials) {
+                    // Virtual keyboard for initials
+                    if (this.handleInitialsKeyboardClick(x, y)) {
+                        return;
+                    }
+                    // Confirm button
+                    if (hitButton('confirmInitials') && this.initials.length > 0) {
+                        highScoreManager.addScore(this.initials, this.score, this.level);
+                        this.isEnteringInitials = false;
+                        soundManager.playItemCollect();
+                        return;
+                    }
+                } else {
+                    // Tap anywhere to restart (when not entering initials)
+                    this.startGame();
+                    return;
+                }
             }
             
             // Tap to start on touch devices (or click to start)
-            if (this.state === 'start' || this.state === 'gameover') {
-                // Don't start if entering initials on game over
-                if (this.state === 'gameover' && this.isEnteringInitials) return;
+            if (this.state === 'start') {
                 this.startGame();
                 return;
             }
@@ -4202,6 +4272,48 @@ class Game {
             vy: -2,
             lifetime: 60
         });
+    }
+
+    // Handle virtual keyboard clicks for high score initials entry
+    handleInitialsKeyboardClick(x, y) {
+        // Keyboard layout - stored during draw
+        const kb = this.initialsKeyboard;
+        if (!kb) return false;
+        
+        const keyWidth = kb.keyWidth;
+        const keyHeight = kb.keyHeight;
+        const keyGap = kb.keyGap;
+        
+        // Check each key
+        for (let row = 0; row < kb.rows.length; row++) {
+            const rowKeys = kb.rows[row];
+            const rowWidth = rowKeys.length * (keyWidth + keyGap) - keyGap;
+            const rowX = kb.startX + (kb.totalWidth - rowWidth) / 2;
+            const rowY = kb.startY + row * (keyHeight + keyGap);
+            
+            for (let col = 0; col < rowKeys.length; col++) {
+                const key = rowKeys[col];
+                const keyX = rowX + col * (keyWidth + keyGap);
+                
+                if (x >= keyX && x <= keyX + keyWidth && 
+                    y >= rowY && y <= rowY + keyHeight) {
+                    
+                    if (key === '⌫') {
+                        // Backspace
+                        if (this.initials.length > 0) {
+                            this.initials = this.initials.slice(0, -1);
+                            soundManager.playItemUse();
+                        }
+                    } else if (this.initials.length < 3) {
+                        // Add letter
+                        this.initials += key;
+                        soundManager.playItemCollect();
+                    }
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     useInventoryItem(slotIndex) {
@@ -5029,10 +5141,26 @@ class Game {
         y += 18;
         ctx.fillText('Build combos for score multipliers', CANVAS_WIDTH / 2, y);
         
-        // Close instruction
-        ctx.fillStyle = '#888888';
-        ctx.font = '14px "Courier New", monospace';
-        ctx.fillText('Press H or ESC to close', CANVAS_WIDTH / 2, boxY + boxHeight - 20);
+        // Close button (tappable)
+        const closeBtnWidth = 180;
+        const closeBtnHeight = 36;
+        const closeBtnX = CANVAS_WIDTH / 2 - closeBtnWidth / 2;
+        const closeBtnY = boxY + boxHeight - 50;
+        
+        this.uiButtons.closeHelp = { x: closeBtnX, y: closeBtnY, w: closeBtnWidth, h: closeBtnHeight };
+        
+        ctx.fillStyle = 'rgba(136, 136, 136, 0.2)';
+        ctx.strokeStyle = '#888888';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(closeBtnX, closeBtnY, closeBtnWidth, closeBtnHeight, 6);
+        ctx.fill();
+        ctx.stroke();
+        
+        ctx.fillStyle = '#cccccc';
+        ctx.font = '16px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('CLOSE', CANVAS_WIDTH / 2, closeBtnY + 24);
     }
 
     drawStartScreen(ctx) {
@@ -5076,33 +5204,84 @@ class Game {
             ctx.fillText('M = Toggle SFX  |  N = Toggle Music', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
         }
         
-        // Skill tree hint
+        // Skill tree button (tappable)
+        const skillBtnY = CANVAS_HEIGHT / 2 + 110;
+        const skillBtnWidth = 260;
+        const skillBtnHeight = 36;
+        const skillBtnX = CANVAS_WIDTH / 2 - skillBtnWidth / 2;
+        
+        // Store bounds for tap detection
+        this.uiButtons.skillTree = { x: skillBtnX, y: skillBtnY, w: skillBtnWidth, h: skillBtnHeight };
+        
         ctx.save();
+        ctx.fillStyle = 'rgba(255, 255, 0, 0.15)';
+        ctx.strokeStyle = '#ffff00';
+        ctx.lineWidth = 2;
         ctx.shadowColor = '#ffff00';
         ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.roundRect(skillBtnX, skillBtnY, skillBtnWidth, skillBtnHeight, 6);
+        ctx.fill();
+        ctx.stroke();
+        
         ctx.fillStyle = '#ffff00';
         ctx.font = '16px "Courier New", monospace';
-        ctx.fillText(`Press K for Skill Tree (${this.skillTree.skillPoints} points)`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 120);
+        ctx.textAlign = 'center';
+        ctx.fillText(`SKILL TREE (${this.skillTree.skillPoints} pts)`, CANVAS_WIDTH / 2, skillBtnY + 24);
         ctx.restore();
         
-        // Help hint
+        // Help button (tappable)
+        const helpBtnY = CANVAS_HEIGHT / 2 + 155;
+        const helpBtnWidth = 200;
+        const helpBtnHeight = 32;
+        const helpBtnX = CANVAS_WIDTH / 2 - helpBtnWidth / 2;
+        
+        this.uiButtons.help = { x: helpBtnX, y: helpBtnY, w: helpBtnWidth, h: helpBtnHeight };
+        
         ctx.save();
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.12)';
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
         ctx.shadowColor = '#00ffff';
         ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.roundRect(helpBtnX, helpBtnY, helpBtnWidth, helpBtnHeight, 6);
+        ctx.fill();
+        ctx.stroke();
+        
         ctx.fillStyle = '#00ffff';
         ctx.font = '14px "Courier New", monospace';
-        ctx.fillText('Press H for Help & Controls', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 145);
+        ctx.textAlign = 'center';
+        ctx.fillText('HELP & CONTROLS', CANVAS_WIDTH / 2, helpBtnY + 22);
         ctx.restore();
         
-        // Load game hint (if saves exist)
+        // Load game button (if saves exist)
         if (this.saveLoadUI.saveManager.hasSaves()) {
+            const loadBtnY = CANVAS_HEIGHT / 2 + 195;
+            const loadBtnWidth = 200;
+            const loadBtnHeight = 32;
+            const loadBtnX = CANVAS_WIDTH / 2 - loadBtnWidth / 2;
+            
+            this.uiButtons.load = { x: loadBtnX, y: loadBtnY, w: loadBtnWidth, h: loadBtnHeight };
+            
             ctx.save();
+            ctx.fillStyle = 'rgba(0, 255, 136, 0.12)';
+            ctx.strokeStyle = '#00ff88';
+            ctx.lineWidth = 2;
             ctx.shadowColor = '#00ff88';
             ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.roundRect(loadBtnX, loadBtnY, loadBtnWidth, loadBtnHeight, 6);
+            ctx.fill();
+            ctx.stroke();
+            
             ctx.fillStyle = '#00ff88';
             ctx.font = '14px "Courier New", monospace';
-            ctx.fillText('Press L to Load Saved Game', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 168);
+            ctx.textAlign = 'center';
+            ctx.fillText('LOAD SAVED GAME', CANVAS_WIDTH / 2, loadBtnY + 22);
             ctx.restore();
+        } else {
+            this.uiButtons.load = null;
         }
         
         // Draw decorative asteroids in background
@@ -5207,45 +5386,82 @@ class Game {
         ctx.fillText(this.lives, boxX + boxWidth - 20, boxY + 95);
         ctx.restore();
         
-        // Menu options
-        const menuY = CANVAS_HEIGHT / 2 + 100;
+        // Menu options - tappable buttons
+        const menuY = CANVAS_HEIGHT / 2 + 90;
+        const btnWidth = 260;
+        const btnHeight = 40;
+        const btnGap = 12;
+        
+        // Resume button
+        const resumeBtnX = CANVAS_WIDTH / 2 - btnWidth / 2;
+        const resumeBtnY = menuY;
+        this.uiButtons.resume = { x: resumeBtnX, y: resumeBtnY, w: btnWidth, h: btnHeight };
+        
         ctx.save();
-        ctx.textAlign = 'center';
-        ctx.font = '20px "Courier New", monospace';
+        ctx.fillStyle = 'rgba(0, 255, 136, 0.2)';
+        ctx.strokeStyle = '#00ff88';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#00ff88';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.roundRect(resumeBtnX, resumeBtnY, btnWidth, btnHeight, 8);
+        ctx.fill();
+        ctx.stroke();
         
-        // Resume - static
         ctx.fillStyle = '#00ff88';
-        ctx.fillText('Press ESC or P to Resume', CANVAS_WIDTH / 2, menuY);
+        ctx.font = 'bold 18px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('RESUME', CANVAS_WIDTH / 2, resumeBtnY + 26);
+        ctx.restore();
         
-        // Restart option
+        // Restart button
+        const restartBtnY = menuY + btnHeight + btnGap;
+        this.uiButtons.restart = { x: resumeBtnX, y: restartBtnY, w: btnWidth, h: btnHeight };
+        
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 136, 0, 0.2)';
+        ctx.strokeStyle = '#ff8800';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#ff8800';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.roundRect(resumeBtnX, restartBtnY, btnWidth, btnHeight, 8);
+        ctx.fill();
+        ctx.stroke();
+        
         ctx.fillStyle = '#ff8800';
-        ctx.fillText('Press R to Restart', CANVAS_WIDTH / 2, menuY + 35);
+        ctx.font = 'bold 18px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('RESTART', CANVAS_WIDTH / 2, restartBtnY + 26);
+        ctx.restore();
         
-        // Touch controls toggle (tappable button)
+        // Touch controls toggle button
         const touchLabel = this.touchControls ? this.touchControls.getModeLabel() : 'N/A';
-        const touchText = `Touch Controls: ${touchLabel}`;
-        const touchBtnY = menuY + 70;
-        const touchBtnWidth = 280;
+        const touchText = `Touch: ${touchLabel}`;
+        const touchBtnY = restartBtnY + btnHeight + btnGap;
+        const touchBtnWidth = 200;
         const touchBtnHeight = 32;
         const touchBtnX = CANVAS_WIDTH / 2 - touchBtnWidth / 2;
         
-        // Store bounds for click detection
-        this.touchToggleBounds = { x: touchBtnX, y: touchBtnY - touchBtnHeight/2, w: touchBtnWidth, h: touchBtnHeight };
+        // Store bounds for click detection (both old and new location)
+        this.touchToggleBounds = { x: touchBtnX, y: touchBtnY, w: touchBtnWidth, h: touchBtnHeight };
+        this.uiButtons.touchToggle = this.touchToggleBounds;
         
-        // Button background
+        ctx.save();
         ctx.fillStyle = 'rgba(255, 0, 255, 0.15)';
         ctx.strokeStyle = '#ff00ff';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.roundRect(touchBtnX, touchBtnY - touchBtnHeight/2, touchBtnWidth, touchBtnHeight, 6);
+        ctx.roundRect(touchBtnX, touchBtnY, touchBtnWidth, touchBtnHeight, 6);
         ctx.fill();
         ctx.stroke();
         
-        // Button text
         ctx.shadowColor = '#ff00ff';
         ctx.shadowBlur = 10;
         ctx.fillStyle = '#ff00ff';
-        ctx.fillText(touchText, CANVAS_WIDTH / 2, touchBtnY + 5);
+        ctx.font = '14px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(touchText, CANVAS_WIDTH / 2, touchBtnY + 21);
         ctx.restore();
         
         // Controls reminder at bottom
@@ -5327,9 +5543,14 @@ class Game {
             }
             ctx.restore();
             
-            ctx.fillStyle = '#888888';
-            ctx.font = '14px "Courier New", monospace';
-            ctx.fillText('Press ENTER to confirm', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 145);
+            // Virtual keyboard for touch devices
+            if (this.touchControls && this.touchControls.enabled) {
+                this.drawInitialsKeyboard(ctx);
+            } else {
+                ctx.fillStyle = '#888888';
+                ctx.font = '14px "Courier New", monospace';
+                ctx.fillText('Type letters, press ENTER to confirm', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 145);
+            }
         } else {
             // Show rank if just submitted
             const topScore = highScoreManager.getTopScore();
