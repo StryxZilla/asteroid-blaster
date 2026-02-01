@@ -3074,8 +3074,9 @@ class TouchControlManager {
         } else if (this.mode === 'off') {
             this.enabled = false;
         } else {
-            // Auto: enabled if touch device OR narrow viewport
-            this.enabled = this.isTouchDevice || window.innerWidth < 820;
+            // Auto: only enabled on actual touch devices
+            // (width check removed - was showing touch UI on small laptop screens)
+            this.enabled = this.isTouchDevice;
         }
     }
     
