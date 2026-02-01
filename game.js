@@ -4937,14 +4937,19 @@ class Game {
 
             if (i < this.inventory.length) {
                 const item = this.inventory[i];
-                const itemInfo = ITEM_TYPES[item.type];
-                slot.innerHTML = `
-                    <span class="item-symbol" style="color: ${itemInfo.color}">${itemInfo.symbol}</span>
-                    <span class="slot-key">${i + 1}</span>
-                `;
-                slot.title = `${itemInfo.name}: ${itemInfo.description} (Tap or press ${i + 1})`;
-                slot.style.borderColor = itemInfo.color;
-                slot.style.boxShadow = `0 0 10px ${itemInfo.color}40, inset 0 0 10px ${itemInfo.color}20`;
+                const itemInfo = ITEM_TYPES[item?.type];
+                if (itemInfo) {
+                    slot.innerHTML = `
+                        <span class="item-symbol" style="color: ${itemInfo.color}">${itemInfo.symbol}</span>
+                        <span class="slot-key">${i + 1}</span>
+                    `;
+                    slot.title = `${itemInfo.name}: ${itemInfo.description} (Tap or press ${i + 1})`;
+                    slot.style.borderColor = itemInfo.color;
+                    slot.style.boxShadow = `0 0 10px ${itemInfo.color}40, inset 0 0 10px ${itemInfo.color}20`;
+                } else {
+                    console.warn('Invalid inventory item at slot', i, item);
+                    slot.innerHTML = `<span class="slot-key">${i + 1}</span>`;
+                }
             } else {
                 slot.innerHTML = `<span class="slot-key">${i + 1}</span>`;
             }
@@ -7394,6 +7399,10 @@ class Item {
 
     draw(ctx) {
         const itemInfo = ITEM_TYPES[this.type];
+        if (!itemInfo) {
+            console.warn('Invalid item type:', this.type);
+            return;
+        }
         const pulse = Math.sin(this.pulsePhase) * 2 + ITEM_SIZE;
         const bob = Math.sin(this.bobPhase) * 2;
 
