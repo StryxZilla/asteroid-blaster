@@ -5495,6 +5495,8 @@ class Game {
     }
     
     drawGameOverScreen(ctx) {
+        const isTouchActive = this.touchControls && this.touchControls.enabled;
+        
         // Game over with red glow
         ctx.save();
         ctx.shadowColor = '#ff0000';
@@ -5502,7 +5504,7 @@ class Game {
         ctx.fillStyle = '#ff0000';
         ctx.font = 'bold 48px "Courier New", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80);
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 100);
         ctx.restore();
         
         // Score
@@ -5512,60 +5514,73 @@ class Game {
         ctx.fillStyle = '#ffffff';
         ctx.font = '24px "Courier New", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(`Final Score: ${this.score.toLocaleString()}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
+        ctx.fillText(`Final Score: ${this.score.toLocaleString()}`, CANVAS_WIDTH / 2, 145);
         ctx.restore();
         
         // High score entry or celebration
         if (this.isEnteringInitials) {
-            // New high score - subtle glow, no pulsing
+            // New high score notification
             ctx.save();
             ctx.shadowColor = '#ffff00';
             ctx.shadowBlur = 10;
             ctx.fillStyle = '#ffff00';
-            ctx.font = 'bold 24px "Courier New", monospace';
-            ctx.fillText(`NEW HIGH SCORE! #${this.newHighScoreRank}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25);
+            ctx.font = 'bold 22px "Courier New", monospace';
+            ctx.fillText(`NEW HIGH SCORE! #${this.newHighScoreRank}`, CANVAS_WIDTH / 2, 185);
             ctx.restore();
             
-            // Initials entry
+            // Initials entry prompt
             ctx.save();
             ctx.fillStyle = '#ffffff';
-            ctx.font = '20px "Courier New", monospace';
-            ctx.fillText('Enter your initials:', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
+            ctx.font = '18px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('Enter your initials:', CANVAS_WIDTH / 2, 220);
             
-            // Draw initials boxes - properly centered
-            const boxWidth = 40;
-            const boxGap = 10;
-            const totalWidth = boxWidth * 3 + boxGap * 2; // 140px total
+            // Draw initials boxes - larger for touch
+            const boxWidth = 52;
+            const boxHeight = 58;
+            const boxGap = 12;
+            const totalWidth = boxWidth * 3 + boxGap * 2;
             const startX = CANVAS_WIDTH / 2 - totalWidth / 2;
+            const boxY = 235;
+            
             for (let i = 0; i < 3; i++) {
                 const x = startX + i * (boxWidth + boxGap);
-                const y = CANVAS_HEIGHT / 2 + 75;
                 
                 // Box background
+                ctx.fillStyle = i < this.initials.length ? 'rgba(0, 255, 255, 0.1)' : 'rgba(50, 50, 50, 0.3)';
                 ctx.strokeStyle = i < this.initials.length ? '#00ffff' : '#444444';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(x, y, boxWidth, 45);
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.roundRect(x, boxY, boxWidth, boxHeight, 6);
+                ctx.fill();
+                ctx.stroke();
                 
                 // Letter
                 if (i < this.initials.length) {
                     ctx.shadowColor = '#00ffff';
                     ctx.shadowBlur = 10;
                     ctx.fillStyle = '#00ffff';
-                    ctx.font = 'bold 32px "Courier New", monospace';
-                    ctx.fillText(this.initials[i], x + boxWidth/2, y + 34);
+                    ctx.font = 'bold 36px "Courier New", monospace';
+                    ctx.fillText(this.initials[i], x + boxWidth/2, boxY + 42);
                 }
                 
                 // Cursor blink
                 if (i === this.initials.length && Math.floor(this.time / 20) % 2 === 0) {
                     ctx.fillStyle = '#00ffff';
-                    ctx.fillRect(x + 10, y + 35, boxWidth - 20, 3);
+                    ctx.fillRect(x + 10, boxY + boxHeight - 8, boxWidth - 20, 3);
                 }
             }
             ctx.restore();
             
-            ctx.fillStyle = '#888888';
-            ctx.font = '14px "Courier New", monospace';
-            ctx.fillText('Press ENTER to confirm', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 145);
+            // Virtual keyboard for touch devices
+            if (isTouchActive) {
+                this.drawVirtualKeyboard(ctx);
+            } else {
+                ctx.fillStyle = '#888888';
+                ctx.font = '14px "Courier New", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('Type letters, press ENTER to confirm', CANVAS_WIDTH / 2, 320);
+            }
         } else {
             // Show rank if just submitted
             const topScore = highScoreManager.getTopScore();
@@ -5575,16 +5590,129 @@ class Game {
                 ctx.shadowBlur = 15;
                 ctx.fillStyle = '#ffd700';
                 ctx.font = 'bold 20px "Courier New", monospace';
-                ctx.fillText('TOP SCORE!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25);
+                ctx.textAlign = 'center';
+                ctx.fillText('TOP SCORE!', CANVAS_WIDTH / 2, 200);
                 ctx.restore();
             }
             
-            // Restart prompt - static
+            // Restart prompt
             ctx.fillStyle = '#aaaaaa';
-            ctx.font = '20px "Courier New", monospace';
+            ctx.font = '22px "Courier New", monospace';
             ctx.textAlign = 'center';
-            ctx.fillText('Press ENTER to Restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
+            const restartText = isTouchActive ? 'Tap to Play Again' : 'Press ENTER to Restart';
+            ctx.fillText(restartText, CANVAS_WIDTH / 2, 260);
         }
+    }
+    
+    // Draw virtual keyboard for initials entry on touch devices
+    drawVirtualKeyboard(ctx) {
+        const keyWidth = 44;  // Apple HIG minimum
+        const keyHeight = 48; // Apple HIG minimum
+        const keyGap = 6;
+        
+        // QWERTY layout
+        const rows = [
+            ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+            ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', '⌫'],
+            ['Z', 'X', 'C', 'V', 'B', 'N', 'M']
+        ];
+        
+        const startY = 330;
+        
+        // Store keyboard bounds for click detection
+        this.virtualKeyboard = { rows, keyWidth, keyHeight, keyGap, startY };
+        
+        ctx.save();
+        
+        for (let row = 0; row < rows.length; row++) {
+            const rowKeys = rows[row];
+            const rowWidth = rowKeys.length * (keyWidth + keyGap) - keyGap;
+            const rowX = CANVAS_WIDTH / 2 - rowWidth / 2;
+            const rowY = startY + row * (keyHeight + keyGap);
+            
+            for (let col = 0; col < rowKeys.length; col++) {
+                const key = rowKeys[col];
+                const keyX = rowX + col * (keyWidth + keyGap);
+                const isBackspace = key === '⌫';
+                
+                // Key background
+                ctx.fillStyle = isBackspace ? 'rgba(255, 100, 100, 0.25)' : 'rgba(0, 255, 255, 0.18)';
+                ctx.strokeStyle = isBackspace ? '#ff6666' : '#00ffff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(keyX, rowY, keyWidth, keyHeight, 6);
+                ctx.fill();
+                ctx.stroke();
+                
+                // Key letter
+                ctx.fillStyle = isBackspace ? '#ff6666' : '#00ffff';
+                ctx.font = 'bold 20px "Courier New", monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(key, keyX + keyWidth / 2, rowY + keyHeight / 2);
+            }
+        }
+        
+        // Confirm button
+        const confirmBtnWidth = 180;
+        const confirmBtnHeight = 52;
+        const confirmBtnX = CANVAS_WIDTH / 2 - confirmBtnWidth / 2;
+        const confirmBtnY = startY + 3 * (keyHeight + keyGap) + 15;
+        
+        this.uiButtons.confirmInitials = { x: confirmBtnX, y: confirmBtnY, w: confirmBtnWidth, h: confirmBtnHeight };
+        
+        const canConfirm = this.initials.length > 0;
+        ctx.fillStyle = canConfirm ? 'rgba(0, 255, 0, 0.25)' : 'rgba(100, 100, 100, 0.15)';
+        ctx.strokeStyle = canConfirm ? '#00ff00' : '#666666';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(confirmBtnX, confirmBtnY, confirmBtnWidth, confirmBtnHeight, 8);
+        ctx.fill();
+        ctx.stroke();
+        
+        ctx.fillStyle = canConfirm ? '#00ff00' : '#666666';
+        ctx.font = 'bold 20px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('CONFIRM', confirmBtnX + confirmBtnWidth / 2, confirmBtnY + confirmBtnHeight / 2);
+        
+        ctx.restore();
+    }
+    
+    // Handle clicks on virtual keyboard
+    handleInitialsKeyboardClick(x, y) {
+        if (!this.virtualKeyboard) return false;
+        
+        const { rows, keyWidth, keyHeight, keyGap, startY } = this.virtualKeyboard;
+        
+        for (let row = 0; row < rows.length; row++) {
+            const rowKeys = rows[row];
+            const rowWidth = rowKeys.length * (keyWidth + keyGap) - keyGap;
+            const rowX = CANVAS_WIDTH / 2 - rowWidth / 2;
+            const rowY = startY + row * (keyHeight + keyGap);
+            
+            for (let col = 0; col < rowKeys.length; col++) {
+                const key = rowKeys[col];
+                const keyX = rowX + col * (keyWidth + keyGap);
+                
+                if (x >= keyX && x <= keyX + keyWidth && y >= rowY && y <= rowY + keyHeight) {
+                    if (key === '⌫') {
+                        // Backspace
+                        if (this.initials.length > 0) {
+                            this.initials = this.initials.slice(0, -1);
+                            soundManager.playItemUse();
+                        }
+                    } else if (this.initials.length < 3) {
+                        // Add letter
+                        this.initials += key;
+                        soundManager.playItemCollect();
+                    }
+                    return true;
+                }
+            }
+        }
+        
+        return false;
     }
 
     drawItemEffectIndicators(ctx) {
