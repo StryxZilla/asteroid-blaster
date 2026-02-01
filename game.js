@@ -2649,30 +2649,58 @@ class TrailParticle {
         this.x = x;
         this.y = y;
         this.color = color;
+        this.coreColor = this.getLighterColor(color);
         this.size = size;
         this.lifetime = lifetime;
         this.maxLifetime = lifetime;
         this.vx = vx + (Math.random() - 0.5) * 0.5;
         this.vy = vy + (Math.random() - 0.5) * 0.5;
+        this.shimmerPhase = Math.random() * Math.PI * 2;
+    }
+    
+    getLighterColor(color) {
+        // Return a brighter version for the core
+        if (color === COLORS.shipEngine || color === '#ff4400') return '#ffaa44';
+        if (color === COLORS.shipEngineCore || color === '#ffff00') return '#ffffff';
+        if (color === COLORS.bullet || color === '#ff00ff') return '#ff88ff';
+        return '#ffffff';
     }
 
     update() {
         this.x += this.vx;
         this.y += this.vy;
+        this.vx *= 0.98;
+        this.vy *= 0.98;
         this.lifetime--;
-        this.size *= 0.95;
+        this.size *= 0.94;
+        this.shimmerPhase += 0.3;
     }
 
     draw(ctx) {
         const alpha = this.lifetime / this.maxLifetime;
+        const shimmer = 1 + Math.sin(this.shimmerPhase) * 0.2;
+        
         ctx.save();
         ctx.globalAlpha = alpha;
+        
+        // Outer glow
         ctx.shadowColor = this.color;
-        ctx.shadowBlur = this.size * 2;
+        ctx.shadowBlur = this.size * 3 * shimmer;
         ctx.fillStyle = this.color;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.arc(this.x, this.y, this.size * shimmer, 0, Math.PI * 2);
         ctx.fill();
+        
+        // Inner core for particles that are still large
+        if (this.size > 1.5) {
+            ctx.globalAlpha = alpha * 0.8;
+            ctx.shadowBlur = this.size;
+            ctx.fillStyle = this.coreColor;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
         ctx.restore();
     }
 }
@@ -2692,47 +2720,105 @@ class ExplosionParticle {
         
         this.lifetime = isCore ? 40 : 25 + Math.random() * 15;
         this.maxLifetime = this.lifetime;
-        this.size = isCore ? 2 + Math.random() * 3 : 1 + Math.random() * 3;
+        this.size = isCore ? 2 + Math.random() * 3 : 1.5 + Math.random() * 3;
         this.rotation = Math.random() * Math.PI * 2;
         this.rotSpeed = (Math.random() - 0.5) * 0.3;
+        this.pulsePhase = Math.random() * Math.PI * 2;
+        
+        // Random debris shape variant
+        this.shapeType = Math.floor(Math.random() * 3); // 0=triangle, 1=shard, 2=chunk
+        
+        // Color interpolation for hot->cool effect
+        this.hotColor = this.getHotColor(color);
+    }
+    
+    getHotColor(color) {
+        // Return a "hotter" version of the color
+        if (color === '#ff0000' || color === '#ff4400') return '#ffff00';
+        if (color === '#ff8800' || color === '#ffcc00') return '#ffffff';
+        return '#ffffff';
     }
 
     update() {
         this.x += this.vx;
         this.y += this.vy;
-        this.vx *= 0.98;
-        this.vy *= 0.98;
+        this.vx *= 0.97;
+        this.vy *= 0.97;
         this.lifetime--;
         this.rotation += this.rotSpeed;
+        this.rotSpeed *= 0.995;
+        this.pulsePhase += 0.2;
     }
 
     draw(ctx) {
-        const alpha = this.lifetime / this.maxLifetime;
-        const size = this.size * (0.5 + alpha * 0.5);
+        const lifeRatio = this.lifetime / this.maxLifetime;
+        const alpha = lifeRatio;
+        const size = this.size * (0.4 + lifeRatio * 0.6);
+        const pulse = 1 + Math.sin(this.pulsePhase) * 0.15;
         
         ctx.save();
         ctx.globalAlpha = alpha;
         ctx.translate(this.x, this.y);
         ctx.rotate(this.rotation);
         
-        // Glow effect
+        // Glow effect - more intense for fresh particles
         ctx.shadowColor = this.color;
-        ctx.shadowBlur = size * 4;
-        ctx.fillStyle = this.color;
+        ctx.shadowBlur = size * 4 * (0.5 + lifeRatio * 0.5);
         
         if (this.isCore) {
-            // Core particles are circular
+            // Core particles with hot center
+            const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, size * pulse);
+            gradient.addColorStop(0, this.hotColor);
+            gradient.addColorStop(0.4, this.color);
+            gradient.addColorStop(1, this.color + '44');
+            
+            ctx.fillStyle = gradient;
             ctx.beginPath();
-            ctx.arc(0, 0, size, 0, Math.PI * 2);
+            ctx.arc(0, 0, size * pulse, 0, Math.PI * 2);
             ctx.fill();
+            
+            // Bright center spark
+            if (lifeRatio > 0.5) {
+                ctx.globalAlpha = (lifeRatio - 0.5) * 2;
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(0, 0, size * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+            }
         } else {
-            // Debris particles are angular
+            ctx.fillStyle = this.color;
+            
+            // Different debris shapes
             ctx.beginPath();
-            ctx.moveTo(-size, -size * 0.5);
-            ctx.lineTo(size, 0);
-            ctx.lineTo(-size, size * 0.5);
+            switch (this.shapeType) {
+                case 0: // Triangle shard
+                    ctx.moveTo(-size, -size * 0.4);
+                    ctx.lineTo(size, 0);
+                    ctx.lineTo(-size * 0.5, size * 0.5);
+                    break;
+                case 1: // Elongated shard
+                    ctx.moveTo(-size * 1.2, 0);
+                    ctx.lineTo(0, -size * 0.3);
+                    ctx.lineTo(size * 1.2, 0);
+                    ctx.lineTo(0, size * 0.3);
+                    break;
+                case 2: // Angular chunk
+                    ctx.moveTo(-size * 0.8, -size * 0.6);
+                    ctx.lineTo(size * 0.5, -size * 0.4);
+                    ctx.lineTo(size * 0.8, size * 0.3);
+                    ctx.lineTo(-size * 0.4, size * 0.6);
+                    break;
+            }
             ctx.closePath();
             ctx.fill();
+            
+            // Hot edge glow for fresh debris
+            if (lifeRatio > 0.6) {
+                ctx.globalAlpha = (lifeRatio - 0.6) * 2.5 * alpha;
+                ctx.strokeStyle = this.hotColor;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
         }
         
         ctx.restore();
@@ -7244,11 +7330,13 @@ class Bullet {
     constructor(x, y, angle, game) {
         this.x = x;
         this.y = y;
+        this.angle = angle;
         this.game = game;
         this.vx = Math.cos(angle) * BULLET_SPEED;
         this.vy = Math.sin(angle) * BULLET_SPEED;
         this.lifetime = BULLET_LIFETIME;
         this.trailCounter = 0;
+        this.pulsePhase = Math.random() * Math.PI * 2;
     }
 
     update() {
@@ -7256,17 +7344,19 @@ class Bullet {
         this.y += this.vy;
         this.lifetime--;
         this.trailCounter++;
+        this.pulsePhase += 0.3;
 
-        // Spawn trail particles
+        // Spawn enhanced trail particles with color variation
         if (this.trailCounter % 2 === 0) {
+            const trailColor = this.trailCounter % 4 === 0 ? '#ff66ff' : COLORS.bullet;
             this.game.trailParticles.push(new TrailParticle(
-                this.x,
-                this.y,
-                COLORS.bullet,
-                2,
-                10,
-                -this.vx * 0.1,
-                -this.vy * 0.1
+                this.x - this.vx * 0.3,
+                this.y - this.vy * 0.3,
+                trailColor,
+                2.5 + Math.random(),
+                12,
+                -this.vx * 0.08 + (Math.random() - 0.5) * 0.3,
+                -this.vy * 0.08 + (Math.random() - 0.5) * 0.3
             ));
         }
 
@@ -7278,21 +7368,45 @@ class Bullet {
     }
 
     draw(ctx) {
-        ctx.save();
+        const pulse = 1 + Math.sin(this.pulsePhase) * 0.15;
+        const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        const trailLength = 12;
         
-        // Outer glow
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+        
+        // Create elongated bullet trail gradient
+        const gradient = ctx.createLinearGradient(-trailLength, 0, 6, 0);
+        gradient.addColorStop(0, 'transparent');
+        gradient.addColorStop(0.3, COLORS.bullet + '44');
+        gradient.addColorStop(0.6, COLORS.bullet + 'aa');
+        gradient.addColorStop(1, COLORS.bulletCore);
+        
+        // Outer glow trail
         ctx.shadowColor = COLORS.bullet;
-        ctx.shadowBlur = 15;
-        ctx.fillStyle = COLORS.bullet;
+        ctx.shadowBlur = 20 * pulse;
+        ctx.fillStyle = gradient;
+        
+        // Draw elongated bullet shape
         ctx.beginPath();
-        ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+        ctx.moveTo(-trailLength, 0);
+        ctx.quadraticCurveTo(-trailLength * 0.5, -3 * pulse, 5, 0);
+        ctx.quadraticCurveTo(-trailLength * 0.5, 3 * pulse, -trailLength, 0);
         ctx.fill();
         
-        // Bright core
-        ctx.shadowBlur = 5;
+        // Bright core with pulse
+        ctx.shadowBlur = 10;
         ctx.fillStyle = COLORS.bulletCore;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+        ctx.arc(2, 0, 2.5 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Hot center point
+        ctx.shadowBlur = 5;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(3, 0, 1.2, 0, Math.PI * 2);
         ctx.fill();
         
         ctx.restore();
