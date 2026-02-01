@@ -2974,7 +2974,7 @@ class TouchControlManager {
             const pb = this.pauseButton;
             if (pos.x >= pb.x && pos.x <= pb.x + pb.width && 
                 pos.y >= pb.y && pos.y <= pb.y + pb.height) {
-                if (this.game && this.game.state === 'playing') {
+                if (this.game && (this.game.state === 'playing' || this.game.state === 'paused')) {
                     this.game.togglePause();
                     return; // Don't process other touches
                 }
@@ -3335,12 +3335,17 @@ class WaveAnnouncement {
         this.particles = [];
     }
     
-    trigger(level, isBoss = false) {
+    trigger(level, isBoss = false, isComplete = false) {
         this.active = true;
         this.timer = 0;
         this.isBossWave = isBoss;
+        this.isLevelComplete = isComplete;
         
-        if (isBoss) {
+        if (isComplete) {
+            this.mainText = 'LEVEL COMPLETE';
+            this.subText = `WAVE ${level} CLEARED`;
+            this.duration = 120; // 2 seconds for level complete
+        } else if (isBoss) {
             this.mainText = 'WARNING';
             this.subText = `BOSS INCOMING - WAVE ${level}`;
             this.duration = 210; // Longer for boss
@@ -4155,16 +4160,17 @@ class Game {
         this.triggerFlash(COLORS.ufoPrimary, 0.15);
     }
 
+    // Start level complete sequence with announcement
+    triggerLevelComplete() {
+        this.levelCompleteTimer = 120; // 2 second delay
+        this.waveAnnouncement.trigger(this.level, false, true); // isComplete = true
+        soundManager.playLevelComplete();
+        this.triggerFlash('#00ff00', 0.3);
+    }
+    
     nextLevel() {
         this.level++;
         this.updateUI();
-        
-        // Award skill point every level (with XP boost bonus)
-        const effects = this.skillTree.getAllEffects();
-        const xpBonus = effects.xpBonus || 0;
-        const basePoints = 1;
-        const bonusPoints = Math.random() < xpBonus ? 1 : 0;
-        this.skillTree.addSkillPoints(basePoints + bonusPoints);
         
         // Auto-save progress on level complete
         this.saveLoadUI.saveManager.autoSave();
@@ -4181,10 +4187,56 @@ class Game {
             this.bossLevel = false;
             // Trigger wave announcement
             this.waveAnnouncement.trigger(this.level, false);
-            this.spawnAsteroids(3 + this.level);
+            this.spawnAsteroids(this.getAsteroidCount());
             this.triggerFlash('#00ff00', 0.2);
-            soundManager.playLevelComplete();
         }
+    }
+    
+    // Calculate asteroid count for current level with better difficulty curve
+    getAsteroidCount() {
+        // Early levels: approachable (4-6 asteroids for levels 1-4)
+        // Mid levels: gradual increase
+        // Later levels: challenging but not overwhelming
+        if (this.level <= 2) return 4;
+        if (this.level <= 4) return 5 + Math.floor((this.level - 2) / 2);
+        if (this.level <= 10) return 6 + Math.floor((this.level - 4) / 2);
+        // Level 10+: 8 + 1 per 3 levels, capped at 15
+        return Math.min(15, 8 + Math.floor((this.level - 10) / 3));
+    }
+    
+    // Award skill points from boss defeat
+    awardBossSkillPoints() {
+        const effects = this.skillTree.getAllEffects();
+        const xpBonus = effects.xpBonus || 0;
+        
+        // Base: 1 point for tier 1, 2 points for tier 2+
+        const tier = Math.ceil(this.level / 5);
+        const basePoints = tier >= 2 ? 2 : 1;
+        
+        // XP boost gives chance for extra point
+        const bonusPoints = Math.random() < xpBonus ? 1 : 0;
+        const totalPoints = basePoints + bonusPoints;
+        
+        this.skillTree.addSkillPoints(totalPoints);
+        
+        // Show floating text for skill point gain
+        this.showFloatingText(`+${totalPoints} SKILL POINT${totalPoints > 1 ? 'S' : ''}!`, 
+            CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50, '#ffff00');
+    }
+    
+    // Small chance to earn skill point from asteroid kills
+    checkSkillPointDrop() {
+        const effects = this.skillTree.getAllEffects();
+        const xpBonus = effects.xpBonus || 0;
+        
+        // Base 2% chance, XP boost adds up to 4.5% more (at max level)
+        const dropChance = 0.02 + xpBonus * 0.1;
+        
+        if (Math.random() < dropChance) {
+            this.skillTree.addSkillPoints(1);
+            return true;
+        }
+        return false;
     }
 
     updateUI() {
