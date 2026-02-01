@@ -4256,9 +4256,9 @@ class Game {
                 musicManager.toggleMute();
             }
 
-            // Skill tree toggle with K key
+            // Skill tree toggle with K key - only on start screen or between levels
             if (e.key === 'k' || e.key === 'K') {
-                if (this.state === 'start' || this.state === 'playing') {
+                if (this.state === 'start' || (this.state === 'playing' && this.levelCompleteTimer > 0)) {
                     this.skillTreeUI.toggle();
                 }
             }
