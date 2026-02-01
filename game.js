@@ -4776,7 +4776,8 @@ class Game {
     useInventoryItem(slotIndex) {
         if (slotIndex < 0 || slotIndex >= this.inventory.length) return;
 
-        const itemType = this.inventory[slotIndex];
+        const item = this.inventory[slotIndex];
+        const itemType = item.type;
         let used = false;
 
         switch (itemType) {
@@ -4935,8 +4936,8 @@ class Game {
             }, { passive: true });
 
             if (i < this.inventory.length) {
-                const itemType = this.inventory[i];
-                const itemInfo = ITEM_TYPES[itemType];
+                const item = this.inventory[i];
+                const itemInfo = ITEM_TYPES[item.type];
                 slot.innerHTML = `
                     <span class="item-symbol" style="color: ${itemInfo.color}">${itemInfo.symbol}</span>
                     <span class="slot-key">${i + 1}</span>
