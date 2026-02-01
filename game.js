@@ -4553,6 +4553,29 @@ class Game {
             this.newHighScoreRank = 0;
         }
     }
+    
+    triggerVictory() {
+        this.state = 'victory';
+        this.victoryTimer = 0;
+        this.triggerFlash('#ffffff', 0.8);
+        
+        // Stop engine sound
+        soundManager.stopEngine();
+        
+        // Play victory fanfare (using level complete + boss defeat sounds)
+        soundManager.playLevelComplete();
+        setTimeout(() => soundManager.playBossDefeat(), 500);
+        
+        // Stop background music
+        musicManager.stop();
+        
+        // Always a high score after beating the game!
+        if (highScoreManager.isHighScore(this.score)) {
+            this.isEnteringInitials = true;
+            this.newHighScoreRank = highScoreManager.getRank(this.score);
+            this.initials = '';
+        }
+    }
 
     loseLife() {
         this.lives--;
@@ -5402,6 +5425,12 @@ class Game {
             ctx.restore();
             return;
         }
+        
+        if (this.state === 'victory') {
+            this.drawVictoryScreen(ctx);
+            ctx.restore();
+            return;
+        }
 
         if (this.state === 'paused') {
             // Draw game objects dimmed in background
@@ -5632,6 +5661,7 @@ class Game {
         ctx.restore();
         
         // Start text - static, no blinking
+        ctx.save();
         ctx.fillStyle = '#ffffff';
         ctx.font = '24px "Courier New", monospace';
         ctx.textAlign = 'center';
@@ -5640,8 +5670,10 @@ class Game {
         } else {
             ctx.fillText('Press ENTER to Start', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
         }
+        ctx.restore();
         
         // Sound instructions / Touch hint
+        ctx.save();
         ctx.fillStyle = '#666666';
         ctx.font = '14px "Courier New", monospace';
         ctx.textAlign = 'center';
@@ -5650,6 +5682,7 @@ class Game {
         } else {
             ctx.fillText('M = Toggle SFX  |  N = Toggle Music', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
         }
+        ctx.restore();
         
         // Skill tree button (tappable)
         const skillBtnY = CANVAS_HEIGHT / 2 + 110;
