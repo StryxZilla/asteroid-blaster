@@ -4674,7 +4674,7 @@ class Game {
 
     collectItem(item) {
         if (this.inventory.length < MAX_INVENTORY_SLOTS) {
-            this.inventory.push(item.type);
+            this.inventory.push({ type: item.type });
             this.updateInventoryUI();
             soundManager.playItemCollect();
             
@@ -6255,16 +6255,21 @@ class Game {
                 const item = this.inventory[i];
                 const itemType = ITEM_TYPES[item.type];
                 
-                ctx.strokeStyle = itemType.color;
-                ctx.shadowColor = itemType.color;
-                ctx.shadowBlur = 8;
-                ctx.stroke();
-                
-                ctx.fillStyle = itemType.color;
-                ctx.font = 'bold 20px "Courier New", monospace';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(itemType.symbol, x + slotSize / 2, y + slotSize / 2);
+                // Guard against invalid item types
+                if (itemType) {
+                    ctx.strokeStyle = itemType.color;
+                    ctx.shadowColor = itemType.color;
+                    ctx.shadowBlur = 8;
+                    ctx.stroke();
+                    
+                    ctx.fillStyle = itemType.color;
+                    ctx.font = 'bold 20px "Courier New", monospace';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(itemType.symbol, x + slotSize / 2, y + slotSize / 2);
+                } else {
+                    console.warn('Invalid item type in inventory:', item.type);
+                }
             }
             
             // Slot number
