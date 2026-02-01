@@ -343,9 +343,10 @@ class SkillTreeUI {
         this.selectedCategory = 'OFFENSE';
         this.hoveredSkill = null;
         this.animPhase = 0;
-        this.nodeSize = 40;
-        this.nodeSpacing = 100;
-        this.categoryTabWidth = 120;
+        this.nodeSize = 52;      // Increased from 40 for touch (52px diameter > 44px HIG minimum)
+        this.nodeSpacing = 110;  // Increased from 100 for more breathing room
+        this.categoryTabWidth = 130;  // Slightly wider tabs
+        this.categoryTabHeight = 48;  // Taller tabs for touch (48px > 44px)
     }
     toggle() { this.visible = !this.visible; if (this.visible) soundManager.playItemCollect(); }
     handleClick(x, y) {
@@ -357,22 +358,24 @@ class SkillTreeUI {
         y = (y - canvasRect.top) * scaleY;
         
         const tabY = 80;
+        const tabHeight = this.categoryTabHeight || 48;
         const categories = Object.keys(SKILL_CATEGORIES);
         categories.forEach((cat, i) => {
-            const tabX = 150 + i * (this.categoryTabWidth + 20);
-            if (x >= tabX && x <= tabX + this.categoryTabWidth && y >= tabY && y <= tabY + 40) {
+            const tabX = 130 + i * (this.categoryTabWidth + 15);
+            if (x >= tabX && x <= tabX + this.categoryTabWidth && y >= tabY && y <= tabY + tabHeight) {
                 this.selectedCategory = cat;
                 soundManager.playItemCollect();
             }
         });
         
-        const baseX = 200, baseY = 200;
+        const baseX = 200, baseY = 220;  // Slightly lower to account for taller tabs
         Object.entries(SKILLS).forEach(([skillId, skill]) => {
             if (skill.category !== this.selectedCategory) return;
             const nodeX = baseX + skill.position.x * this.nodeSpacing;
             const nodeY = baseY + skill.position.y * this.nodeSpacing;
             const dist = Math.sqrt((x - nodeX) ** 2 + (y - nodeY) ** 2);
-            if (dist <= this.nodeSize / 2) {
+            // Larger hit area for touch (add 8px tolerance)
+            if (dist <= this.nodeSize / 2 + 8) {
                 if (this.skillTree.canUpgradeSkill(skillId)) {
                     this.skillTree.upgradeSkill(skillId);
                     soundManager.playPowerUp();
@@ -380,8 +383,11 @@ class SkillTreeUI {
             }
         });
         
-        if (x >= CANVAS_WIDTH - 60 && x <= CANVAS_WIDTH - 20 && y >= 30 && y <= 70) this.toggle();
-        if (x >= 30 && x <= 130 && y >= CANVAS_HEIGHT - 60 && y <= CANVAS_HEIGHT - 30) {
+        // Close button - larger hit area (50x50)
+        if (x >= CANVAS_WIDTH - 65 && x <= CANVAS_WIDTH - 15 && y >= 25 && y <= 75) this.toggle();
+        
+        // Reset button - larger hit area
+        if (x >= 25 && x <= 145 && y >= CANVAS_HEIGHT - 70 && y <= CANVAS_HEIGHT - 25) {
             this.skillTree.reset();
             soundManager.playItemUse();
         }
@@ -442,19 +448,20 @@ class SkillTreeUI {
     }
     drawCategoryTabs(ctx) {
         const tabY = 80;
+        const tabHeight = this.categoryTabHeight || 48;
         Object.keys(SKILL_CATEGORIES).forEach((catId, i) => {
             const cat = SKILL_CATEGORIES[catId];
-            const tabX = 150 + i * (this.categoryTabWidth + 20);
+            const tabX = 130 + i * (this.categoryTabWidth + 15);
             const isSelected = catId === this.selectedCategory;
             ctx.save();
             ctx.fillStyle = isSelected ? cat.color + '40' : '#22222280';
-            ctx.strokeStyle = cat.color; ctx.lineWidth = isSelected ? 3 : 1;
+            ctx.strokeStyle = cat.color; ctx.lineWidth = isSelected ? 3 : 2;
             ctx.shadowColor = cat.color; ctx.shadowBlur = isSelected ? 15 : 5;
-            ctx.beginPath(); ctx.roundRect(tabX, tabY, this.categoryTabWidth, 40, 5); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.roundRect(tabX, tabY, this.categoryTabWidth, tabHeight, 8); ctx.fill(); ctx.stroke();
             ctx.fillStyle = isSelected ? '#ffffff' : cat.color;
-            ctx.font = `${isSelected ? 'bold ' : ''}14px "Courier New", monospace`;
+            ctx.font = `${isSelected ? 'bold ' : ''}15px "Courier New", monospace`;
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(`${cat.icon} ${cat.name}`, tabX + this.categoryTabWidth / 2, tabY + 20);
+            ctx.fillText(`${cat.icon} ${cat.name}`, tabX + this.categoryTabWidth / 2, tabY + tabHeight / 2);
             ctx.restore();
         });
     }
@@ -2924,6 +2931,12 @@ class TouchControlManager {
     handleTouchStart(e) {
         e.preventDefault();
         
+        // Initialize audio on first touch (iOS requires user interaction)
+        soundManager.init();
+        soundManager.resume();
+        musicManager.init();
+        musicManager.resume();
+        
         // Tap to start/restart - always allow (even when controls disabled)
         if (this.game && (this.game.state === 'start' || this.game.state === 'gameover')) {
             // Don't start if entering initials on game over
@@ -3086,6 +3099,10 @@ class TouchControlManager {
         // Refresh enabled state (in case viewport changed)
         this.updateEnabledState();
         
+        // Decay tap feedback timers
+        if (this.joystick.tapFeedback > 0) this.joystick.tapFeedback--;
+        if (this.fireButton.tapFeedback > 0) this.fireButton.tapFeedback--;
+        
         // Only draw if enabled and during gameplay
         if (!this.enabled) return;
         // Note: game state check handled by caller (only called during 'playing')
@@ -3097,99 +3114,161 @@ class TouchControlManager {
         const jy = this.joystick.baseY;
         const jr = this.joystick.radius;
         
-        // Outer ring (base) - brighter for visibility
+        // Scale effect on tap
+        const jScale = this.joystick.tapFeedback > 0 ? 1.08 : 1;
+        
+        ctx.save();
+        ctx.translate(jx, jy);
+        ctx.scale(jScale, jScale);
+        ctx.translate(-jx, -jy);
+        
+        // Outer ring (base) - thicker, more visible
         ctx.beginPath();
         ctx.arc(jx, jy, jr, 0, Math.PI * 2);
-        ctx.strokeStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.8)' : 'rgba(0, 255, 255, 0.5)';
-        ctx.lineWidth = 4;
+        ctx.strokeStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.9)' : 'rgba(0, 255, 255, 0.5)';
+        ctx.lineWidth = 5;  // Thicker for visibility
         ctx.stroke();
         
-        // Base fill - more visible
-        ctx.fillStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.25)' : 'rgba(0, 255, 255, 0.15)';
+        // Base fill with gradient
+        const jGrad = ctx.createRadialGradient(jx, jy, 0, jx, jy, jr);
+        if (this.joystick.active) {
+            jGrad.addColorStop(0, 'rgba(0, 255, 255, 0.35)');
+            jGrad.addColorStop(1, 'rgba(0, 255, 255, 0.15)');
+        } else {
+            jGrad.addColorStop(0, 'rgba(0, 255, 255, 0.2)');
+            jGrad.addColorStop(1, 'rgba(0, 255, 255, 0.08)');
+        }
+        ctx.fillStyle = jGrad;
         ctx.fill();
         
-        // Inner nub
+        // Directional arrows around the ring (visual hint)
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.4)';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('▲', jx, jy - jr + 12);  // Up = thrust
+        ctx.fillText('◄', jx - jr + 12, jy);
+        ctx.fillText('►', jx + jr - 12, jy);
+        
+        ctx.restore(); // End scale transform for base
+        
+        // Inner nub (not scaled, moves independently)
         const nubX = this.joystick.currentX;
         const nubY = this.joystick.currentY;
-        const nubRadius = jr * 0.5;
+        const nubRadius = jr * 0.45;  // Slightly smaller for better visual
+        
+        // Nub shadow
+        if (this.joystick.active) {
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = 20;
+        }
         
         ctx.beginPath();
         ctx.arc(nubX, nubY, nubRadius, 0, Math.PI * 2);
-        ctx.fillStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.9)' : 'rgba(0, 255, 255, 0.6)';
+        ctx.fillStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.95)' : 'rgba(0, 255, 255, 0.65)';
         ctx.fill();
         
-        // Nub glow
-        if (this.joystick.active) {
-            ctx.shadowColor = '#00ffff';
-            ctx.shadowBlur = 15;
-            ctx.beginPath();
-            ctx.arc(nubX, nubY, nubRadius * 0.7, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(0, 255, 255, 0.6)';
-            ctx.fill();
-            ctx.shadowBlur = 0;
-        }
+        // Nub inner highlight
+        ctx.beginPath();
+        ctx.arc(nubX - nubRadius * 0.2, nubY - nubRadius * 0.2, nubRadius * 0.4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.fill();
+        ctx.shadowBlur = 0;
         
-        // MOVE label (like FIRE button)
-        ctx.font = 'bold 16px Arial';
+        // MOVE label below joystick
+        ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = this.joystick.active ? '#88ffff' : 'rgba(0, 255, 255, 0.6)';
-        ctx.fillText('MOVE', jx, jy + jr + 20);
-        
-        // Direction indicator
-        ctx.font = '12px Arial';
-        ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
-        ctx.fillText('^', jx, jy - jr - 8);  // Up = thrust
+        ctx.fillStyle = this.joystick.active ? '#88ffff' : 'rgba(0, 255, 255, 0.55)';
+        ctx.fillText('MOVE', jx, jy + jr + 22);
         
         // === DRAW FIRE BUTTON ===
         const fx = this.fireButton.x;
         const fy = this.fireButton.y;
         const fr = this.fireButton.radius;
         
-        // Outer ring
+        // Scale effect on tap
+        const fScale = this.fireButton.tapFeedback > 0 ? 1.1 : (this.fireButton.active ? 1.05 : 1);
+        
+        ctx.save();
+        ctx.translate(fx, fy);
+        ctx.scale(fScale, fScale);
+        ctx.translate(-fx, -fy);
+        
+        // Outer ring - thicker
         ctx.beginPath();
         ctx.arc(fx, fy, fr, 0, Math.PI * 2);
-        ctx.strokeStyle = this.fireButton.active ? 'rgba(255, 0, 255, 0.8)' : 'rgba(255, 0, 255, 0.3)';
-        ctx.lineWidth = 3;
+        ctx.strokeStyle = this.fireButton.active ? 'rgba(255, 0, 255, 0.9)' : 'rgba(255, 0, 255, 0.4)';
+        ctx.lineWidth = 5;
         ctx.stroke();
         
-        // Button fill
-        ctx.fillStyle = this.fireButton.active ? 'rgba(255, 0, 255, 0.4)' : 'rgba(255, 0, 255, 0.1)';
+        // Button fill with gradient
+        const fGrad = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
+        if (this.fireButton.active) {
+            fGrad.addColorStop(0, 'rgba(255, 0, 255, 0.5)');
+            fGrad.addColorStop(0.7, 'rgba(255, 0, 255, 0.3)');
+            fGrad.addColorStop(1, 'rgba(255, 0, 255, 0.15)');
+        } else {
+            fGrad.addColorStop(0, 'rgba(255, 0, 255, 0.2)');
+            fGrad.addColorStop(1, 'rgba(255, 0, 255, 0.08)');
+        }
+        ctx.fillStyle = fGrad;
         ctx.fill();
         
         // Button glow when active
         if (this.fireButton.active) {
             ctx.shadowColor = '#ff00ff';
-            ctx.shadowBlur = 20;
+            ctx.shadowBlur = 25;
             ctx.beginPath();
-            ctx.arc(fx, fy, fr * 0.8, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(255, 0, 255, 0.5)';
+            ctx.arc(fx, fy, fr * 0.75, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 0, 255, 0.4)';
             ctx.fill();
             ctx.shadowBlur = 0;
         }
         
-        // Fire label
-        ctx.font = 'bold 18px Arial';
+        // Fire icon (crosshair style)
+        ctx.strokeStyle = this.fireButton.active ? '#ffaaff' : 'rgba(255, 0, 255, 0.6)';
+        ctx.lineWidth = 3;
+        const iconSize = fr * 0.35;
+        ctx.beginPath();
+        ctx.moveTo(fx - iconSize, fy);
+        ctx.lineTo(fx + iconSize, fy);
+        ctx.moveTo(fx, fy - iconSize);
+        ctx.lineTo(fx, fy + iconSize);
+        ctx.stroke();
+        
+        // Center dot
+        ctx.beginPath();
+        ctx.arc(fx, fy, 4, 0, Math.PI * 2);
+        ctx.fillStyle = this.fireButton.active ? '#ffffff' : 'rgba(255, 0, 255, 0.7)';
+        ctx.fill();
+        
+        ctx.restore(); // End scale transform
+        
+        // Fire label below button
+        ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = this.fireButton.active ? '#ff88ff' : 'rgba(255, 0, 255, 0.5)';
-        ctx.fillText('FIRE', fx, fy);
+        ctx.fillStyle = this.fireButton.active ? '#ff88ff' : 'rgba(255, 0, 255, 0.55)';
+        ctx.fillText('FIRE', fx, fy + fr + 22);
         
         // === PAUSE BUTTON (top center) ===
         const pb = this.pauseButton;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        
+        // Button background
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.roundRect(pb.x, pb.y, pb.width, pb.height, 6);
+        ctx.roundRect(pb.x, pb.y, pb.width, pb.height, 8);
         ctx.fill();
         ctx.stroke();
         
-        // Pause icon (two bars)
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        const barWidth = 6;
-        const barHeight = 18;
-        const barGap = 6;
+        // Pause icon (two bars) - centered
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        const barWidth = 7;
+        const barHeight = 20;
+        const barGap = 8;
         const barsX = pb.x + pb.width / 2 - barGap / 2 - barWidth;
         const barsY = pb.y + (pb.height - barHeight) / 2;
         ctx.fillRect(barsX, barsY, barWidth, barHeight);
