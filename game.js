@@ -1040,12 +1040,13 @@ class SaveLoadUI {
 
         const centerX = CANVAS_WIDTH / 2;
         const startY = 150;
-        const slotHeight = 80;
+        const slotHeight = 95;  // Increased from 80 for better touch targets
         const slotWidth = 350;
 
-        const closeX = centerX + slotWidth / 2 - 30;
-        const closeY = startY - 40;
-        if (Math.abs(x - closeX) < 15 && Math.abs(y - closeY) < 15) {
+        // Close button hit area - 48x48 touch target
+        const closeX = centerX + slotWidth / 2 - 34;
+        const closeY = startY - 45;
+        if (Math.abs(x - closeX) < 24 && Math.abs(y - closeY) < 24) {
             this.close();
             return true;
         }
@@ -1058,9 +1059,10 @@ class SaveLoadUI {
             if (x >= centerX - slotWidth / 2 && x <= centerX + slotWidth / 2 &&
                 y >= slotY && y <= slotY + slotHeight) {
 
-                const deleteX = centerX + slotWidth / 2 - 35;
+                // Delete button hit area - 44x44 touch target
+                const deleteX = centerX + slotWidth / 2 - 40;
                 const deleteY = slotY + slotHeight / 2;
-                if (!slot.empty && Math.abs(x - deleteX) < 20 && Math.abs(y - deleteY) < 15) {
+                if (!slot.empty && Math.abs(x - deleteX) < 22 && Math.abs(y - deleteY) < 22) {
                     if (this.confirmDelete === slot.slot) {
                         this.saveManager.deleteSave(slot.slot);
                         this.confirmDelete = -1;
@@ -1101,15 +1103,16 @@ class SaveLoadUI {
 
         const centerX = CANVAS_WIDTH / 2;
         const startY = 150;
-        const slotHeight = 80;
+        const slotHeight = 95;  // Increased from 80 for better touch targets
         const slotWidth = 350;
 
         this.hoveredSlot = -1;
         this.hoveredButton = null;
 
-        const closeX = centerX + slotWidth / 2 - 30;
-        const closeY = startY - 40;
-        if (Math.abs(x - closeX) < 15 && Math.abs(y - closeY) < 15) {
+        // Close button hover area - 48x48 touch target
+        const closeX = centerX + slotWidth / 2 - 34;
+        const closeY = startY - 45;
+        if (Math.abs(x - closeX) < 24 && Math.abs(y - closeY) < 24) {
             this.hoveredButton = 'close';
             return;
         }
@@ -1122,9 +1125,10 @@ class SaveLoadUI {
                 y >= slotY && y <= slotY + slotHeight) {
                 this.hoveredSlot = i;
 
-                const deleteX = centerX + slotWidth / 2 - 35;
+                // Delete button hover area - 44x44 touch target
+                const deleteX = centerX + slotWidth / 2 - 40;
                 const deleteY = slotY + slotHeight / 2;
-                if (Math.abs(x - deleteX) < 20 && Math.abs(y - deleteY) < 15) {
+                if (Math.abs(x - deleteX) < 22 && Math.abs(y - deleteY) < 22) {
                     this.hoveredButton = 'delete';
                 }
                 break;
@@ -1137,7 +1141,7 @@ class SaveLoadUI {
 
         const centerX = CANVAS_WIDTH / 2;
         const startY = 150;
-        const slotHeight = 80;
+        const slotHeight = 95;  // Increased from 80 for better touch targets
         const slotWidth = 350;
 
         ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
@@ -1152,16 +1156,26 @@ class SaveLoadUI {
         ctx.fillText(this.mode === 'save' ? 'SAVE GAME' : 'LOAD GAME', centerX, startY - 50);
         ctx.restore();
 
-        const closeX = centerX + slotWidth / 2 - 30;
-        const closeY = startY - 40;
+        // Close button - 48x48 with rounded corners
+        const closeX = centerX + slotWidth / 2 - 34;
+        const closeY = startY - 45;
         ctx.save();
-        ctx.strokeStyle = this.hoveredButton === 'close' ? '#ff6666' : '#888888';
+        // Draw rounded background
+        ctx.fillStyle = this.hoveredButton === 'close' ? 'rgba(255, 100, 100, 0.2)' : 'rgba(100, 100, 100, 0.15)';
+        ctx.strokeStyle = this.hoveredButton === 'close' ? '#ff6666' : '#666666';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(closeX - 10, closeY - 10);
-        ctx.lineTo(closeX + 10, closeY + 10);
-        ctx.moveTo(closeX + 10, closeY - 10);
-        ctx.lineTo(closeX - 10, closeY + 10);
+        ctx.roundRect(closeX - 24, closeY - 24, 48, 48, 8);
+        ctx.fill();
+        ctx.stroke();
+        // Draw X
+        ctx.strokeStyle = this.hoveredButton === 'close' ? '#ff6666' : '#888888';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(closeX - 12, closeY - 12);
+        ctx.lineTo(closeX + 12, closeY + 12);
+        ctx.moveTo(closeX + 12, closeY - 12);
+        ctx.lineTo(closeX - 12, closeY + 12);
         ctx.stroke();
         ctx.restore();
 
@@ -1204,24 +1218,42 @@ class SaveLoadUI {
                 const dateStr = slot.date.toLocaleDateString() + ' ' + slot.date.toLocaleTimeString();
                 ctx.fillText(`${dateStr}  ├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├ÄΓÇ£├â┬╢├é┬╝├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ  ${slot.skillPoints} skill pts`, textX, slotY + 68);
 
-                const deleteX = centerX + slotWidth / 2 - 35;
+                // Delete button - 44x44 with rounded corners
+                const deleteX = centerX + slotWidth / 2 - 40;
                 const deleteY = slotY + slotHeight / 2;
 
                 ctx.save();
                 if (isConfirmingDelete) {
+                    // Confirm delete state - larger touch target visual
+                    ctx.fillStyle = 'rgba(255, 68, 68, 0.3)';
+                    ctx.strokeStyle = '#ff4444';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.roundRect(deleteX - 22, deleteY - 22, 44, 44, 6);
+                    ctx.fill();
+                    ctx.stroke();
                     ctx.fillStyle = '#ff4444';
-                    ctx.font = 'bold 10px "Courier New", monospace';
+                    ctx.font = 'bold 11px "Courier New", monospace';
                     ctx.textAlign = 'center';
-                    ctx.fillText('CONFIRM?', deleteX, deleteY - 8);
-                    ctx.fillText('TAP', deleteX, deleteY + 8);
+                    ctx.fillText('CONFIRM?', deleteX, deleteY - 5);
+                    ctx.fillText('TAP', deleteX, deleteY + 10);
                 } else {
+                    // Normal delete button with rounded background
+                    ctx.fillStyle = isDeleteHovered ? 'rgba(255, 100, 100, 0.2)' : 'rgba(100, 100, 100, 0.1)';
+                    ctx.strokeStyle = isDeleteHovered ? '#ff6666' : '#555555';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.roundRect(deleteX - 22, deleteY - 22, 44, 44, 6);
+                    ctx.fill();
+                    ctx.stroke();
+                    // Draw X
                     ctx.strokeStyle = isDeleteHovered ? '#ff6666' : '#666666';
                     ctx.lineWidth = 2;
                     ctx.beginPath();
-                    ctx.moveTo(deleteX - 8, deleteY - 8);
-                    ctx.lineTo(deleteX + 8, deleteY + 8);
-                    ctx.moveTo(deleteX + 8, deleteY - 8);
-                    ctx.lineTo(deleteX - 8, deleteY + 8);
+                    ctx.moveTo(deleteX - 10, deleteY - 10);
+                    ctx.lineTo(deleteX + 10, deleteY + 10);
+                    ctx.moveTo(deleteX + 10, deleteY - 10);
+                    ctx.lineTo(deleteX - 10, deleteY + 10);
                     ctx.stroke();
                 }
                 ctx.restore();
@@ -4848,20 +4880,6 @@ class Game {
             vy: -2,
             lifetime: 60
         });
-    }
-
-    // Small chance to earn skill point from kills (added by level-design subagent, method was missing)
-    checkSkillPointDrop() {
-        const effects = this.skillTree.getAllEffects();
-        const baseChance = 0.005; // 0.5% base chance
-        const xpBonus = effects.xpBonus || 0;
-        const chance = baseChance * (1 + xpBonus);
-
-        if (Math.random() < chance) {
-            this.skillTree.addSkillPoints(1);
-            return true;
-        }
-        return false;
     }
 
     // Handle virtual keyboard clicks for high score initials entry
