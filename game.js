@@ -4477,16 +4477,17 @@ class Game {
         this.triggerFlash(COLORS.ufoPrimary, 0.15);
     }
 
+    // Start level complete sequence with announcement
+    triggerLevelComplete() {
+        this.levelCompleteTimer = 120; // 2 second delay
+        this.waveAnnouncement.trigger(this.level, false, true); // isComplete = true
+        soundManager.playLevelComplete();
+        this.triggerFlash('#00ff00', 0.3);
+    }
+
     nextLevel() {
         this.level++;
         this.updateUI();
-        
-        // Award skill point every level (with XP boost bonus)
-        const effects = this.skillTree.getAllEffects();
-        const xpBonus = effects.xpBonus || 0;
-        const basePoints = 1;
-        const bonusPoints = Math.random() < xpBonus ? 1 : 0;
-        this.skillTree.addSkillPoints(basePoints + bonusPoints);
         
         // Auto-save progress on level complete
         this.saveLoadUI.saveManager.autoSave();
@@ -4503,10 +4504,56 @@ class Game {
             this.bossLevel = false;
             // Trigger wave announcement
             this.waveAnnouncement.trigger(this.level, false);
-            this.spawnAsteroids(3 + this.level);
+            this.spawnAsteroids(this.getAsteroidCount());
             this.triggerFlash('#00ff00', 0.2);
-            soundManager.playLevelComplete();
         }
+    }
+
+    // Calculate asteroid count for current level with better difficulty curve
+    getAsteroidCount() {
+        // Early levels: approachable (4-6 asteroids for levels 1-4)
+        // Mid levels: gradual increase
+        // Later levels: challenging but not overwhelming
+        if (this.level <= 2) return 4;
+        if (this.level <= 4) return 5 + Math.floor((this.level - 2) / 2);
+        if (this.level <= 10) return 6 + Math.floor((this.level - 4) / 2);
+        // Level 10+: 8 + 1 per 3 levels, capped at 15
+        return Math.min(15, 8 + Math.floor((this.level - 10) / 3));
+    }
+
+    // Award skill points from boss defeat
+    awardBossSkillPoints() {
+        const effects = this.skillTree.getAllEffects();
+        const xpBonus = effects.xpBonus || 0;
+        
+        // Base: 1 point for tier 1, 2 points for tier 2+
+        const tier = Math.ceil(this.level / 5);
+        const basePoints = tier >= 2 ? 2 : 1;
+        
+        // XP boost gives chance for extra point
+        const bonusPoints = Math.random() < xpBonus ? 1 : 0;
+        const totalPoints = basePoints + bonusPoints;
+        
+        this.skillTree.addSkillPoints(totalPoints);
+        
+        // Show floating text for skill point gain
+        this.showFloatingText(`+${totalPoints} SKILL POINT${totalPoints > 1 ? 'S' : ''}!`, 
+            CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50, '#ffff00');
+    }
+
+    // Small chance to earn skill point from asteroid kills
+    checkSkillPointDrop() {
+        const effects = this.skillTree.getAllEffects();
+        const xpBonus = effects.xpBonus || 0;
+        
+        // Base 2% chance, XP boost adds up to 4.5% more (at max level)
+        const dropChance = 0.02 + xpBonus * 0.1;
+        
+        if (Math.random() < dropChance) {
+            this.skillTree.addSkillPoints(1);
+            return true;
+        }
+        return false;
     }
 
     updateUI() {
@@ -5191,9 +5238,18 @@ class Game {
 
         this.checkCollisions();
 
+        // Handle level complete transition timer
+        if (this.levelCompleteTimer > 0) {
+            this.levelCompleteTimer--;
+            if (this.levelCompleteTimer === 0) {
+                this.nextLevel();
+            }
+            return; // Don't check for completion while transitioning
+        }
+
         // Level completion: no asteroids AND no active boss
         if (this.asteroids.length === 0 && !this.boss && !this.bossLevel) {
-            this.nextLevel();
+            this.triggerLevelComplete();
         }
     }
 
@@ -5364,8 +5420,13 @@ class Game {
                     this.ship.x, this.ship.y, SHIP_SIZE,
                     this.powerUps[i].x, this.powerUps[i].y, POWERUP_SIZE
                 )) {
-                    this.ship.activatePowerUp(this.powerUps[i].type);
-                    this.triggerFlash(POWERUP_TYPES[this.powerUps[i].type].color, 0.2);
+                    const powerUp = this.powerUps[i];
+                    this.ship.activatePowerUp(powerUp.type);
+                    this.triggerFlash(POWERUP_TYPES[powerUp.type].color, 0.25);
+                    // Create visual pickup effect
+                    createPowerUpPickupEffect(this, powerUp.x, powerUp.y, powerUp.type);
+                    // Small screen shake for impact
+                    this.screenShake.trigger(4);
                     soundManager.playPowerUp();
                     this.powerUps.splice(i, 1);
                 }
@@ -5377,7 +5438,10 @@ class Game {
                     this.ship.x, this.ship.y, SHIP_SIZE,
                     this.items[i].x, this.items[i].y, ITEM_SIZE
                 )) {
-                    if (this.collectItem(this.items[i])) {
+                    const item = this.items[i];
+                    if (this.collectItem(item)) {
+                        // Create visual pickup effect for items
+                        createItemPickupEffect(this, item.x, item.y, item.type);
                         this.items.splice(i, 1);
                     }
                 }
@@ -7236,6 +7300,7 @@ class Bullet {
 }
 
 // ============== POWERUP CLASS ==============
+// Visually exciting power-ups with unique shapes, particle trails, and animated icons
 class PowerUp {
     constructor(x, y, type, game) {
         this.x = x;
@@ -7243,80 +7308,547 @@ class PowerUp {
         this.type = type;
         this.game = game;
         this.lifetime = POWERUP_LIFETIME;
-        this.pulsePhase = 0;
-        this.rotationPhase = 0;
+        this.pulsePhase = Math.random() * Math.PI * 2;
+        this.rotationPhase = Math.random() * Math.PI * 2;
+        this.innerRotation = 0;
+        this.sparklePhase = 0;
+        
+        // Particle trail system
+        this.trailParticles = [];
+        this.trailSpawnTimer = 0;
 
         const angle = Math.random() * Math.PI * 2;
         this.vx = Math.cos(angle) * 0.3;
         this.vy = Math.sin(angle) * 0.3;
+        
+        // Type-specific visual properties
+        this.visualConfig = this.getVisualConfig();
+    }
+    
+    getVisualConfig() {
+        const configs = {
+            SHIELD: {
+                shape: 'hexagon',
+                sides: 6,
+                rotationSpeed: 0.015,
+                innerRotationSpeed: -0.03,
+                pulseSpeed: 0.08,
+                pulseAmount: 4,
+                glowIntensity: 25,
+                secondaryColor: '#0088ff',
+                particleColor: '#00ffff',
+                trailRate: 3
+            },
+            RAPID_FIRE: {
+                shape: 'diamond',
+                sides: 4,
+                rotationSpeed: 0.04,
+                innerRotationSpeed: 0.06,
+                pulseSpeed: 0.15,
+                pulseAmount: 3,
+                glowIntensity: 30,
+                secondaryColor: '#ff66ff',
+                particleColor: '#ff00ff',
+                trailRate: 2
+            },
+            TRIPLE_SHOT: {
+                shape: 'triangle',
+                sides: 3,
+                rotationSpeed: 0.025,
+                innerRotationSpeed: -0.04,
+                pulseSpeed: 0.1,
+                pulseAmount: 3,
+                glowIntensity: 28,
+                secondaryColor: '#ffaa00',
+                particleColor: '#ffff00',
+                trailRate: 3
+            },
+            SPEED_BOOST: {
+                shape: 'star',
+                sides: 5,
+                rotationSpeed: 0.05,
+                innerRotationSpeed: 0.08,
+                pulseSpeed: 0.12,
+                pulseAmount: 4,
+                glowIntensity: 25,
+                secondaryColor: '#88ff88',
+                particleColor: '#00ff00',
+                trailRate: 2
+            },
+            EXTRA_LIFE: {
+                shape: 'heart',
+                sides: 0,
+                rotationSpeed: 0,
+                innerRotationSpeed: 0,
+                pulseSpeed: 0.06,
+                pulseAmount: 5,
+                glowIntensity: 35,
+                secondaryColor: '#ff6666',
+                particleColor: '#ff0000',
+                trailRate: 4
+            }
+        };
+        return configs[this.type] || configs.SHIELD;
     }
 
     update() {
         this.x += this.vx;
         this.y += this.vy;
         this.lifetime--;
-        this.pulsePhase += 0.1;
-        this.rotationPhase += 0.02;
+        
+        const cfg = this.visualConfig;
+        this.pulsePhase += cfg.pulseSpeed;
+        this.rotationPhase += cfg.rotationSpeed;
+        this.innerRotation += cfg.innerRotationSpeed;
+        this.sparklePhase += 0.2;
+        
+        // Spawn trail particles
+        this.trailSpawnTimer++;
+        if (this.trailSpawnTimer >= cfg.trailRate) {
+            this.trailSpawnTimer = 0;
+            this.spawnTrailParticle();
+        }
+        
+        // Update trail particles
+        for (let i = this.trailParticles.length - 1; i >= 0; i--) {
+            const p = this.trailParticles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life--;
+            p.size *= 0.96;
+            if (p.life <= 0) {
+                this.trailParticles.splice(i, 1);
+            }
+        }
 
+        // Screen wrap
         if (this.x < 0) this.x = CANVAS_WIDTH;
         if (this.x > CANVAS_WIDTH) this.x = 0;
         if (this.y < 0) this.y = CANVAS_HEIGHT;
         if (this.y > CANVAS_HEIGHT) this.y = 0;
     }
+    
+    spawnTrailParticle() {
+        const cfg = this.visualConfig;
+        const powerUpInfo = POWERUP_TYPES[this.type];
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 0.2 + Math.random() * 0.3;
+        
+        this.trailParticles.push({
+            x: this.x + (Math.random() - 0.5) * 8,
+            y: this.y + (Math.random() - 0.5) * 8,
+            vx: Math.cos(angle) * speed - this.vx * 0.5,
+            vy: Math.sin(angle) * speed - this.vy * 0.5,
+            size: 2 + Math.random() * 3,
+            life: 20 + Math.random() * 15,
+            color: Math.random() > 0.5 ? powerUpInfo.color : cfg.particleColor
+        });
+    }
 
     draw(ctx) {
         const powerUpInfo = POWERUP_TYPES[this.type];
-        const pulse = Math.sin(this.pulsePhase) * 3 + POWERUP_SIZE;
+        const cfg = this.visualConfig;
+        const pulse = Math.sin(this.pulsePhase) * cfg.pulseAmount + POWERUP_SIZE;
+        
+        // Draw trail particles first (behind the power-up)
+        this.drawTrailParticles(ctx, powerUpInfo.color);
 
         ctx.save();
         ctx.translate(this.x, this.y);
+        
+        // Draw outer rotating ring with segments
+        this.drawOuterRing(ctx, powerUpInfo.color, cfg, pulse);
+        
+        // Draw the main shape
+        ctx.save();
         ctx.rotate(this.rotationPhase);
-
-        // Outer ring glow
-        ctx.shadowColor = powerUpInfo.color;
-        ctx.shadowBlur = 20;
-        ctx.strokeStyle = powerUpInfo.color;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(0, 0, pulse + 3, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Inner filled circle
-        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, pulse);
-        gradient.addColorStop(0, powerUpInfo.color);
-        gradient.addColorStop(1, powerUpInfo.color + '40');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(0, 0, pulse - 2, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Symbol
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#000';
-        ctx.font = 'bold 14px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(powerUpInfo.symbol, 0, 1);
-
+        this.drawShape(ctx, powerUpInfo.color, cfg, pulse);
+        ctx.restore();
+        
+        // Draw the inner icon (counter-rotating)
+        ctx.save();
+        ctx.rotate(this.innerRotation);
+        this.drawIcon(ctx, powerUpInfo.color, cfg, pulse);
+        ctx.restore();
+        
+        // Draw sparkle effects
+        this.drawSparkles(ctx, powerUpInfo.color, cfg, pulse);
+        
         ctx.restore();
 
         // Warning flicker when expiring
         if (this.lifetime < 120) {
-            const flicker = Math.sin(this.lifetime * 0.3) > 0;
-            if (flicker) {
-                ctx.save();
-                ctx.strokeStyle = powerUpInfo.color + '60';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, POWERUP_SIZE + 10, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.restore();
-            }
+            this.drawExpirationWarning(ctx, powerUpInfo.color);
+        }
+    }
+    
+    drawTrailParticles(ctx, color) {
+        for (const p of this.trailParticles) {
+            const alpha = p.life / 35;
+            ctx.save();
+            ctx.globalAlpha = alpha * 0.8;
+            ctx.shadowColor = p.color;
+            ctx.shadowBlur = 8;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+    
+    drawOuterRing(ctx, color, cfg, pulse) {
+        const ringRadius = pulse + 6;
+        const segments = 8;
+        const segmentGap = 0.15;
+        
+        ctx.save();
+        ctx.rotate(-this.rotationPhase * 2);
+        ctx.shadowColor = color;
+        ctx.shadowBlur = cfg.glowIntensity;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.lineCap = 'round';
+        
+        for (let i = 0; i < segments; i++) {
+            const startAngle = (i / segments) * Math.PI * 2 + segmentGap;
+            const endAngle = ((i + 1) / segments) * Math.PI * 2 - segmentGap;
+            ctx.beginPath();
+            ctx.arc(0, 0, ringRadius, startAngle, endAngle);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+    
+    drawShape(ctx, color, cfg, pulse) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = cfg.glowIntensity;
+        
+        // Create gradient fill
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, pulse);
+        gradient.addColorStop(0, cfg.secondaryColor + 'cc');
+        gradient.addColorStop(0.5, color + '88');
+        gradient.addColorStop(1, color + '22');
+        
+        ctx.fillStyle = gradient;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        
+        if (cfg.shape === 'hexagon' || cfg.shape === 'diamond' || cfg.shape === 'triangle') {
+            this.drawPolygon(ctx, cfg.sides, pulse - 2);
+        } else if (cfg.shape === 'star') {
+            this.drawStar(ctx, cfg.sides, pulse - 2, (pulse - 2) * 0.5);
+        } else if (cfg.shape === 'heart') {
+            this.drawHeart(ctx, pulse * 0.9);
+        }
+    }
+    
+    drawPolygon(ctx, sides, radius) {
+        ctx.beginPath();
+        for (let i = 0; i < sides; i++) {
+            const angle = (i / sides) * Math.PI * 2 - Math.PI / 2;
+            const x = Math.cos(angle) * radius;
+            const y = Math.sin(angle) * radius;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+    }
+    
+    drawStar(ctx, points, outerRadius, innerRadius) {
+        ctx.beginPath();
+        for (let i = 0; i < points * 2; i++) {
+            const angle = (i / (points * 2)) * Math.PI * 2 - Math.PI / 2;
+            const radius = i % 2 === 0 ? outerRadius : innerRadius;
+            const x = Math.cos(angle) * radius;
+            const y = Math.sin(angle) * radius;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+    }
+    
+    drawHeart(ctx, size) {
+        ctx.beginPath();
+        const s = size * 0.06;
+        ctx.moveTo(0, s * 3);
+        ctx.bezierCurveTo(-s * 5, -s * 2, -s * 10, s * 2, 0, s * 10);
+        ctx.bezierCurveTo(s * 10, s * 2, s * 5, -s * 2, 0, s * 3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+    }
+    
+    drawIcon(ctx, color, cfg, pulse) {
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur = 10;
+        ctx.strokeStyle = '#ffffff';
+        ctx.fillStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        const s = pulse * 0.35;  // Icon scale
+        
+        switch (this.type) {
+            case 'SHIELD':
+                this.drawShieldIcon(ctx, s);
+                break;
+            case 'RAPID_FIRE':
+                this.drawRapidFireIcon(ctx, s);
+                break;
+            case 'TRIPLE_SHOT':
+                this.drawTripleShotIcon(ctx, s);
+                break;
+            case 'SPEED_BOOST':
+                this.drawSpeedBoostIcon(ctx, s);
+                break;
+            case 'EXTRA_LIFE':
+                this.drawExtraLifeIcon(ctx, s);
+                break;
+        }
+    }
+    
+    drawShieldIcon(ctx, s) {
+        // Shield icon - hexagonal barrier
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+            const x = Math.cos(angle) * s * 0.8;
+            const y = Math.sin(angle) * s * 0.8;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        
+        // Inner energy lines
+        ctx.beginPath();
+        ctx.moveTo(0, -s * 0.5);
+        ctx.lineTo(0, s * 0.5);
+        ctx.moveTo(-s * 0.4, 0);
+        ctx.lineTo(s * 0.4, 0);
+        ctx.stroke();
+    }
+    
+    drawRapidFireIcon(ctx, s) {
+        // Rapid fire - multiple bullets
+        const bulletSpacing = s * 0.5;
+        for (let i = -1; i <= 1; i++) {
+            const offsetY = i * bulletSpacing * 0.6;
+            const offsetX = Math.abs(i) * s * 0.15;
+            ctx.beginPath();
+            ctx.moveTo(-s * 0.4 + offsetX, offsetY);
+            ctx.lineTo(s * 0.5 - offsetX, offsetY);
+            ctx.lineTo(s * 0.7 - offsetX, offsetY);
+            ctx.stroke();
+            
+            // Bullet tip
+            ctx.beginPath();
+            ctx.arc(s * 0.5 - offsetX, offsetY, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    
+    drawTripleShotIcon(ctx, s) {
+        // Triple shot - three arrows spreading
+        const angles = [-0.4, 0, 0.4];
+        for (const angle of angles) {
+            ctx.save();
+            ctx.rotate(angle);
+            ctx.beginPath();
+            ctx.moveTo(-s * 0.4, 0);
+            ctx.lineTo(s * 0.5, 0);
+            ctx.lineTo(s * 0.3, -s * 0.25);
+            ctx.moveTo(s * 0.5, 0);
+            ctx.lineTo(s * 0.3, s * 0.25);
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+    
+    drawSpeedBoostIcon(ctx, s) {
+        // Speed boost - motion lines with arrow
+        ctx.beginPath();
+        // Main arrow
+        ctx.moveTo(-s * 0.5, 0);
+        ctx.lineTo(s * 0.5, 0);
+        ctx.lineTo(s * 0.2, -s * 0.4);
+        ctx.moveTo(s * 0.5, 0);
+        ctx.lineTo(s * 0.2, s * 0.4);
+        ctx.stroke();
+        
+        // Speed lines
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(-s * 0.7, -s * 0.3);
+        ctx.lineTo(-s * 0.3, -s * 0.3);
+        ctx.moveTo(-s * 0.8, 0);
+        ctx.lineTo(-s * 0.4, 0);
+        ctx.moveTo(-s * 0.7, s * 0.3);
+        ctx.lineTo(-s * 0.3, s * 0.3);
+        ctx.stroke();
+    }
+    
+    drawExtraLifeIcon(ctx, s) {
+        // Extra life - plus sign / cross
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(0, -s * 0.5);
+        ctx.lineTo(0, s * 0.5);
+        ctx.moveTo(-s * 0.5, 0);
+        ctx.lineTo(s * 0.5, 0);
+        ctx.stroke();
+    }
+    
+    drawSparkles(ctx, color, cfg, pulse) {
+        const sparkleCount = 4;
+        const sparkleRadius = pulse + 10;
+        
+        for (let i = 0; i < sparkleCount; i++) {
+            const angle = this.sparklePhase + (i / sparkleCount) * Math.PI * 2;
+            const x = Math.cos(angle) * sparkleRadius;
+            const y = Math.sin(angle) * sparkleRadius;
+            const size = 2 + Math.sin(this.sparklePhase * 2 + i) * 1.5;
+            const alpha = 0.5 + Math.sin(this.sparklePhase * 3 + i * 2) * 0.3;
+            
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 8;
+            
+            // Draw 4-point star sparkle
+            ctx.beginPath();
+            ctx.moveTo(x, y - size);
+            ctx.lineTo(x + size * 0.3, y);
+            ctx.lineTo(x, y + size);
+            ctx.lineTo(x - size * 0.3, y);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.moveTo(x - size, y);
+            ctx.lineTo(x, y + size * 0.3);
+            ctx.lineTo(x + size, y);
+            ctx.lineTo(x, y - size * 0.3);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.restore();
+        }
+    }
+    
+    drawExpirationWarning(ctx, color) {
+        const flicker = Math.sin(this.lifetime * 0.3) > 0;
+        if (flicker) {
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 15;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, POWERUP_SIZE + 12, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
         }
     }
 }
 
+// Power-up pickup explosion effect - call this when collecting
+function createPowerUpPickupEffect(game, x, y, type) {
+    const powerUpInfo = POWERUP_TYPES[type];
+    const color = powerUpInfo.color;
+    
+    // Ring expansion
+    for (let i = 0; i < 2; i++) {
+        game.particles.push(new ExpandingRing(x, y, color, 20 + i * 10, i * 5));
+    }
+    
+    // Burst of particles
+    for (let i = 0; i < 20; i++) {
+        const angle = (i / 20) * Math.PI * 2;
+        const speed = 2 + Math.random() * 3;
+        const particle = {
+            x: x,
+            y: y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            size: 3 + Math.random() * 4,
+            life: 30 + Math.random() * 20,
+            maxLife: 50,
+            color: color,
+            draw: function(ctx) {
+                const alpha = this.life / this.maxLife;
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = this.color;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size * alpha, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            },
+            update: function() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= 0.95;
+                this.vy *= 0.95;
+                this.life--;
+                return this.life > 0;
+            }
+        };
+        game.explosionParticles.push(particle);
+    }
+}
+
+// Expanding ring effect for pickups
+class ExpandingRing {
+    constructor(x, y, color, maxRadius, delay = 0) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.radius = 0;
+        this.maxRadius = maxRadius;
+        this.delay = delay;
+        this.life = 25 + delay;
+        this.maxLife = 25;
+    }
+    
+    update() {
+        if (this.delay > 0) {
+            this.delay--;
+            return true;
+        }
+        this.radius += (this.maxRadius - this.radius) * 0.15;
+        this.life--;
+        return this.life > 0;
+    }
+    
+    draw(ctx) {
+        if (this.delay > 0) return;
+        const alpha = this.life / this.maxLife;
+        ctx.save();
+        ctx.globalAlpha = alpha * 0.8;
+        ctx.strokeStyle = this.color;
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 15;
+        ctx.lineWidth = 3 * alpha;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    }
+}
+
 // ============== ITEM CLASS ==============
+// Inventory items with unique shapes and animated icons
 class Item {
     constructor(x, y, type, game) {
         this.x = x;
@@ -7326,11 +7858,65 @@ class Item {
         this.lifetime = ITEM_LIFETIME;
         this.pulsePhase = Math.random() * Math.PI * 2;
         this.bobPhase = Math.random() * Math.PI * 2;
-        this.rotationPhase = 0;
+        this.rotationPhase = Math.random() * Math.PI * 2;
+        this.innerRotation = 0;
+        this.sparklePhase = 0;
+        
+        // Trail particles
+        this.trailParticles = [];
+        this.trailTimer = 0;
 
         const angle = Math.random() * Math.PI * 2;
         this.vx = Math.cos(angle) * 0.4;
         this.vy = Math.sin(angle) * 0.4;
+        
+        this.visualConfig = this.getVisualConfig();
+    }
+    
+    getVisualConfig() {
+        const configs = {
+            REPAIR_KIT: {
+                shape: 'cross',
+                rotationSpeed: 0,
+                innerRotationSpeed: 0.02,
+                glowIntensity: 20,
+                secondaryColor: '#ff9999',
+                trailRate: 5
+            },
+            BOMB: {
+                shape: 'octagon',
+                rotationSpeed: 0.03,
+                innerRotationSpeed: -0.05,
+                glowIntensity: 25,
+                secondaryColor: '#ffaa44',
+                trailRate: 3
+            },
+            FREEZE: {
+                shape: 'snowflake',
+                rotationSpeed: 0.02,
+                innerRotationSpeed: -0.03,
+                glowIntensity: 22,
+                secondaryColor: '#aaddff',
+                trailRate: 4
+            },
+            MAGNET: {
+                shape: 'diamond',
+                rotationSpeed: 0.04,
+                innerRotationSpeed: 0.06,
+                glowIntensity: 20,
+                secondaryColor: '#ee88ee',
+                trailRate: 3
+            },
+            SCORE_BOOST: {
+                shape: 'coin',
+                rotationSpeed: 0,
+                innerRotationSpeed: 0.08,
+                glowIntensity: 28,
+                secondaryColor: '#ffee66',
+                trailRate: 4
+            }
+        };
+        return configs[this.type] || configs.REPAIR_KIT;
     }
 
     update() {
@@ -7347,67 +7933,354 @@ class Item {
         this.x += this.vx;
         this.y += this.vy;
         this.lifetime--;
+        
+        const cfg = this.visualConfig;
         this.pulsePhase += 0.08;
         this.bobPhase += 0.1;
-        this.rotationPhase += 0.03;
+        this.rotationPhase += cfg.rotationSpeed;
+        this.innerRotation += cfg.innerRotationSpeed;
+        this.sparklePhase += 0.15;
+        
+        // Spawn trail particles
+        this.trailTimer++;
+        if (this.trailTimer >= cfg.trailRate) {
+            this.trailTimer = 0;
+            this.spawnTrailParticle();
+        }
+        
+        // Update trail particles
+        for (let i = this.trailParticles.length - 1; i >= 0; i--) {
+            const p = this.trailParticles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life--;
+            p.size *= 0.94;
+            if (p.life <= 0) {
+                this.trailParticles.splice(i, 1);
+            }
+        }
 
         if (this.x < 0) this.x = CANVAS_WIDTH;
         if (this.x > CANVAS_WIDTH) this.x = 0;
         if (this.y < 0) this.y = CANVAS_HEIGHT;
         if (this.y > CANVAS_HEIGHT) this.y = 0;
     }
+    
+    spawnTrailParticle() {
+        const itemInfo = ITEM_TYPES[this.type];
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 0.1 + Math.random() * 0.2;
+        
+        this.trailParticles.push({
+            x: this.x + (Math.random() - 0.5) * 6,
+            y: this.y + (Math.random() - 0.5) * 6,
+            vx: Math.cos(angle) * speed - this.vx * 0.3,
+            vy: Math.sin(angle) * speed - this.vy * 0.3,
+            size: 1.5 + Math.random() * 2,
+            life: 15 + Math.random() * 10,
+            color: itemInfo.color
+        });
+    }
 
     draw(ctx) {
         const itemInfo = ITEM_TYPES[this.type];
+        const cfg = this.visualConfig;
         const pulse = Math.sin(this.pulsePhase) * 2 + ITEM_SIZE;
         const bob = Math.sin(this.bobPhase) * 2;
+        
+        // Draw trail particles
+        for (const p of this.trailParticles) {
+            const alpha = p.life / 25;
+            ctx.save();
+            ctx.globalAlpha = alpha * 0.6;
+            ctx.fillStyle = p.color;
+            ctx.shadowColor = p.color;
+            ctx.shadowBlur = 5;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
 
         ctx.save();
         ctx.translate(this.x, this.y + bob);
+        
+        // Draw outer rotating ring
+        this.drawOuterRing(ctx, itemInfo.color, pulse);
+        
+        // Main shape
+        ctx.save();
         ctx.rotate(this.rotationPhase);
+        this.drawShape(ctx, itemInfo.color, cfg, pulse);
+        ctx.restore();
+        
+        // Inner icon
+        ctx.save();
+        ctx.rotate(this.innerRotation);
+        this.drawIcon(ctx, itemInfo.color, cfg, pulse);
+        ctx.restore();
+        
+        // Sparkles
+        this.drawSparkles(ctx, itemInfo.color, pulse);
+        
+        ctx.restore();
 
-        // Outer glow
-        ctx.shadowColor = itemInfo.color;
-        ctx.shadowBlur = 15;
-
-        // Hexagon shape
-        ctx.strokeStyle = itemInfo.color;
-        ctx.fillStyle = itemInfo.color + '30';
-        ctx.lineWidth = 2;
+        // Expiry warning
+        if (this.lifetime < 120) {
+            const flicker = Math.sin(this.lifetime * 0.25) > 0;
+            if (flicker) {
+                ctx.save();
+                ctx.strokeStyle = itemInfo.color;
+                ctx.lineWidth = 1.5;
+                ctx.shadowColor = itemInfo.color;
+                ctx.shadowBlur = 10;
+                ctx.setLineDash([3, 3]);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, ITEM_SIZE + 10, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+    }
+    
+    drawOuterRing(ctx, color, pulse) {
+        ctx.save();
+        ctx.rotate(-this.sparklePhase * 0.5);
+        ctx.strokeStyle = color + '60';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 4]);
         ctx.beginPath();
-        for (let i = 0; i < 6; i++) {
-            const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
-            const x = Math.cos(angle) * pulse;
-            const y = Math.sin(angle) * pulse;
+        ctx.arc(0, 0, pulse + 4, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    }
+    
+    drawShape(ctx, color, cfg, pulse) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = cfg.glowIntensity;
+        
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, pulse);
+        gradient.addColorStop(0, cfg.secondaryColor + 'aa');
+        gradient.addColorStop(0.6, color + '66');
+        gradient.addColorStop(1, color + '11');
+        
+        ctx.fillStyle = gradient;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        
+        switch (cfg.shape) {
+            case 'cross':
+                this.drawCross(ctx, pulse);
+                break;
+            case 'octagon':
+                this.drawPolygon(ctx, 8, pulse);
+                break;
+            case 'snowflake':
+                this.drawPolygon(ctx, 6, pulse);
+                break;
+            case 'diamond':
+                this.drawPolygon(ctx, 4, pulse);
+                break;
+            case 'coin':
+                ctx.beginPath();
+                ctx.arc(0, 0, pulse, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                break;
+            default:
+                this.drawPolygon(ctx, 6, pulse);
+        }
+    }
+    
+    drawPolygon(ctx, sides, radius) {
+        ctx.beginPath();
+        for (let i = 0; i < sides; i++) {
+            const angle = (i / sides) * Math.PI * 2 - Math.PI / 2;
+            const x = Math.cos(angle) * radius;
+            const y = Math.sin(angle) * radius;
             if (i === 0) ctx.moveTo(x, y);
             else ctx.lineTo(x, y);
         }
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-
-        // Symbol
-        ctx.shadowBlur = 5;
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 12px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(itemInfo.symbol, 0, 0);
-
-        ctx.restore();
-
-        // Expiry warning
-        if (this.lifetime < 120) {
-            const alpha = (this.lifetime % 20) / 20;
+    }
+    
+    drawCross(ctx, size) {
+        const arm = size * 0.4;
+        const width = size * 0.8;
+        ctx.beginPath();
+        ctx.moveTo(-arm, -width);
+        ctx.lineTo(arm, -width);
+        ctx.lineTo(arm, -arm);
+        ctx.lineTo(width, -arm);
+        ctx.lineTo(width, arm);
+        ctx.lineTo(arm, arm);
+        ctx.lineTo(arm, width);
+        ctx.lineTo(-arm, width);
+        ctx.lineTo(-arm, arm);
+        ctx.lineTo(-width, arm);
+        ctx.lineTo(-width, -arm);
+        ctx.lineTo(-arm, -arm);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+    }
+    
+    drawIcon(ctx, color, cfg, pulse) {
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur = 8;
+        ctx.strokeStyle = '#ffffff';
+        ctx.fillStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        const s = pulse * 0.4;
+        
+        switch (this.type) {
+            case 'REPAIR_KIT':
+                // Plus/cross icon
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(0, -s * 0.5);
+                ctx.lineTo(0, s * 0.5);
+                ctx.moveTo(-s * 0.5, 0);
+                ctx.lineTo(s * 0.5, 0);
+                ctx.stroke();
+                break;
+                
+            case 'BOMB':
+                // Explosion icon
+                ctx.beginPath();
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i / 8) * Math.PI * 2;
+                    const r = i % 2 === 0 ? s * 0.6 : s * 0.3;
+                    const x = Math.cos(angle) * r;
+                    const y = Math.sin(angle) * r;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.stroke();
+                // Center dot
+                ctx.beginPath();
+                ctx.arc(0, 0, 2, 0, Math.PI * 2);
+                ctx.fill();
+                break;
+                
+            case 'FREEZE':
+                // Snowflake icon
+                for (let i = 0; i < 6; i++) {
+                    ctx.save();
+                    ctx.rotate((i / 6) * Math.PI * 2);
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(0, -s * 0.5);
+                    ctx.moveTo(0, -s * 0.3);
+                    ctx.lineTo(-s * 0.15, -s * 0.4);
+                    ctx.moveTo(0, -s * 0.3);
+                    ctx.lineTo(s * 0.15, -s * 0.4);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+                break;
+                
+            case 'MAGNET':
+                // Magnet/attract icon
+                ctx.beginPath();
+                ctx.arc(0, 0, s * 0.3, 0, Math.PI * 2);
+                ctx.stroke();
+                // Attraction lines
+                for (let i = 0; i < 4; i++) {
+                    const angle = (i / 4) * Math.PI * 2 + Math.PI / 4;
+                    ctx.beginPath();
+                    ctx.moveTo(Math.cos(angle) * s * 0.4, Math.sin(angle) * s * 0.4);
+                    ctx.lineTo(Math.cos(angle) * s * 0.6, Math.sin(angle) * s * 0.6);
+                    ctx.stroke();
+                }
+                break;
+                
+            case 'SCORE_BOOST':
+                // Dollar/coin icon
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, -s * 0.5);
+                ctx.lineTo(0, s * 0.5);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(s * 0.1, -s * 0.15, s * 0.25, Math.PI * 0.5, Math.PI * 1.5);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(-s * 0.1, s * 0.15, s * 0.25, -Math.PI * 0.5, Math.PI * 0.5);
+                ctx.stroke();
+                break;
+        }
+    }
+    
+    drawSparkles(ctx, color, pulse) {
+        const count = 3;
+        for (let i = 0; i < count; i++) {
+            const angle = this.sparklePhase + (i / count) * Math.PI * 2;
+            const x = Math.cos(angle) * (pulse + 6);
+            const y = Math.sin(angle) * (pulse + 6);
+            const size = 1.5 + Math.sin(this.sparklePhase * 2 + i) * 0.8;
+            const alpha = 0.4 + Math.sin(this.sparklePhase * 2.5 + i) * 0.3;
+            
             ctx.save();
             ctx.globalAlpha = alpha;
-            ctx.strokeStyle = itemInfo.color;
-            ctx.lineWidth = 1;
+            ctx.fillStyle = '#ffffff';
             ctx.beginPath();
-            ctx.arc(this.x, this.y, ITEM_SIZE + 12, 0, Math.PI * 2);
-            ctx.stroke();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.fill();
             ctx.restore();
         }
+    }
+}
+
+// Item pickup effect
+function createItemPickupEffect(game, x, y, type) {
+    const itemInfo = ITEM_TYPES[type];
+    const color = itemInfo.color;
+    
+    // Single expanding ring
+    game.particles.push(new ExpandingRing(x, y, color, 15, 0));
+    
+    // Smaller particle burst
+    for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * Math.PI * 2;
+        const speed = 1.5 + Math.random() * 2;
+        const particle = {
+            x: x,
+            y: y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            size: 2 + Math.random() * 2,
+            life: 20 + Math.random() * 15,
+            maxLife: 35,
+            color: color,
+            draw: function(ctx) {
+                const alpha = this.life / this.maxLife;
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = this.color;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 6;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size * alpha, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            },
+            update: function() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= 0.93;
+                this.vy *= 0.93;
+                this.life--;
+                return this.life > 0;
+            }
+        };
+        game.explosionParticles.push(particle);
     }
 }
 
