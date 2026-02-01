@@ -5642,6 +5642,9 @@ class Game {
         ctx.fillStyle = vignette;
         ctx.fillRect(-20, -20, CANVAS_WIDTH + 40, CANVAS_HEIGHT + 40);
         
+        // Subtle scanline overlay for CRT/cyberpunk feel
+        this.drawScanlines(ctx);
+        
         // Draw skill tree UI overlay (if visible)
         this.skillTreeUI.draw(ctx);
         
@@ -5664,6 +5667,31 @@ class Game {
         if (this.touchControls) {
             this.touchControls.draw(ctx);
         }
+    }
+    
+    drawScanlines(ctx) {
+        // Subtle CRT scanline effect for cyberpunk aesthetic
+        // Only draw every few frames for performance and subtlety
+        if (this.time % 2 !== 0) return;
+        
+        ctx.save();
+        ctx.globalAlpha = 0.03;
+        ctx.fillStyle = '#000000';
+        
+        // Horizontal scanlines
+        for (let y = 0; y < CANVAS_HEIGHT; y += 3) {
+            ctx.fillRect(0, y, CANVAS_WIDTH, 1);
+        }
+        
+        // Subtle animated interference line (occasional)
+        if (this.time % 120 < 3) {
+            const interferenceY = (this.time * 7) % CANVAS_HEIGHT;
+            ctx.globalAlpha = 0.08;
+            ctx.fillStyle = '#00ffff';
+            ctx.fillRect(0, interferenceY, CANVAS_WIDTH, 2);
+        }
+        
+        ctx.restore();
     }
     
     drawHelpScreen(ctx) {
@@ -6829,22 +6857,53 @@ class Ship {
             this.vy += Math.sin(this.angle) * SHIP_THRUST * speedMultiplier * touchMod;
             this.thrustAmount = Math.min(1, this.thrustAmount + 0.1);
             
-            // Spawn engine trail particles
+            // Spawn enhanced engine trail particles
             if (this.game.time % TRAIL_SPAWN_RATE === 0) {
                 const exhaustX = this.x - Math.cos(this.angle) * SHIP_SIZE;
                 const exhaustY = this.y - Math.sin(this.angle) * SHIP_SIZE;
+                const thrustIntensity = this.thrustAmount;
                 
-                for (let i = 0; i < 3; i++) {
-                    const color = Math.random() > 0.3 ? COLORS.shipEngine : COLORS.shipEngineCore;
+                // Main engine particles (more particles at higher thrust)
+                const particleCount = 3 + Math.floor(thrustIntensity * 3);
+                for (let i = 0; i < particleCount; i++) {
+                    // Color gradient: white core -> yellow -> orange -> red at edges
+                    const colorRoll = Math.random();
+                    let color;
+                    if (colorRoll < 0.15) color = '#ffffff';      // Hot white core
+                    else if (colorRoll < 0.35) color = COLORS.shipEngineCore;  // Yellow
+                    else if (colorRoll < 0.7) color = COLORS.shipEngine;       // Orange
+                    else color = '#ff2200';                        // Red edges
+                    
+                    const spreadAngle = (Math.random() - 0.5) * 0.5;  // Cone spread
+                    const exhaustAngle = this.angle + Math.PI + spreadAngle;
+                    const speed = (1.5 + Math.random() * 2) * (0.5 + thrustIntensity * 0.5);
+                    
                     this.game.trailParticles.push(new TrailParticle(
-                        exhaustX + (Math.random() - 0.5) * 5,
-                        exhaustY + (Math.random() - 0.5) * 5,
+                        exhaustX + (Math.random() - 0.5) * 6,
+                        exhaustY + (Math.random() - 0.5) * 6,
                         color,
-                        2 + Math.random() * 3,
-                        15 + Math.random() * 10,
-                        -Math.cos(this.angle) * 2 + (Math.random() - 0.5),
-                        -Math.sin(this.angle) * 2 + (Math.random() - 0.5)
+                        (2 + Math.random() * 3) * (0.7 + thrustIntensity * 0.3),
+                        12 + Math.random() * 12,
+                        Math.cos(exhaustAngle) * speed + (Math.random() - 0.5) * 0.5,
+                        Math.sin(exhaustAngle) * speed + (Math.random() - 0.5) * 0.5
                     ));
+                }
+                
+                // Occasional spark burst at high thrust
+                if (thrustIntensity > 0.7 && Math.random() < 0.3) {
+                    for (let i = 0; i < 4; i++) {
+                        const sparkAngle = this.angle + Math.PI + (Math.random() - 0.5) * 1.2;
+                        const sparkSpeed = 3 + Math.random() * 2;
+                        this.game.trailParticles.push(new TrailParticle(
+                            exhaustX,
+                            exhaustY,
+                            '#ffffff',
+                            1 + Math.random() * 1.5,
+                            8 + Math.random() * 6,
+                            Math.cos(sparkAngle) * sparkSpeed,
+                            Math.sin(sparkAngle) * sparkSpeed
+                        ));
+                    }
                 }
             }
         } else {
