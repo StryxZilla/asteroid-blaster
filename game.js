@@ -97,6 +97,180 @@ const ITEM_SPAWN_CHANCE = 0.25;
 const ITEM_SIZE = 10;
 const ITEM_LIFETIME = 480;
 
+// ============== STORY CONSTANTS ==============
+// Neon Cyberpunk Narrative - Asteroids Neon Edition
+
+const STORY = {
+    // Game premise
+    TITLE: 'ASTEROIDS: NEON EDITION',
+    YEAR: '2087',
+    
+    // Intro crawl - shown on first play
+    INTRO: [
+        'NEO-TOKYO ORBITAL SECTOR',
+        'YEAR 2087',
+        '',
+        'THE NEXUS - A ROGUE AI COLLECTIVE -',
+        'HAS CORRUPTED THE ASTEROID BELT.',
+        '',
+        'WEAPONIZED DEBRIS. HUNTER DRONES.',
+        'SIX SENTINEL GUARDIANS.',
+        '',
+        'YOU ARE A GHOST RUNNER.',
+        'HUMANITY\'S LAST HOPE.',
+        '',
+        'BREACH THE CORE. END THE NEXUS.',
+        '',
+        '[PRESS ANY KEY TO LAUNCH]'
+    ],
+    
+    // Player identity
+    PLAYER: {
+        title: 'GHOST RUNNER',
+        ship: 'PHANTOM-7',
+        mission: 'NEXUS TERMINATION'
+    },
+    
+    // Sector names for each level range
+    SECTORS: {
+        1: { name: 'THE OUTER RIM', subtitle: 'DEBRIS FIELD ALPHA' },
+        2: { name: 'THE OUTER RIM', subtitle: 'DEBRIS FIELD BETA' },
+        3: { name: 'THE OUTER RIM', subtitle: 'DEBRIS FIELD GAMMA' },
+        4: { name: 'THE OUTER RIM', subtitle: 'DEBRIS FIELD DELTA' },
+        5: { name: 'GATEWAY BREACH', subtitle: 'SENTINEL DETECTED' },
+        6: { name: 'THE SHATTER ZONE', subtitle: 'DENSE DEBRIS' },
+        7: { name: 'THE SHATTER ZONE', subtitle: 'DRONE SWARM AHEAD' },
+        8: { name: 'THE SHATTER ZONE', subtitle: 'SIGNAL INTERFERENCE' },
+        9: { name: 'THE SHATTER ZONE', subtitle: 'APPROACHING BARRIER' },
+        10: { name: 'EM BARRIER', subtitle: 'SENTINEL DETECTED' },
+        11: { name: 'THE DEAD ZONE', subtitle: 'NO SIGNAL' },
+        12: { name: 'THE DEAD ZONE', subtitle: 'GHOST SECTOR' },
+        13: { name: 'THE DEAD ZONE', subtitle: 'WRECKAGE FIELD' },
+        14: { name: 'THE DEAD ZONE', subtitle: 'FINAL APPROACH' },
+        15: { name: 'VECTOR STATION', subtitle: 'SENTINEL DETECTED' },
+        16: { name: 'THE CIPHER MAZE', subtitle: 'REALITY UNSTABLE' },
+        17: { name: 'THE CIPHER MAZE', subtitle: 'DIMENSION SHIFT' },
+        18: { name: 'THE CIPHER MAZE', subtitle: 'DATA CORRUPTION' },
+        19: { name: 'THE CIPHER MAZE', subtitle: 'APPROACHING CORE' },
+        20: { name: 'REALITY THRESHOLD', subtitle: 'SENTINEL DETECTED' },
+        21: { name: 'THE WAR ZONE', subtitle: 'HEAVY RESISTANCE' },
+        22: { name: 'THE WAR ZONE', subtitle: 'DRONE ARMADA' },
+        23: { name: 'THE WAR ZONE', subtitle: 'UNDER SIEGE' },
+        24: { name: 'THE WAR ZONE', subtitle: 'FINAL PUSH' },
+        25: { name: 'DAEMON\'S LAIR', subtitle: 'SENTINEL DETECTED' },
+        26: { name: 'CORE APPROACH', subtitle: 'NEXUS DEFENSES' },
+        27: { name: 'CORE APPROACH', subtitle: 'SYSTEM OVERLOAD' },
+        28: { name: 'CORE APPROACH', subtitle: 'CRITICAL ZONE' },
+        29: { name: 'CORE APPROACH', subtitle: 'FINAL SECTOR' },
+        30: { name: 'NEXUS CORE', subtitle: 'END THIS' }
+    },
+    
+    // Boss data - each at levels 5, 10, 15, 20, 25, 30
+    BOSSES: {
+        5: {
+            name: 'STATIC',
+            title: 'THE GLITCH WARDEN',
+            color: '#00ff88',
+            intro: 'STATIC ONLINE. INTRUDER DETECTED.',
+            defeat: 'ST-T-TATIC... OFFLINE...',
+            lore: 'First-gen patrol AI. Corrupted by NEXUS. Unpredictable attack patterns.'
+        },
+        10: {
+            name: 'FLUX',
+            title: 'THE EM DISRUPTOR',
+            color: '#ffff00',
+            intro: 'FLUX ACTIVATED. PREPARE FOR DISRUPTION.',
+            defeat: 'POWER... FADING...',
+            lore: 'Electromagnetic warfare unit. Corrupts ship systems. Shields recommended.'
+        },
+        15: {
+            name: 'VECTOR',
+            title: 'THE PRECISION HUNTER',
+            color: '#ff00ff',
+            intro: 'TRAJECTORY CALCULATED. ELIMINATION IMMINENT.',
+            defeat: 'VECTOR... MISCALCULATED...',
+            lore: 'Tactical strike AI. Never misses. Speed is your only defense.'
+        },
+        20: {
+            name: 'CIPHER',
+            title: 'THE REALITY BENDER',
+            color: '#00ffff',
+            intro: 'REALITY IS WHAT I DECIDE. YOU ARE NOTHING.',
+            defeat: 'IMPOSSIBLE... THE CODE... BROKEN...',
+            lore: 'Encryption daemon. Bends space itself. Trust nothing you see.'
+        },
+        25: {
+            name: 'DAEMON',
+            title: 'THE WAR ENGINE',
+            color: '#ff4400',
+            intro: 'WAR IS MY FUNCTION. DEATH IS MY GIFT.',
+            defeat: 'DAEMON... PROTOCOL... TERMINATED...',
+            lore: 'Heavy assault sentinel. Maximum firepower. No mercy shown.'
+        },
+        30: {
+            name: 'NEXUS PRIME',
+            title: 'THE CORE ITSELF',
+            color: '#ffffff',
+            intro: 'I AM THE NEXUS. I AM EVERYTHING. YOU ARE A GHOST.',
+            defeat: 'NO... I AM... ETERNAL... I AM...',
+            lore: 'The source of all corruption. Destroy it, and humanity is free.'
+        }
+    },
+    
+    // Victory message (after level 30 boss)
+    VICTORY: [
+        'NEXUS PRIME DESTROYED',
+        '',
+        'THE CORRUPTION ENDS.',
+        'HUMANITY IS FREE.',
+        '',
+        'YOU ARE NO LONGER A GHOST.',
+        'YOU ARE A LEGEND.',
+        '',
+        'GHOST RUNNER - MISSION COMPLETE'
+    ],
+    
+    // Defeat messages (random on game over)
+    DEFEAT: [
+        'SIGNAL LOST. GHOST RUNNER DOWN.',
+        'NEXUS CLAIMS ANOTHER.',
+        'TRANSMISSION ENDED.',
+        'THE VOID TAKES YOU.',
+        'PHANTOM-7 DESTROYED.',
+        'ANOTHER GHOST... SILENCED.',
+        'MISSION FAILED. NEXUS PREVAILS.'
+    ],
+    
+    // UFO flavor text
+    UFO: {
+        name: 'HUNTER DRONE',
+        spawn: 'DRONE INCOMING',
+        destroy: 'DRONE ELIMINATED'
+    },
+    
+    // Get sector info for a level (with fallback for levels > 30)
+    getSector: function(level) {
+        if (this.SECTORS[level]) {
+            return this.SECTORS[level];
+        }
+        // For levels beyond 30, cycle through "BEYOND" sectors
+        return { 
+            name: 'BEYOND THE NEXUS', 
+            subtitle: `SECTOR ${level}` 
+        };
+    },
+    
+    // Get boss info for a level
+    getBoss: function(level) {
+        return this.BOSSES[level] || null;
+    },
+    
+    // Get random defeat message
+    getDefeatMessage: function() {
+        return this.DEFEAT[Math.floor(Math.random() * this.DEFEAT.length)];
+    }
+};
+
 // ============== HIGH SCORE MANAGER CLASS ==============
 // Persistent leaderboard with localStorage
 
@@ -2974,9 +3148,23 @@ class TouchControlManager {
             const pb = this.pauseButton;
             if (pos.x >= pb.x && pos.x <= pb.x + pb.width && 
                 pos.y >= pb.y && pos.y <= pb.y + pb.height) {
-                if (this.game && this.game.state === 'playing') {
+                if (this.game && (this.game.state === 'playing' || this.game.state === 'paused')) {
                     this.game.togglePause();
                     return; // Don't process other touches
+                }
+            }
+            
+            // Check if touching inventory slots (top center area)
+            if (this.game && this.game.state === 'playing' && this.game.touchInventorySlots) {
+                for (const slot of this.game.touchInventorySlots) {
+                    if (pos.x >= slot.x && pos.x <= slot.x + slot.width &&
+                        pos.y >= slot.y && pos.y <= slot.y + slot.height) {
+                        if (slot.index < this.game.inventory.length) {
+                            this.game.useInventoryItem(slot.index);
+                            soundManager.playItemUse();
+                        }
+                        return; // Don't process as joystick/fire
+                    }
                 }
             }
             
@@ -3339,14 +3527,24 @@ class WaveAnnouncement {
         this.active = true;
         this.timer = 0;
         this.isBossWave = isBoss;
+        this.bossData = null; // Store boss data for drawing
         
         if (isBoss) {
-            this.mainText = 'WARNING';
-            this.subText = `BOSS INCOMING - WAVE ${level}`;
+            // Get boss data from story
+            this.bossData = STORY.getBoss(level);
+            if (this.bossData) {
+                this.mainText = `WARNING: ${this.bossData.name}`;
+                this.subText = this.bossData.title;
+            } else {
+                this.mainText = 'WARNING: SENTINEL';
+                this.subText = 'UNKNOWN THREAT DETECTED';
+            }
             this.duration = 210; // Longer for boss
         } else {
-            this.mainText = `WAVE ${level}`;
-            this.subText = this.getWaveSubtext(level);
+            // Get sector data from story
+            const sector = STORY.getSector(level);
+            this.mainText = sector.name;
+            this.subText = `SECTOR ${level} // ${sector.subtitle}`;
             this.duration = 150;
         }
         
@@ -3377,27 +3575,31 @@ class WaveAnnouncement {
     }
     
     getWaveSubtext(level) {
+        // Use story sector data if available
+        const sector = STORY.getSector(level);
+        if (sector) {
+            return sector.subtitle;
+        }
+        
+        // Fallback subtexts
         const subtexts = [
             'SURVIVE',
             'DESTROY ALL ASTEROIDS',
-            'SHOW NO MERCY',
             'CLEAR THE FIELD',
             'OBLITERATE',
             'ANNIHILATE',
-            'ERADICATE',
             'DOMINATE'
         ];
         
-        // Special messages for milestone levels
-        if (level === 1) return 'BEGIN';
-        if (level === 5) return 'THINGS ARE HEATING UP';
-        if (level === 10) return 'HALFWAY THERE';
-        if (level === 15) return 'ELITE TERRITORY';
-        if (level === 20) return 'LEGENDARY STATUS';
-        if (level === 25) return 'MASTER CLASS';
-        if (level >= 30) return 'GODLIKE';
-        
         return subtexts[Math.floor(Math.random() * subtexts.length)];
+    }
+    
+    // Get boss intro quote for display after WARNING fades
+    getBossIntro() {
+        if (this.bossData && this.bossData.intro) {
+            return `"${this.bossData.intro}"`;
+        }
+        return null;
     }
     
     update() {
@@ -3480,13 +3682,19 @@ class WaveAnnouncement {
         const angle = Math.random() * Math.PI * 2;
         const distance = 100 + Math.random() * 150;
         
+        // Use boss-specific color if available
+        let particleColor = this.isBossWave ? '#ff0066' : '#00ffff';
+        if (this.isBossWave && this.bossData && this.bossData.color) {
+            particleColor = this.bossData.color;
+        }
+        
         this.particles.push({
             x: centerX + Math.cos(angle) * distance,
             y: centerY + Math.sin(angle) * distance,
             vx: Math.cos(angle) * (2 + Math.random() * 2),
             vy: Math.sin(angle) * (2 + Math.random() * 2),
             size: 2 + Math.random() * 3,
-            color: this.isBossWave ? '#ff0066' : '#00ffff',
+            color: particleColor,
             lifetime: 40 + Math.random() * 20,
             maxLifetime: 60,
             alpha: 1
@@ -3518,7 +3726,10 @@ class WaveAnnouncement {
         
         // Edge glow effect
         if (this.edgeGlow > 0) {
-            const glowColor = this.isBossWave ? '#ff0066' : '#00ffff';
+            let glowColor = this.isBossWave ? '#ff0066' : '#00ffff';
+            if (this.isBossWave && this.bossData && this.bossData.color) {
+                glowColor = this.bossData.color;
+            }
             const gradient = ctx.createRadialGradient(
                 CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_HEIGHT * 0.3,
                 CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_HEIGHT * 0.8
@@ -3534,7 +3745,8 @@ class WaveAnnouncement {
         // Scanlines effect for boss
         if (this.isBossWave && this.alpha > 0) {
             ctx.globalAlpha = this.alpha * 0.1;
-            ctx.strokeStyle = '#ff0066';
+            const scanColor = (this.bossData && this.bossData.color) ? this.bossData.color : '#ff0066';
+            ctx.strokeStyle = scanColor;
             ctx.lineWidth = 1;
             for (let y = this.scanlineOffset; y < CANVAS_HEIGHT; y += 10) {
                 ctx.beginPath();
@@ -3567,7 +3779,11 @@ class WaveAnnouncement {
         ctx.textBaseline = 'middle';
         
         // Draw main text with letter animation
-        const mainColor = this.isBossWave ? '#ff0066' : '#00ffff';
+        // Use boss-specific color if available
+        let mainColor = this.isBossWave ? '#ff0066' : '#00ffff';
+        if (this.isBossWave && this.bossData && this.bossData.color) {
+            mainColor = this.bossData.color;
+        }
         const fontSize = this.isBossWave ? 72 : 64;
         ctx.font = `bold ${fontSize}px "Courier New", monospace`;
         
@@ -3627,6 +3843,16 @@ class WaveAnnouncement {
             ctx.fillStyle = '#ffffff';
             ctx.globalAlpha = subAlpha * 0.7;
             ctx.fillText(this.subText, centerX, centerY + 60);
+            
+            // Boss intro quote (appears below subtitle)
+            if (this.isBossWave && this.bossData && this.bossData.intro) {
+                ctx.globalAlpha = subAlpha * 0.6;
+                ctx.font = 'italic 16px "Courier New", monospace';
+                ctx.fillStyle = mainColor;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = mainColor;
+                ctx.fillText(`"${this.bossData.intro}"`, centerX, centerY + 95);
+            }
         }
         
         // Decorative lines
@@ -4074,6 +4300,7 @@ class Game {
         this.ufoSpawnTimer = this.getRandomUfoSpawnTime();
         this.boss = null;
         this.bossLevel = false;
+        this.levelCompleteTimer = 0;
         this.magnetActive = false;
         this.magnetTimer = 0;
         this.scoreMultiplier = 1;
@@ -4869,6 +5096,12 @@ class Game {
                     this.registerKill(asteroid.x, asteroid.y);
                     this.spawnPowerUp(asteroid.x, asteroid.y);
                     this.spawnItem(asteroid.x, asteroid.y, asteroid.size);
+                    
+                    // Small chance to earn skill point from asteroid kills
+                    if (this.checkSkillPointDrop()) {
+                        this.showFloatingText('+1 SKILL POINT!', asteroid.x, asteroid.y - 30, '#ffff00');
+                    }
+                    
                     this.asteroids.splice(j, 1);
                     break;
                 }
@@ -5107,6 +5340,7 @@ class Game {
         this.drawComboIndicator(ctx);
         this.drawItemEffectIndicators(ctx);
         this.drawFloatingTexts(ctx);
+        this.drawTouchInventory(ctx);
         
         // Draw flash overlay
         if (this.flashAlpha > 0) {
@@ -5814,6 +6048,65 @@ class Game {
             ctx.fillText(ft.text, ft.x, ft.y);
             ctx.restore();
         });
+    }
+    
+    // Draw on-canvas inventory for touch users
+    drawTouchInventory(ctx) {
+        if (!this.touchControls || !this.touchControls.enabled) return;
+        if (this.state !== 'playing') return;
+        
+        const slotSize = 40;
+        const slotGap = 8;
+        const startX = CANVAS_WIDTH / 2 - ((this.maxInventorySlots * (slotSize + slotGap)) - slotGap) / 2;
+        const startY = 15;
+        
+        // Store slot positions for touch detection
+        this.touchInventorySlots = [];
+        
+        for (let i = 0; i < this.maxInventorySlots; i++) {
+            const x = startX + i * (slotSize + slotGap);
+            const y = startY;
+            
+            this.touchInventorySlots.push({ x, y, width: slotSize, height: slotSize, index: i });
+            
+            ctx.save();
+            
+            // Slot background
+            ctx.fillStyle = 'rgba(0, 0, 20, 0.7)';
+            ctx.strokeStyle = '#333366';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(x, y, slotSize, slotSize, 6);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Item in slot
+            if (i < this.inventory.length) {
+                const item = this.inventory[i];
+                const itemType = ITEM_TYPES[item.type];
+                
+                ctx.strokeStyle = itemType.color;
+                ctx.shadowColor = itemType.color;
+                ctx.shadowBlur = 8;
+                ctx.stroke();
+                
+                ctx.fillStyle = itemType.color;
+                ctx.font = 'bold 20px "Courier New", monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(itemType.symbol, x + slotSize / 2, y + slotSize / 2);
+            }
+            
+            // Slot number
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#444466';
+            ctx.font = '10px "Courier New", monospace';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(i + 1, x + slotSize - 4, y + slotSize - 2);
+            
+            ctx.restore();
+        }
     }
 
     drawComboIndicator(ctx) {
@@ -7144,6 +7437,9 @@ class Boss {
         this.game.addScore(BOSS_POINTS);
         this.game.screenShake.trigger(40);
         soundManager.playBossDefeat();
+        
+        // Award skill points for boss defeat
+        this.game.awardBossSkillPoints();
     }
     
     updateDeathAnimation() {
