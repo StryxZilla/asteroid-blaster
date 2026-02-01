@@ -6344,8 +6344,22 @@ class Game {
     }
 
     gameLoop() {
-        this.update();
-        this.draw();
+        try {
+            this.update();
+            this.draw();
+        } catch (e) {
+            console.error('Game loop error:', e);
+            // Show error on screen for mobile debugging
+            const ctx = this.ctx;
+            ctx.fillStyle = 'rgba(0,0,0,0.8)';
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            ctx.fillStyle = '#ff0000';
+            ctx.font = '20px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('ERROR: ' + e.message, CANVAS_WIDTH/2, CANVAS_HEIGHT/2);
+            ctx.fillText('Check console for details', CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 30);
+            return; // Stop the loop on error
+        }
         requestAnimationFrame(() => this.gameLoop());
     }
 }
