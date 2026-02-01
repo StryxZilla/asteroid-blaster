@@ -104,7 +104,7 @@ const STORY = {
     // Game premise
     TITLE: 'ASTEROIDS: NEON EDITION',
     YEAR: '2087',
-    
+
     // Intro crawl - shown on first play
     INTRO: [
         'NEO-TOKYO ORBITAL SECTOR',
@@ -123,14 +123,14 @@ const STORY = {
         '',
         '[PRESS ANY KEY TO LAUNCH]'
     ],
-    
+
     // Player identity
     PLAYER: {
         title: 'GHOST RUNNER',
         ship: 'PHANTOM-7',
         mission: 'NEXUS TERMINATION'
     },
-    
+
     // Sector names for each level range
     SECTORS: {
         1: { name: 'THE OUTER RIM', subtitle: 'DEBRIS FIELD ALPHA' },
@@ -164,7 +164,7 @@ const STORY = {
         29: { name: 'CORE APPROACH', subtitle: 'FINAL SECTOR' },
         30: { name: 'NEXUS CORE', subtitle: 'END THIS' }
     },
-    
+
     // Boss data - each at levels 5, 10, 15, 20, 25, 30
     BOSSES: {
         5: {
@@ -216,7 +216,7 @@ const STORY = {
             lore: 'The source of all corruption. Destroy it, and humanity is free.'
         }
     },
-    
+
     // Victory message (after level 30 boss)
     VICTORY: [
         'NEXUS PRIME DESTROYED',
@@ -229,7 +229,7 @@ const STORY = {
         '',
         'GHOST RUNNER - MISSION COMPLETE'
     ],
-    
+
     // Defeat messages (random on game over)
     DEFEAT: [
         'SIGNAL LOST. GHOST RUNNER DOWN.',
@@ -240,31 +240,31 @@ const STORY = {
         'ANOTHER GHOST... SILENCED.',
         'MISSION FAILED. NEXUS PREVAILS.'
     ],
-    
+
     // UFO flavor text
     UFO: {
         name: 'HUNTER DRONE',
         spawn: 'DRONE INCOMING',
         destroy: 'DRONE ELIMINATED'
     },
-    
+
     // Get sector info for a level (with fallback for levels > 30)
     getSector: function(level) {
         if (this.SECTORS[level]) {
             return this.SECTORS[level];
         }
         // For levels beyond 30, cycle through "BEYOND" sectors
-        return { 
-            name: 'BEYOND THE NEXUS', 
-            subtitle: `SECTOR ${level}` 
+        return {
+            name: 'BEYOND THE NEXUS',
+            subtitle: `SECTOR ${level}`
         };
     },
-    
+
     // Get boss info for a level
     getBoss: function(level) {
         return this.BOSSES[level] || null;
     },
-    
+
     // Get random defeat message
     getDefeatMessage: function() {
         return this.DEFEAT[Math.floor(Math.random() * this.DEFEAT.length)];
@@ -280,7 +280,7 @@ class HighScoreManager {
         this.maxScores = 10;
         this.scores = this.load();
     }
-    
+
     load() {
         try {
             const data = localStorage.getItem(this.storageKey);
@@ -292,7 +292,7 @@ class HighScoreManager {
         }
         return [];
     }
-    
+
     save() {
         try {
             localStorage.setItem(this.storageKey, JSON.stringify(this.scores));
@@ -300,13 +300,13 @@ class HighScoreManager {
             console.warn('Failed to save high scores:', e);
         }
     }
-    
+
     isHighScore(score) {
         if (score <= 0) return false;
         if (this.scores.length < this.maxScores) return true;
         return score > this.scores[this.scores.length - 1].score;
     }
-    
+
     addScore(initials, score, level) {
         const entry = {
             initials: initials.toUpperCase().substring(0, 3).padEnd(3, '_'),
@@ -320,9 +320,9 @@ class HighScoreManager {
         this.save();
         return this.scores.findIndex(s => s === entry) + 1;
     }
-    
+
     getScores() { return this.scores; }
-    
+
     getRank(score) {
         for (let i = 0; i < this.scores.length; i++) {
             if (score > this.scores[i].score) return i + 1;
@@ -330,7 +330,7 @@ class HighScoreManager {
         if (this.scores.length < this.maxScores) return this.scores.length + 1;
         return -1;
     }
-    
+
     getTopScore() {
         return this.scores.length > 0 ? this.scores[0].score : 0;
     }
@@ -530,7 +530,7 @@ class SkillTreeUI {
         const scaleY = CANVAS_HEIGHT / canvasRect.height;
         x = (x - canvasRect.left) * scaleX;
         y = (y - canvasRect.top) * scaleY;
-        
+
         const tabY = 80;
         const tabHeight = this.categoryTabHeight || 48;
         const categories = Object.keys(SKILL_CATEGORIES);
@@ -541,7 +541,7 @@ class SkillTreeUI {
                 soundManager.playItemCollect();
             }
         });
-        
+
         const baseX = 200, baseY = 220;  // Slightly lower to account for taller tabs
         Object.entries(SKILLS).forEach(([skillId, skill]) => {
             if (skill.category !== this.selectedCategory) return;
@@ -556,10 +556,10 @@ class SkillTreeUI {
                 } else soundManager.playShieldHit();
             }
         });
-        
+
         // Close button - larger hit area (50x50)
         if (x >= CANVAS_WIDTH - 65 && x <= CANVAS_WIDTH - 15 && y >= 25 && y <= 75) this.toggle();
-        
+
         // Reset button - larger hit area
         if (x >= 25 && x <= 145 && y >= CANVAS_HEIGHT - 70 && y <= CANVAS_HEIGHT - 25) {
             this.skillTree.reset();
@@ -586,29 +586,29 @@ class SkillTreeUI {
         this.animPhase += 0.03;
         ctx.fillStyle = 'rgba(0, 0, 20, 0.95)';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        
+
         ctx.save();
         ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 20;
         ctx.fillStyle = '#00ffff'; ctx.font = 'bold 36px "Courier New", monospace';
         ctx.textAlign = 'center'; ctx.fillText('SKILL TREE', CANVAS_WIDTH / 2, 50);
         ctx.restore();
-        
+
         ctx.save();
         ctx.shadowColor = '#ffff00'; ctx.shadowBlur = 10;
         ctx.fillStyle = '#ffff00'; ctx.font = 'bold 18px "Courier New", monospace';
         ctx.textAlign = 'right'; ctx.fillText(`Skill Points: ${this.skillTree.skillPoints}`, CANVAS_WIDTH - 30, 55);
         ctx.restore();
-        
+
         this.drawCategoryTabs(ctx);
         this.drawSkillNodes(ctx);
         if (this.hoveredSkill) this.drawSkillDetails(ctx, this.hoveredSkill);
-        
+
         ctx.save();
         ctx.strokeStyle = '#ff4444'; ctx.lineWidth = 3; ctx.shadowColor = '#ff4444'; ctx.shadowBlur = 10;
         ctx.beginPath(); ctx.moveTo(CANVAS_WIDTH - 55, 35); ctx.lineTo(CANVAS_WIDTH - 25, 65);
         ctx.moveTo(CANVAS_WIDTH - 25, 35); ctx.lineTo(CANVAS_WIDTH - 55, 65); ctx.stroke();
         ctx.restore();
-        
+
         ctx.save();
         ctx.strokeStyle = '#ff8800'; ctx.fillStyle = '#ff880030'; ctx.lineWidth = 2;
         ctx.shadowColor = '#ff8800'; ctx.shadowBlur = 10;
@@ -616,7 +616,7 @@ class SkillTreeUI {
         ctx.fillStyle = '#ff8800'; ctx.font = '14px "Courier New", monospace';
         ctx.textAlign = 'center'; ctx.fillText('RESET', 80, CANVAS_HEIGHT - 40);
         ctx.restore();
-        
+
         ctx.fillStyle = '#666666'; ctx.font = '12px "Courier New", monospace';
         ctx.textAlign = 'center'; ctx.fillText('Tap skills to upgrade | Tap X to close', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 20);
     }
@@ -770,11 +770,11 @@ class SaveManager {
     constructor(game) {
         this.game = game;
     }
-    
+
     getSlotKey(slot) {
         return `${SAVE_KEY_PREFIX}slot_${slot}`;
     }
-    
+
     getAllSaves() {
         const saves = [];
         for (let i = 1; i <= MAX_SAVE_SLOTS; i++) {
@@ -793,7 +793,7 @@ class SaveManager {
         }
         return saves;
     }
-    
+
     loadRaw(slot) {
         try {
             const key = this.getSlotKey(slot);
@@ -805,15 +805,15 @@ class SaveManager {
             return null;
         }
     }
-    
+
     save(slot) {
         if (slot < 1 || slot > MAX_SAVE_SLOTS) {
             console.error('Invalid save slot:', slot);
             return false;
         }
-        
+
         const game = this.game;
-        
+
         const saveData = {
             version: SAVE_VERSION,
             savedAt: Date.now(),
@@ -849,7 +849,7 @@ class SaveManager {
                 totalPointsEarned: game.skillTree.totalPointsEarned
             }
         };
-        
+
         try {
             const key = this.getSlotKey(slot);
             localStorage.setItem(key, JSON.stringify(saveData));
@@ -861,16 +861,16 @@ class SaveManager {
             return false;
         }
     }
-    
+
     load(slot) {
         const data = this.loadRaw(slot);
         if (!data) {
             console.warn('No save data in slot:', slot);
             return false;
         }
-        
+
         const game = this.game;
-        
+
         game.state = 'playing';
         game.ship = new Ship(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, game);
         game.asteroids = [];
@@ -888,12 +888,12 @@ class SaveManager {
         game.comboCount = 0;
         game.comboTimer = 0;
         game.comboDisplayTimer = 0;
-        
+
         game.score = data.score || 0;
         game.lives = data.lives || 3;
         game.level = data.level || 1;
         game.maxCombo = data.maxCombo || 0;
-        
+
         if (data.inventory && Array.isArray(data.inventory)) {
             data.inventory.forEach(type => {
                 if (ITEM_TYPES[type]) {
@@ -901,14 +901,14 @@ class SaveManager {
                 }
             });
         }
-        
+
         game.magnetActive = data.magnetActive || false;
         game.magnetTimer = data.magnetTimer || 0;
         game.scoreMultiplier = data.scoreMultiplier || 1;
         game.scoreMultiplierTimer = data.scoreMultiplierTimer || 0;
         game.freezeActive = data.freezeActive || false;
         game.freezeTimer = data.freezeTimer || 0;
-        
+
         if (data.ship && game.ship) {
             game.ship.x = data.ship.x || CANVAS_WIDTH / 2;
             game.ship.y = data.ship.y || CANVAS_HEIGHT / 2;
@@ -924,7 +924,7 @@ class SaveManager {
             game.ship.tripleShotTimer = data.ship.tripleShotTimer || 0;
             game.ship.speedBoostTimer = data.ship.speedBoostTimer || 0;
         }
-        
+
         if (data.skillTree) {
             if (data.skillTree.skillLevels) {
                 Object.keys(data.skillTree.skillLevels).forEach(skillId => {
@@ -936,27 +936,27 @@ class SaveManager {
             game.skillTree.skillPoints = data.skillTree.skillPoints || 0;
             game.skillTree.totalPointsEarned = data.skillTree.totalPointsEarned || 0;
         }
-        
+
         const effects = game.skillTree.getAllEffects();
         game.maxInventorySlots = MAX_INVENTORY_SLOTS + (effects.extraInventorySlots || 0);
-        
+
         if (BOSS_LEVELS.includes(game.level)) {
             game.bossLevel = true;
             game.boss = new Boss(game);
         } else {
             game.spawnAsteroids(3 + game.level);
         }
-        
+
         game.ufoSpawnTimer = game.getRandomUfoSpawnTime();
         game.updateUI();
         game.updateInventoryUI();
         game.triggerFlash('#00ff88', 0.3);
         if (soundManager.playLoadSound) soundManager.playLoadSound();
-        
+
         console.log(`Game loaded from slot ${slot}`);
         return true;
     }
-    
+
     deleteSave(slot) {
         try {
             const key = this.getSlotKey(slot);
@@ -968,18 +968,18 @@ class SaveManager {
             return false;
         }
     }
-    
+
     hasSaves() {
         for (let i = 1; i <= MAX_SAVE_SLOTS; i++) {
             if (this.loadRaw(i)) return true;
         }
         return false;
     }
-    
+
     autoSave() {
         let targetSlot = 1;
         let oldestTime = Infinity;
-        
+
         for (let i = 1; i <= MAX_SAVE_SLOTS; i++) {
             const data = this.loadRaw(i);
             if (!data) {
@@ -991,7 +991,7 @@ class SaveManager {
                 targetSlot = i;
             }
         }
-        
+
         return this.save(targetSlot);
     }
 }
@@ -1007,7 +1007,7 @@ class SaveLoadUI {
         this.saveManager = new SaveManager(game);
         this.confirmDelete = -1;
     }
-    
+
     open(mode) {
         this.mode = mode;
         this.visible = true;
@@ -1015,12 +1015,12 @@ class SaveLoadUI {
         this.hoveredButton = null;
         this.confirmDelete = -1;
     }
-    
+
     close() {
         this.visible = false;
         this.confirmDelete = -1;
     }
-    
+
     toggle(mode) {
         if (this.visible && this.mode === mode) {
             this.close();
@@ -1028,36 +1028,36 @@ class SaveLoadUI {
             this.open(mode);
         }
     }
-    
+
     handleClick(x, y) {
         if (!this.visible) return false;
-        
+
         const canvasRect = this.game.canvas.getBoundingClientRect();
         const scaleX = CANVAS_WIDTH / canvasRect.width;
         const scaleY = CANVAS_HEIGHT / canvasRect.height;
         x = (x - canvasRect.left) * scaleX;
         y = (y - canvasRect.top) * scaleY;
-        
+
         const centerX = CANVAS_WIDTH / 2;
         const startY = 150;
         const slotHeight = 80;
         const slotWidth = 350;
-        
+
         const closeX = centerX + slotWidth / 2 - 30;
         const closeY = startY - 40;
         if (Math.abs(x - closeX) < 15 && Math.abs(y - closeY) < 15) {
             this.close();
             return true;
         }
-        
+
         const saves = this.saveManager.getAllSaves();
         for (let i = 0; i < saves.length; i++) {
             const slotY = startY + i * (slotHeight + 10);
             const slot = saves[i];
-            
+
             if (x >= centerX - slotWidth / 2 && x <= centerX + slotWidth / 2 &&
                 y >= slotY && y <= slotY + slotHeight) {
-                
+
                 const deleteX = centerX + slotWidth / 2 - 35;
                 const deleteY = slotY + slotHeight / 2;
                 if (!slot.empty && Math.abs(x - deleteX) < 20 && Math.abs(y - deleteY) < 15) {
@@ -1070,9 +1070,9 @@ class SaveLoadUI {
                     }
                     return true;
                 }
-                
+
                 this.confirmDelete = -1;
-                
+
                 if (this.mode === 'save') {
                     if (this.saveManager.save(slot.slot)) {
                         this.game.triggerFlash('#00ff00', 0.2);
@@ -1086,42 +1086,42 @@ class SaveLoadUI {
                 }
             }
         }
-        
+
         return true;
     }
-    
+
     handleMouseMove(x, y) {
         if (!this.visible) return;
-        
+
         const canvasRect = this.game.canvas.getBoundingClientRect();
         const scaleX = CANVAS_WIDTH / canvasRect.width;
         const scaleY = CANVAS_HEIGHT / canvasRect.height;
         x = (x - canvasRect.left) * scaleX;
         y = (y - canvasRect.top) * scaleY;
-        
+
         const centerX = CANVAS_WIDTH / 2;
         const startY = 150;
         const slotHeight = 80;
         const slotWidth = 350;
-        
+
         this.hoveredSlot = -1;
         this.hoveredButton = null;
-        
+
         const closeX = centerX + slotWidth / 2 - 30;
         const closeY = startY - 40;
         if (Math.abs(x - closeX) < 15 && Math.abs(y - closeY) < 15) {
             this.hoveredButton = 'close';
             return;
         }
-        
+
         const saves = this.saveManager.getAllSaves();
         for (let i = 0; i < saves.length; i++) {
             const slotY = startY + i * (slotHeight + 10);
-            
+
             if (x >= centerX - slotWidth / 2 && x <= centerX + slotWidth / 2 &&
                 y >= slotY && y <= slotY + slotHeight) {
                 this.hoveredSlot = i;
-                
+
                 const deleteX = centerX + slotWidth / 2 - 35;
                 const deleteY = slotY + slotHeight / 2;
                 if (Math.abs(x - deleteX) < 20 && Math.abs(y - deleteY) < 15) {
@@ -1131,18 +1131,18 @@ class SaveLoadUI {
             }
         }
     }
-    
+
     draw(ctx) {
         if (!this.visible) return;
-        
+
         const centerX = CANVAS_WIDTH / 2;
         const startY = 150;
         const slotHeight = 80;
         const slotWidth = 350;
-        
+
         ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        
+
         ctx.save();
         ctx.shadowColor = this.mode === 'save' ? '#00ff00' : '#00ffff';
         ctx.shadowBlur = 20;
@@ -1151,7 +1151,7 @@ class SaveLoadUI {
         ctx.textAlign = 'center';
         ctx.fillText(this.mode === 'save' ? 'SAVE GAME' : 'LOAD GAME', centerX, startY - 50);
         ctx.restore();
-        
+
         const closeX = centerX + slotWidth / 2 - 30;
         const closeY = startY - 40;
         ctx.save();
@@ -1164,7 +1164,7 @@ class SaveLoadUI {
         ctx.lineTo(closeX - 10, closeY + 10);
         ctx.stroke();
         ctx.restore();
-        
+
         const saves = this.saveManager.getAllSaves();
         for (let i = 0; i < saves.length; i++) {
             const slotY = startY + i * (slotHeight + 10);
@@ -1172,17 +1172,17 @@ class SaveLoadUI {
             const isHovered = this.hoveredSlot === i;
             const isDeleteHovered = isHovered && this.hoveredButton === 'delete';
             const isConfirmingDelete = this.confirmDelete === slot.slot;
-            
+
             ctx.fillStyle = isHovered ? 'rgba(255, 255, 255, 0.1)' : 'rgba(30, 30, 50, 0.8)';
             ctx.fillRect(centerX - slotWidth / 2, slotY, slotWidth, slotHeight);
-            
+
             ctx.strokeStyle = isHovered ? '#00ffff' : '#444466';
             ctx.lineWidth = 2;
             ctx.strokeRect(centerX - slotWidth / 2, slotY, slotWidth, slotHeight);
-            
+
             ctx.textAlign = 'left';
             const textX = centerX - slotWidth / 2 + 20;
-            
+
             if (slot.empty) {
                 ctx.fillStyle = '#666666';
                 ctx.font = '18px "Courier New", monospace';
@@ -1194,19 +1194,19 @@ class SaveLoadUI {
                 ctx.fillStyle = '#ffffff';
                 ctx.font = 'bold 18px "Courier New", monospace';
                 ctx.fillText(`SLOT ${slot.slot}`, textX, slotY + 25);
-                
+
                 ctx.fillStyle = '#00ffff';
                 ctx.font = '14px "Courier New", monospace';
                 ctx.fillText(`Level ${slot.level}  ├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├ÄΓÇ£├â┬╢├é┬╝├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ  Score: ${slot.score.toLocaleString()}`, textX, slotY + 48);
-                
+
                 ctx.fillStyle = '#888888';
                 ctx.font = '12px "Courier New", monospace';
                 const dateStr = slot.date.toLocaleDateString() + ' ' + slot.date.toLocaleTimeString();
                 ctx.fillText(`${dateStr}  ├ÄΓÇ£├â┬╢├é┬ú├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ├óΓÇó┬¼├â┬┤├óΓÇ¥┼ô├ó┼Æ┬É├óΓÇ¥┬¼├óΓÇó┬¥├ÄΓÇ£├â┬╢├é┬╝├óΓÇ¥┼ô├óΓÇ¥ΓÇÜ  ${slot.skillPoints} skill pts`, textX, slotY + 68);
-                
+
                 const deleteX = centerX + slotWidth / 2 - 35;
                 const deleteY = slotY + slotHeight / 2;
-                
+
                 ctx.save();
                 if (isConfirmingDelete) {
                     ctx.fillStyle = '#ff4444';
@@ -1227,7 +1227,7 @@ class SaveLoadUI {
                 ctx.restore();
             }
         }
-        
+
         ctx.fillStyle = '#666666';
         ctx.font = '14px "Courier New", monospace';
         ctx.textAlign = 'center';
@@ -1249,17 +1249,17 @@ class SoundManager {
         this.masterGain = null;
         this.muted = false;
         this.initialized = false;
-        
+
         // Engine sound state
         this.engineOscillator = null;
         this.engineGain = null;
         this.engineActive = false;
     }
-    
+
     // Initialize audio context (must be called after user interaction)
     init() {
         if (this.initialized) return;
-        
+
         try {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             this.masterGain = this.audioContext.createGain();
@@ -1270,31 +1270,31 @@ class SoundManager {
             console.warn('Web Audio API not supported:', e);
         }
     }
-    
+
     // Resume audio context if suspended (browser autoplay policy)
     resume() {
         if (this.audioContext && this.audioContext.state === 'suspended') {
             this.audioContext.resume();
         }
     }
-    
+
     // iOS audio unlock - play silent buffer to enable audio
     unlockiOS() {
         if (!this.audioContext) return;
-        
+
         // Create and play a silent buffer
         const buffer = this.audioContext.createBuffer(1, 1, 22050);
         const source = this.audioContext.createBufferSource();
         source.buffer = buffer;
         source.connect(this.audioContext.destination);
         source.start(0);
-        
+
         // Also resume if suspended
         if (this.audioContext.state === 'suspended') {
             this.audioContext.resume();
         }
     }
-    
+
     // Toggle mute
     toggleMute() {
         this.muted = !this.muted;
@@ -1303,84 +1303,84 @@ class SoundManager {
         }
         return this.muted;
     }
-    
+
     // Create an oscillator with envelope
     createOscillator(type, frequency, startTime, duration, volume = 0.5) {
         if (!this.initialized || this.muted) return null;
-        
+
         const osc = this.audioContext.createOscillator();
         const gain = this.audioContext.createGain();
-        
+
         osc.type = type;
         osc.frequency.value = frequency;
-        
+
         gain.gain.value = 0;
-        
+
         osc.connect(gain);
         gain.connect(this.masterGain);
-        
+
         return { osc, gain, startTime, duration, volume };
     }
-    
+
     // === LASER PEW SOUND ===
     // Quick descending pitch with harmonics
     playLaser() {
         if (!this.initialized) return;
         this.resume();
-        
+
         const now = this.audioContext.currentTime;
-        
+
         // Main laser tone - descending
         const osc1 = this.audioContext.createOscillator();
         const gain1 = this.audioContext.createGain();
-        
+
         osc1.type = 'sawtooth';
         osc1.frequency.setValueAtTime(880, now);
         osc1.frequency.exponentialRampToValueAtTime(220, now + 0.15);
-        
+
         gain1.gain.setValueAtTime(0.3, now);
         gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-        
+
         osc1.connect(gain1);
         gain1.connect(this.masterGain);
-        
+
         osc1.start(now);
         osc1.stop(now + 0.15);
-        
+
         // High frequency click for punch
         const osc2 = this.audioContext.createOscillator();
         const gain2 = this.audioContext.createGain();
-        
+
         osc2.type = 'square';
         osc2.frequency.setValueAtTime(1200, now);
         osc2.frequency.exponentialRampToValueAtTime(400, now + 0.05);
-        
+
         gain2.gain.setValueAtTime(0.15, now);
         gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
-        
+
         osc2.connect(gain2);
         gain2.connect(this.masterGain);
-        
+
         osc2.start(now);
         osc2.stop(now + 0.05);
     }
-    
+
     // === UFO LASER SOUND ===
     // Alien-sounding descending warble
     playUfoLaser() {
         if (!this.initialized) return;
         this.resume();
-        
+
         const now = this.audioContext.currentTime;
-        
+
         // Warbling alien laser
         const osc1 = this.audioContext.createOscillator();
         const gain1 = this.audioContext.createGain();
-        
+
         osc1.type = 'square';
         osc1.frequency.setValueAtTime(600, now);
         osc1.frequency.exponentialRampToValueAtTime(150, now + 0.2);
-        
+
         // Add vibrato LFO
         const lfo = this.audioContext.createOscillator();
         const lfoGain = this.audioContext.createGain();
@@ -1391,79 +1391,79 @@ class SoundManager {
         lfoGain.connect(osc1.frequency);
         lfo.start(now);
         lfo.stop(now + 0.2);
-        
+
         gain1.gain.setValueAtTime(0.2, now);
         gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-        
+
         osc1.connect(gain1);
         gain1.connect(this.masterGain);
-        
+
         osc1.start(now);
         osc1.stop(now + 0.2);
     }
-    
+
     // === UFO HUM SOUND ===
     // Eerie hovering sound when UFO appears
     playUfoAppear() {
         if (!this.initialized) return;
         this.resume();
-        
+
         const now = this.audioContext.currentTime;
-        
+
         // Spooky ascending tone
         const osc = this.audioContext.createOscillator();
         const gain = this.audioContext.createGain();
-        
+
         osc.type = 'sine';
         osc.frequency.setValueAtTime(100, now);
         osc.frequency.exponentialRampToValueAtTime(400, now + 0.5);
-        
+
         gain.gain.setValueAtTime(0, now);
         gain.gain.linearRampToValueAtTime(0.15, now + 0.1);
         gain.gain.setValueAtTime(0.15, now + 0.4);
         gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
-        
+
         osc.connect(gain);
         gain.connect(this.masterGain);
-        
+
         osc.start(now);
         osc.stop(now + 0.6);
-        
+
         // Add eerie harmonic
         const osc2 = this.audioContext.createOscillator();
         const gain2 = this.audioContext.createGain();
-        
+
         osc2.type = 'triangle';
         osc2.frequency.setValueAtTime(150, now);
         osc2.frequency.exponentialRampToValueAtTime(600, now + 0.5);
-        
+
         gain2.gain.setValueAtTime(0, now);
         gain2.gain.linearRampToValueAtTime(0.08, now + 0.1);
         gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-        
+
         osc2.connect(gain2);
         gain2.connect(this.masterGain);
-        
+
         osc2.start(now);
         osc2.stop(now + 0.5);
     }
-    
+
     // === UFO DESTROYED SOUND ===
     // Satisfying alien destruction
     playUfoDestroyed() {
         if (!this.initialized) return;
         this.resume();
-        
+
         const now = this.audioContext.currentTime;
-        
+
         // Big descending explosion with warble
         const osc = this.audioContext.createOscillator();
         const gain = this.audioContext.createGain();
-        
+
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(800, now);
         osc.frequency.exponentialRampToValueAtTime(50, now + 0.6);
-        
+
         // Warble effect
         const lfo = this.audioContext.createOscillator();
         const lfoGain = this.audioContext.createGain();
@@ -1474,180 +1474,180 @@ class SoundManager {
         lfoGain.connect(osc.frequency);
         lfo.start(now);
         lfo.stop(now + 0.6);
-        
+
         gain.gain.setValueAtTime(0.3, now);
         gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
-        
+
         const filter = this.audioContext.createBiquadFilter();
         filter.type = 'lowpass';
         filter.frequency.setValueAtTime(2000, now);
         filter.frequency.exponentialRampToValueAtTime(200, now + 0.6);
-        
+
         osc.connect(filter);
         filter.connect(gain);
         gain.connect(this.masterGain);
-        
+
         osc.start(now);
         osc.stop(now + 0.6);
-        
+
         // Noise burst
         const bufferSize = this.audioContext.sampleRate * 0.5;
         const noiseBuffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
         const output = noiseBuffer.getChannelData(0);
-        
+
         for (let i = 0; i < bufferSize; i++) {
             output[i] = Math.random() * 2 - 1;
         }
-        
+
         const noise = this.audioContext.createBufferSource();
         noise.buffer = noiseBuffer;
-        
+
         const noiseFilter = this.audioContext.createBiquadFilter();
         noiseFilter.type = 'bandpass';
         noiseFilter.frequency.setValueAtTime(1000, now);
         noiseFilter.frequency.exponentialRampToValueAtTime(100, now + 0.5);
         noiseFilter.Q.value = 2;
-        
+
         const noiseGain = this.audioContext.createGain();
         noiseGain.gain.setValueAtTime(0.25, now);
         noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-        
+
         noise.connect(noiseFilter);
         noiseFilter.connect(noiseGain);
         noiseGain.connect(this.masterGain);
-        
+
         noise.start(now);
         noise.stop(now + 0.5);
     }
-    
+
     // === EXPLOSION SOUND ===
     // Layered noise burst with low frequency rumble
     playExplosion(size = 1) {
         if (!this.initialized) return;
         this.resume();
-        
+
         const now = this.audioContext.currentTime;
         const duration = 0.3 + size * 0.15;
         const volume = 0.2 + size * 0.1;
-        
+
         // White noise burst for explosion texture
         const bufferSize = this.audioContext.sampleRate * duration;
         const noiseBuffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
         const output = noiseBuffer.getChannelData(0);
-        
+
         for (let i = 0; i < bufferSize; i++) {
             output[i] = Math.random() * 2 - 1;
         }
-        
+
         const noise = this.audioContext.createBufferSource();
         noise.buffer = noiseBuffer;
-        
+
         // Filter the noise for more boom, less hiss
         const noiseFilter = this.audioContext.createBiquadFilter();
         noiseFilter.type = 'lowpass';
         noiseFilter.frequency.setValueAtTime(1000, now);
         noiseFilter.frequency.exponentialRampToValueAtTime(100, now + duration);
-        
+
         const noiseGain = this.audioContext.createGain();
         noiseGain.gain.setValueAtTime(volume, now);
         noiseGain.gain.exponentialRampToValueAtTime(0.01, now + duration);
-        
+
         noise.connect(noiseFilter);
         noiseFilter.connect(noiseGain);
         noiseGain.connect(this.masterGain);
-        
+
         noise.start(now);
         noise.stop(now + duration);
-        
+
         // Low frequency impact
         const bass = this.audioContext.createOscillator();
         const bassGain = this.audioContext.createGain();
-        
+
         bass.type = 'sine';
         bass.frequency.setValueAtTime(150 - size * 20, now);
         bass.frequency.exponentialRampToValueAtTime(30, now + duration * 0.8);
-        
+
         bassGain.gain.setValueAtTime(volume * 0.8, now);
         bassGain.gain.exponentialRampToValueAtTime(0.01, now + duration * 0.8);
-        
+
         bass.connect(bassGain);
         bassGain.connect(this.masterGain);
-        
+
         bass.start(now);
         bass.stop(now + duration);
-        
+
         // Mid-frequency crackle
         const crackle = this.audioContext.createOscillator();
         const crackleGain = this.audioContext.createGain();
-        
+
         crackle.type = 'square';
         crackle.frequency.setValueAtTime(200, now);
         crackle.frequency.exponentialRampToValueAtTime(50, now + 0.1);
-        
+
         crackleGain.gain.setValueAtTime(volume * 0.3, now);
         crackleGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-        
+
         crackle.connect(crackleGain);
         crackleGain.connect(this.masterGain);
-        
+
         crackle.start(now);
         crackle.stop(now + 0.1);
     }
-    
+
     // === ENGINE HUM ===
     // Continuous thruster sound - call startEngine/stopEngine
     startEngine() {
         if (!this.initialized || this.engineActive) return;
         this.resume();
-        
+
         const now = this.audioContext.currentTime;
-        
+
         // Create low rumble oscillator
         this.engineOscillator = this.audioContext.createOscillator();
         this.engineGain = this.audioContext.createGain();
-        
+
         // Use sawtooth for more aggressive thruster sound
         this.engineOscillator.type = 'sawtooth';
         this.engineOscillator.frequency.value = 80;
-        
+
         // Add slight pitch variation with LFO
         const lfo = this.audioContext.createOscillator();
         const lfoGain = this.audioContext.createGain();
         lfo.type = 'sine';
         lfo.frequency.value = 8; // 8 Hz wobble
         lfoGain.gain.value = 10; // +/-10 Hz variation
-        
+
         lfo.connect(lfoGain);
         lfoGain.connect(this.engineOscillator.frequency);
         lfo.start(now);
-        
+
         // Low pass filter for rumble
         const filter = this.audioContext.createBiquadFilter();
         filter.type = 'lowpass';
         filter.frequency.value = 200;
         filter.Q.value = 2;
-        
+
         this.engineGain.gain.setValueAtTime(0, now);
         this.engineGain.gain.linearRampToValueAtTime(0.15, now + 0.1);
-        
+
         this.engineOscillator.connect(filter);
         filter.connect(this.engineGain);
         this.engineGain.connect(this.masterGain);
-        
+
         this.engineOscillator.start(now);
         this.engineActive = true;
-        
+
         // Store LFO for cleanup
         this.engineLFO = lfo;
     }
-    
+
     stopEngine() {
         if (!this.engineActive || !this.engineOscillator) return;
-        
+
         const now = this.audioContext.currentTime;
-        
+
         this.engineGain.gain.linearRampToValueAtTime(0, now + 0.1);
-        
+
         setTimeout(() => {
             if (this.engineOscillator) {
                 this.engineOscillator.stop();
@@ -1660,7 +1660,7 @@ class SoundManager {
             this.engineActive = false;
         }, 150);
     }
-    
+
     // Update engine intensity based on thrust
     updateEngine(intensity) {
         if (!this.engineGain || !this.engineActive) return;
@@ -1669,160 +1669,160 @@ class SoundManager {
             this.engineOscillator.frequency.value = 70 + intensity * 30;
         }
     }
-    
+
     // === POWER-UP COLLECT CHIME ===
     // Bright ascending arpeggio
     playPowerUp() {
         if (!this.initialized) return;
         this.resume();
-        
+
         const now = this.audioContext.currentTime;
-        
+
         // Arpeggio notes (C major 7th chord going up)
         const notes = [523.25, 659.25, 783.99, 987.77]; // C5, E5, G5, B5
-        
+
         notes.forEach((freq, i) => {
             const osc = this.audioContext.createOscillator();
             const gain = this.audioContext.createGain();
-            
+
             osc.type = 'sine';
             osc.frequency.value = freq;
-            
+
             const startTime = now + i * 0.06;
             const noteLength = 0.15;
-            
+
             gain.gain.setValueAtTime(0, startTime);
             gain.gain.linearRampToValueAtTime(0.2, startTime + 0.02);
             gain.gain.exponentialRampToValueAtTime(0.01, startTime + noteLength);
-            
+
             osc.connect(gain);
             gain.connect(this.masterGain);
-            
+
             osc.start(startTime);
             osc.stop(startTime + noteLength);
         });
-        
+
         // Add sparkle with high frequency
         const sparkle = this.audioContext.createOscillator();
         const sparkleGain = this.audioContext.createGain();
-        
+
         sparkle.type = 'sine';
         sparkle.frequency.setValueAtTime(2000, now);
         sparkle.frequency.exponentialRampToValueAtTime(3000, now + 0.3);
-        
+
         sparkleGain.gain.setValueAtTime(0.08, now);
         sparkleGain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-        
+
         sparkle.connect(sparkleGain);
         sparkleGain.connect(this.masterGain);
-        
+
         sparkle.start(now);
         sparkle.stop(now + 0.3);
     }
-    
+
     // === ITEM COLLECT ===
     // Shorter, lower pitched collect sound
     playItemCollect() {
         if (!this.initialized) return;
         this.resume();
-        
+
         const now = this.audioContext.currentTime;
-        
+
         // Two-note pickup
         const osc1 = this.audioContext.createOscillator();
         const gain1 = this.audioContext.createGain();
-        
+
         osc1.type = 'sine';
         osc1.frequency.setValueAtTime(440, now);
-        
+
         gain1.gain.setValueAtTime(0.2, now);
         gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-        
+
         osc1.connect(gain1);
         gain1.connect(this.masterGain);
-        
+
         osc1.start(now);
         osc1.stop(now + 0.1);
-        
+
         // Second note
         const osc2 = this.audioContext.createOscillator();
         const gain2 = this.audioContext.createGain();
-        
+
         osc2.type = 'sine';
         osc2.frequency.value = 660;
-        
+
         gain2.gain.setValueAtTime(0, now + 0.05);
         gain2.gain.linearRampToValueAtTime(0.2, now + 0.07);
         gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-        
+
         osc2.connect(gain2);
         gain2.connect(this.masterGain);
-        
+
         osc2.start(now + 0.05);
         osc2.stop(now + 0.15);
     }
-    
+
     // === SHIELD HIT ===
     // Electric zap/deflection sound
     playShieldHit() {
         if (!this.initialized) return;
         this.resume();
-        
+
         const now = this.audioContext.currentTime;
-        
+
         // Electric zap
         const osc = this.audioContext.createOscillator();
         const gain = this.audioContext.createGain();
-        
+
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(800, now);
         osc.frequency.exponentialRampToValueAtTime(200, now + 0.15);
-        
+
         gain.gain.setValueAtTime(0.25, now);
         gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-        
+
         osc.connect(gain);
         gain.connect(this.masterGain);
-        
+
         osc.start(now);
         osc.stop(now + 0.15);
-        
+
         // High frequency sizzle
         const bufferSize = this.audioContext.sampleRate * 0.1;
         const noiseBuffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
         const output = noiseBuffer.getChannelData(0);
-        
+
         for (let i = 0; i < bufferSize; i++) {
             output[i] = Math.random() * 2 - 1;
         }
-        
+
         const noise = this.audioContext.createBufferSource();
         noise.buffer = noiseBuffer;
-        
+
         const noiseFilter = this.audioContext.createBiquadFilter();
         noiseFilter.type = 'highpass';
         noiseFilter.frequency.value = 3000;
-        
+
         const noiseGain = this.audioContext.createGain();
         noiseGain.gain.setValueAtTime(0.15, now);
         noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-        
+
         noise.connect(noiseFilter);
         noiseFilter.connect(noiseGain);
         noiseGain.connect(this.masterGain);
-        
+
         noise.start(now);
         noise.stop(now + 0.1);
     }
-    
+
     // === LEVEL COMPLETE FANFARE ===
     // Triumphant ascending melody
     playLevelComplete() {
         if (!this.initialized) return;
         this.resume();
-        
+
         const now = this.audioContext.currentTime;
-        
+
         // Victory fanfare notes
         const melody = [
             { freq: 523.25, time: 0, dur: 0.15 },     // C5
@@ -1830,55 +1830,55 @@ class SoundManager {
             { freq: 783.99, time: 0.24, dur: 0.15 },  // G5
             { freq: 1046.50, time: 0.36, dur: 0.4 },  // C6 (held)
         ];
-        
+
         melody.forEach(note => {
             // Main tone
             const osc = this.audioContext.createOscillator();
             const gain = this.audioContext.createGain();
-            
+
             osc.type = 'square';
             osc.frequency.value = note.freq;
-            
+
             const startTime = now + note.time;
-            
+
             gain.gain.setValueAtTime(0, startTime);
             gain.gain.linearRampToValueAtTime(0.15, startTime + 0.02);
             gain.gain.setValueAtTime(0.15, startTime + note.dur - 0.05);
             gain.gain.exponentialRampToValueAtTime(0.01, startTime + note.dur);
-            
+
             osc.connect(gain);
             gain.connect(this.masterGain);
-            
+
             osc.start(startTime);
             osc.stop(startTime + note.dur);
-            
+
             // Octave harmony
             const osc2 = this.audioContext.createOscillator();
             const gain2 = this.audioContext.createGain();
-            
+
             osc2.type = 'sine';
             osc2.frequency.value = note.freq * 2;
-            
+
             gain2.gain.setValueAtTime(0, startTime);
             gain2.gain.linearRampToValueAtTime(0.08, startTime + 0.02);
             gain2.gain.exponentialRampToValueAtTime(0.01, startTime + note.dur);
-            
+
             osc2.connect(gain2);
             gain2.connect(this.masterGain);
-            
+
             osc2.start(startTime);
             osc2.stop(startTime + note.dur);
         });
     }
-    
+
     // === GAME OVER ===
     // Descending, ominous tones
     playGameOver() {
         if (!this.initialized) return;
         this.resume();
-        
+
         const now = this.audioContext.currentTime;
-        
+
         // Descending doom notes
         const notes = [
             { freq: 440, time: 0, dur: 0.4 },      // A4
@@ -1886,212 +1886,212 @@ class SoundManager {
             { freq: 329.63, time: 0.7, dur: 0.4 }, // E4
             { freq: 261.63, time: 1.05, dur: 0.8 } // C4 (low, held)
         ];
-        
+
         notes.forEach(note => {
             const osc = this.audioContext.createOscillator();
             const gain = this.audioContext.createGain();
-            
+
             osc.type = 'sawtooth';
             osc.frequency.value = note.freq;
-            
+
             const startTime = now + note.time;
-            
+
             // Low pass filter for darker tone
             const filter = this.audioContext.createBiquadFilter();
             filter.type = 'lowpass';
             filter.frequency.value = 800;
-            
+
             gain.gain.setValueAtTime(0, startTime);
             gain.gain.linearRampToValueAtTime(0.2, startTime + 0.05);
             gain.gain.exponentialRampToValueAtTime(0.01, startTime + note.dur);
-            
+
             osc.connect(filter);
             filter.connect(gain);
             gain.connect(this.masterGain);
-            
+
             osc.start(startTime);
             osc.stop(startTime + note.dur);
         });
-        
+
         // Add a low rumble
         const bass = this.audioContext.createOscillator();
         const bassGain = this.audioContext.createGain();
-        
+
         bass.type = 'sine';
         bass.frequency.value = 55; // Very low A
-        
+
         bassGain.gain.setValueAtTime(0, now + 1);
         bassGain.gain.linearRampToValueAtTime(0.3, now + 1.2);
         bassGain.gain.exponentialRampToValueAtTime(0.01, now + 2);
-        
+
         bass.connect(bassGain);
         bassGain.connect(this.masterGain);
-        
+
         bass.start(now + 1);
         bass.stop(now + 2);
     }
-    
+
     // === USE ITEM SOUND ===
     // Activation sound for inventory items
     playItemUse() {
         if (!this.initialized) return;
         this.resume();
-        
+
         const now = this.audioContext.currentTime;
-        
+
         // Whoosh + activation
         const osc = this.audioContext.createOscillator();
         const gain = this.audioContext.createGain();
-        
+
         osc.type = 'sine';
         osc.frequency.setValueAtTime(200, now);
         osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
         osc.frequency.exponentialRampToValueAtTime(400, now + 0.2);
-        
+
         gain.gain.setValueAtTime(0.25, now);
         gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-        
+
         osc.connect(gain);
         gain.connect(this.masterGain);
-        
+
         osc.start(now);
         osc.stop(now + 0.2);
     }
-    
+
     // === BOMB EXPLOSION ===
     // Massive explosion for bomb item
     playBomb() {
         if (!this.initialized) return;
         this.resume();
-        
+
         const now = this.audioContext.currentTime;
-        
+
         // Multiple explosions in sequence
         for (let i = 0; i < 5; i++) {
             setTimeout(() => this.playExplosion(3), i * 50);
         }
-        
+
         // Deep bass boom
         const bass = this.audioContext.createOscillator();
         const bassGain = this.audioContext.createGain();
-        
+
         bass.type = 'sine';
         bass.frequency.setValueAtTime(80, now);
         bass.frequency.exponentialRampToValueAtTime(20, now + 0.8);
-        
+
         bassGain.gain.setValueAtTime(0.4, now);
         bassGain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
-        
+
         bass.connect(bassGain);
         bassGain.connect(this.masterGain);
-        
+
         bass.start(now);
         bass.stop(now + 0.8);
     }
-    
+
     // === FREEZE SOUND ===
     // Crystalline freeze effect
     playFreeze() {
         if (!this.initialized) return;
         this.resume();
-        
+
         const now = this.audioContext.currentTime;
-        
+
         // High pitched crystalline tones
         const frequencies = [2000, 2500, 3000, 3500];
-        
+
         frequencies.forEach((freq, i) => {
             const osc = this.audioContext.createOscillator();
             const gain = this.audioContext.createGain();
-            
+
             osc.type = 'sine';
             osc.frequency.value = freq;
-            
+
             const startTime = now + i * 0.03;
-            
+
             gain.gain.setValueAtTime(0.1, startTime);
             gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.3);
-            
+
             osc.connect(gain);
             gain.connect(this.masterGain);
-            
+
             osc.start(startTime);
             osc.stop(startTime + 0.3);
         });
-        
+
         // Crackling ice sound (filtered noise)
         const bufferSize = this.audioContext.sampleRate * 0.4;
         const noiseBuffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
         const output = noiseBuffer.getChannelData(0);
-        
+
         for (let i = 0; i < bufferSize; i++) {
             output[i] = Math.random() * 2 - 1;
         }
-        
+
         const noise = this.audioContext.createBufferSource();
         noise.buffer = noiseBuffer;
-        
+
         const filter = this.audioContext.createBiquadFilter();
         filter.type = 'highpass';
         filter.frequency.value = 4000;
-        
+
         const noiseGain = this.audioContext.createGain();
         noiseGain.gain.setValueAtTime(0.1, now);
         noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-        
+
         noise.connect(filter);
         filter.connect(noiseGain);
         noiseGain.connect(this.masterGain);
-        
+
         noise.start(now);
         noise.stop(now + 0.4);
     }
-    
+
     // === START GAME SOUND ===
     // Energetic startup
     playGameStart() {
         if (!this.initialized) return;
         this.resume();
-        
+
         const now = this.audioContext.currentTime;
-        
+
         // Quick ascending sweep
         const osc = this.audioContext.createOscillator();
         const gain = this.audioContext.createGain();
-        
+
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(100, now);
         osc.frequency.exponentialRampToValueAtTime(800, now + 0.3);
-        
+
         const filter = this.audioContext.createBiquadFilter();
         filter.type = 'lowpass';
         filter.frequency.setValueAtTime(200, now);
         filter.frequency.exponentialRampToValueAtTime(2000, now + 0.3);
-        
+
         gain.gain.setValueAtTime(0.2, now);
         gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-        
+
         osc.connect(filter);
         filter.connect(gain);
         gain.connect(this.masterGain);
-        
+
         osc.start(now);
         osc.stop(now + 0.3);
-        
+
         // Confirmation beeps
         [0.35, 0.45].forEach(time => {
             const beep = this.audioContext.createOscillator();
             const beepGain = this.audioContext.createGain();
-            
+
             beep.type = 'square';
             beep.frequency.value = 880;
-            
+
             beepGain.gain.setValueAtTime(0.15, now + time);
             beepGain.gain.exponentialRampToValueAtTime(0.01, now + time + 0.08);
-            
+
             beep.connect(beepGain);
             beepGain.connect(this.masterGain);
-            
+
             beep.start(now + time);
             beep.stop(now + time + 0.08);
         });
@@ -2112,16 +2112,16 @@ class MusicManager {
         this.initialized = false;
         this.playing = false;
         this.muted = false;
-        
+
         // Music parameters
         this.bpm = 120;
         this.currentBeat = 0;
         this.beatInterval = null;
-        
+
         // Intensity system (0-1) - affects tempo, filter, layers
         this.intensity = 0.3;
         this.targetIntensity = 0.3;
-        
+
         // Track state
         this.bassOsc = null;
         this.bassGain = null;
@@ -2129,16 +2129,16 @@ class MusicManager {
         this.arpeggioGain = null;
         this.padOsc = null;
         this.padGain = null;
-        
+
         // Filters for intensity modulation
         this.bassFilter = null;
         this.arpeggioFilter = null;
-        
+
         // Musical data
         this.key = 'A'; // A minor for that synthwave feel
         this.scale = [0, 2, 3, 5, 7, 8, 10]; // Natural minor scale intervals
         this.baseNote = 55; // A1 = 55Hz
-        
+
         // Chord progressions (in scale degrees)
         this.progressions = [
             [0, 5, 3, 4], // Am, Fm, Dm, Em
@@ -2147,7 +2147,7 @@ class MusicManager {
         ];
         this.currentProgression = 0;
         this.currentChordIndex = 0;
-        
+
         // Arpeggio patterns
         this.arpeggioPatterns = [
             [0, 4, 7, 12, 7, 4], // Up and down
@@ -2156,16 +2156,16 @@ class MusicManager {
         ];
         this.currentArpPattern = 0;
         this.arpIndex = 0;
-        
+
         // Drum pattern
         this.kickPattern = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1];
         this.snarePattern = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0];
         this.hihatPattern = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0];
     }
-    
+
     init() {
         if (this.initialized) return;
-        
+
         try {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             this.masterGain = this.audioContext.createGain();
@@ -2176,13 +2176,13 @@ class MusicManager {
             console.warn('Music: Web Audio API not supported:', e);
         }
     }
-    
+
     resume() {
         if (this.audioContext && this.audioContext.state === 'suspended') {
             this.audioContext.resume();
         }
     }
-    
+
     toggleMute() {
         this.muted = !this.muted;
         if (this.masterGain) {
@@ -2190,7 +2190,7 @@ class MusicManager {
         }
         return this.muted;
     }
-    
+
     // Convert scale degree to frequency
     scaleToFreq(degree, octave = 0) {
         const octaveOffset = Math.floor(degree / 7);
@@ -2198,58 +2198,58 @@ class MusicManager {
         const semitone = this.scale[noteInScale];
         return this.baseNote * Math.pow(2, (semitone + (octave + octaveOffset) * 12) / 12);
     }
-    
+
     // Get current chord notes
     getCurrentChordNotes() {
         const progression = this.progressions[this.currentProgression];
         const root = progression[this.currentChordIndex];
         return [root, root + 2, root + 4]; // Triad in scale degrees
     }
-    
+
     start() {
         if (!this.initialized || this.playing) return;
         this.resume();
-        
+
         this.playing = true;
         this.currentBeat = 0;
-        
+
         // Create persistent oscillators for smooth sound
         this.setupBass();
         this.setupArpeggio();
         this.setupPad();
-        
+
         // Start beat loop
         const beatTime = 60000 / (this.bpm * 4); // 16th notes
         this.beatInterval = setInterval(() => this.tick(), beatTime);
     }
-    
+
     stop() {
         if (!this.playing) return;
-        
+
         this.playing = false;
-        
+
         if (this.beatInterval) {
             clearInterval(this.beatInterval);
             this.beatInterval = null;
         }
-        
+
         // Fade out and clean up oscillators
         const now = this.audioContext.currentTime;
-        
+
         if (this.bassGain) {
             this.bassGain.gain.linearRampToValueAtTime(0, now + 0.5);
             setTimeout(() => {
                 if (this.bassOsc) { this.bassOsc.stop(); this.bassOsc = null; }
             }, 600);
         }
-        
+
         if (this.arpeggioGain) {
             this.arpeggioGain.gain.linearRampToValueAtTime(0, now + 0.5);
             setTimeout(() => {
                 if (this.arpeggioOsc) { this.arpeggioOsc.stop(); this.arpeggioOsc = null; }
             }, 600);
         }
-        
+
         if (this.padGain) {
             this.padGain.gain.linearRampToValueAtTime(0, now + 1);
             setTimeout(() => {
@@ -2257,185 +2257,185 @@ class MusicManager {
             }, 1100);
         }
     }
-    
+
     setupBass() {
         const now = this.audioContext.currentTime;
-        
+
         this.bassOsc = this.audioContext.createOscillator();
         this.bassGain = this.audioContext.createGain();
         this.bassFilter = this.audioContext.createBiquadFilter();
-        
+
         this.bassOsc.type = 'sawtooth';
         this.bassOsc.frequency.value = this.scaleToFreq(0, 1);
-        
+
         this.bassFilter.type = 'lowpass';
         this.bassFilter.frequency.value = 400;
         this.bassFilter.Q.value = 2;
-        
+
         this.bassGain.gain.value = 0;
-        
+
         this.bassOsc.connect(this.bassFilter);
         this.bassFilter.connect(this.bassGain);
         this.bassGain.connect(this.masterGain);
-        
+
         this.bassOsc.start(now);
     }
-    
+
     setupArpeggio() {
         const now = this.audioContext.currentTime;
-        
+
         this.arpeggioOsc = this.audioContext.createOscillator();
         this.arpeggioGain = this.audioContext.createGain();
         this.arpeggioFilter = this.audioContext.createBiquadFilter();
-        
+
         this.arpeggioOsc.type = 'square';
         this.arpeggioOsc.frequency.value = this.scaleToFreq(0, 3);
-        
+
         this.arpeggioFilter.type = 'lowpass';
         this.arpeggioFilter.frequency.value = 2000;
         this.arpeggioFilter.Q.value = 1;
-        
+
         this.arpeggioGain.gain.value = 0;
-        
+
         this.arpeggioOsc.connect(this.arpeggioFilter);
         this.arpeggioFilter.connect(this.arpeggioGain);
         this.arpeggioGain.connect(this.masterGain);
-        
+
         this.arpeggioOsc.start(now);
     }
-    
+
     setupPad() {
         const now = this.audioContext.currentTime;
-        
+
         // Pad is a chord made of multiple detuned oscillators
         this.padOsc = this.audioContext.createOscillator();
         this.padGain = this.audioContext.createGain();
-        
+
         const padFilter = this.audioContext.createBiquadFilter();
         padFilter.type = 'lowpass';
         padFilter.frequency.value = 800;
-        
+
         this.padOsc.type = 'sine';
         this.padOsc.frequency.value = this.scaleToFreq(0, 2);
-        
+
         this.padGain.gain.value = 0;
-        
+
         this.padOsc.connect(padFilter);
         padFilter.connect(this.padGain);
         this.padGain.connect(this.masterGain);
-        
+
         this.padOsc.start(now);
     }
-    
+
     tick() {
         if (!this.playing || this.muted) return;
-        
+
         const now = this.audioContext.currentTime;
         const beat16 = this.currentBeat % 16;
         const beat4 = Math.floor(this.currentBeat / 4) % 4;
         const bar = Math.floor(this.currentBeat / 16);
-        
+
         // Smooth intensity transitions
         this.intensity += (this.targetIntensity - this.intensity) * 0.02;
-        
+
         // === BASS ===
         if (beat16 % 4 === 0) { // Quarter notes
             const chordNotes = this.getCurrentChordNotes();
             const bassNote = this.scaleToFreq(chordNotes[0], 1);
-            
+
             this.bassOsc.frequency.setValueAtTime(bassNote, now);
             this.bassGain.gain.setValueAtTime(0.6 + this.intensity * 0.3, now);
             this.bassGain.gain.exponentialRampToValueAtTime(0.3, now + 0.2);
         }
-        
+
         // === ARPEGGIO ===
         const pattern = this.arpeggioPatterns[this.currentArpPattern];
         const arpNote = pattern[this.arpIndex % pattern.length];
         const chordNotes = this.getCurrentChordNotes();
         const arpDegree = chordNotes[arpNote % 3] + Math.floor(arpNote / 3) * 7;
         const arpFreq = this.scaleToFreq(arpDegree, 3);
-        
+
         this.arpeggioOsc.frequency.setValueAtTime(arpFreq, now);
-        
+
         // Arpeggio envelope - more prominent at higher intensity
         const arpVol = 0.1 + this.intensity * 0.25;
         this.arpeggioGain.gain.setValueAtTime(arpVol, now);
         this.arpeggioGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-        
+
         this.arpIndex++;
-        
+
         // === PAD - Changes with chord ===
         if (beat16 === 0) {
             const padNote = this.scaleToFreq(chordNotes[0], 2);
             this.padOsc.frequency.exponentialRampToValueAtTime(padNote, now + 0.5);
             this.padGain.gain.linearRampToValueAtTime(0.15 + this.intensity * 0.1, now + 0.5);
         }
-        
+
         // === DRUMS ===
         this.playDrums(beat16, now);
-        
+
         // === FILTER MODULATION based on intensity ===
         const bassFilterFreq = 300 + this.intensity * 800;
         const arpFilterFreq = 1500 + this.intensity * 2500;
         this.bassFilter.frequency.linearRampToValueAtTime(bassFilterFreq, now + 0.1);
         this.arpeggioFilter.frequency.linearRampToValueAtTime(arpFilterFreq, now + 0.1);
-        
+
         // === CHORD PROGRESSION ===
         if (beat16 === 0) {
             this.currentChordIndex = (this.currentChordIndex + 1) % 4;
-            
+
             // Occasionally change progression
             if (bar > 0 && bar % 8 === 0) {
                 this.currentProgression = (this.currentProgression + 1) % this.progressions.length;
             }
-            
+
             // Occasionally change arpeggio pattern
             if (bar > 0 && bar % 4 === 0) {
                 this.currentArpPattern = (this.currentArpPattern + 1) % this.arpeggioPatterns.length;
             }
         }
-        
+
         this.currentBeat++;
     }
-    
+
     playDrums(beat16, now) {
         // Drums are more prominent at higher intensity
         const drumVolume = 0.1 + this.intensity * 0.15;
-        
+
         // Kick drum
         if (this.kickPattern[beat16]) {
             this.playKick(now, drumVolume);
         }
-        
+
         // Snare (only at medium+ intensity)
         if (this.intensity > 0.4 && this.snarePattern[beat16]) {
             this.playSnare(now, drumVolume * 0.8);
         }
-        
+
         // Hi-hat (only at higher intensity)
         if (this.intensity > 0.6 && this.hihatPattern[beat16]) {
             this.playHihat(now, drumVolume * 0.3);
         }
     }
-    
+
     playKick(time, volume) {
         const osc = this.audioContext.createOscillator();
         const gain = this.audioContext.createGain();
-        
+
         osc.type = 'sine';
         osc.frequency.setValueAtTime(150, time);
         osc.frequency.exponentialRampToValueAtTime(30, time + 0.15);
-        
+
         gain.gain.setValueAtTime(volume, time);
         gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
-        
+
         osc.connect(gain);
         gain.connect(this.masterGain);
-        
+
         osc.start(time);
         osc.stop(time + 0.2);
     }
-    
+
     playSnare(time, volume) {
         // Noise for snare body
         const bufferSize = this.audioContext.sampleRate * 0.15;
@@ -2444,43 +2444,43 @@ class MusicManager {
         for (let i = 0; i < bufferSize; i++) {
             data[i] = Math.random() * 2 - 1;
         }
-        
+
         const noise = this.audioContext.createBufferSource();
         noise.buffer = buffer;
-        
+
         const noiseFilter = this.audioContext.createBiquadFilter();
         noiseFilter.type = 'highpass';
         noiseFilter.frequency.value = 1000;
-        
+
         const noiseGain = this.audioContext.createGain();
         noiseGain.gain.setValueAtTime(volume, time);
         noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.12);
-        
+
         noise.connect(noiseFilter);
         noiseFilter.connect(noiseGain);
         noiseGain.connect(this.masterGain);
-        
+
         noise.start(time);
         noise.stop(time + 0.15);
-        
+
         // Body tone
         const osc = this.audioContext.createOscillator();
         const oscGain = this.audioContext.createGain();
-        
+
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(180, time);
         osc.frequency.exponentialRampToValueAtTime(80, time + 0.05);
-        
+
         oscGain.gain.setValueAtTime(volume * 0.5, time);
         oscGain.gain.exponentialRampToValueAtTime(0.01, time + 0.08);
-        
+
         osc.connect(oscGain);
         oscGain.connect(this.masterGain);
-        
+
         osc.start(time);
         osc.stop(time + 0.1);
     }
-    
+
     playHihat(time, volume) {
         const bufferSize = this.audioContext.sampleRate * 0.05;
         const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
@@ -2488,32 +2488,32 @@ class MusicManager {
         for (let i = 0; i < bufferSize; i++) {
             data[i] = Math.random() * 2 - 1;
         }
-        
+
         const noise = this.audioContext.createBufferSource();
         noise.buffer = buffer;
-        
+
         const filter = this.audioContext.createBiquadFilter();
         filter.type = 'highpass';
         filter.frequency.value = 7000;
-        
+
         const gain = this.audioContext.createGain();
         gain.gain.setValueAtTime(volume, time);
         gain.gain.exponentialRampToValueAtTime(0.01, time + 0.04);
-        
+
         noise.connect(filter);
         filter.connect(gain);
         gain.connect(this.masterGain);
-        
+
         noise.start(time);
         noise.stop(time + 0.05);
     }
-    
+
     // Set intensity based on game state (0-1)
     // Called from game to react to gameplay
     setIntensity(value) {
         this.targetIntensity = Math.max(0, Math.min(1, value));
     }
-    
+
     // Convenience methods for common game states
     setCalm() { this.setIntensity(0.3); }
     setNormal() { this.setIntensity(0.5); }
@@ -2544,7 +2544,7 @@ class StarField {
             }
             this.layers.push({ stars, speed: STAR_SPEEDS[i] });
         }
-        
+
         // Nebula clouds for atmosphere
         this.nebulae = [];
         for (let i = 0; i < 5; i++) {
@@ -2565,13 +2565,13 @@ class StarField {
                 // Parallax movement based on ship velocity
                 star.x -= shipVx * layer.speed * 0.5;
                 star.y -= shipVy * layer.speed * 0.5;
-                
+
                 // Constant drift
                 star.y += layer.speed * 0.3;
-                
+
                 // Twinkle
                 star.twinklePhase += star.twinkleSpeed;
-                
+
                 // Wrap around
                 if (star.x < 0) star.x += CANVAS_WIDTH;
                 if (star.x > CANVAS_WIDTH) star.x -= CANVAS_WIDTH;
@@ -2579,7 +2579,7 @@ class StarField {
                 if (star.y > CANVAS_HEIGHT) star.y -= CANVAS_HEIGHT;
             });
         });
-        
+
         // Animate nebulae
         this.nebulae.forEach(nebula => {
             nebula.phase += 0.005;
@@ -2596,34 +2596,34 @@ class StarField {
             gradient.addColorStop(0, nebula.color + '20');
             gradient.addColorStop(0.5, nebula.color + '10');
             gradient.addColorStop(1, 'transparent');
-            
+
             ctx.fillStyle = gradient;
             ctx.beginPath();
             ctx.arc(nebula.x, nebula.y, nebula.radius, 0, Math.PI * 2);
             ctx.fill();
         });
-        
+
         // Draw star layers (back to front)
         this.layers.forEach((layer, layerIndex) => {
             layer.stars.forEach(star => {
                 // Reduced twinkle - more subtle
                 const twinkle = 0.7 + Math.sin(star.twinklePhase) * 0.3;
                 const alpha = star.brightness * twinkle;
-                
+
                 ctx.save();
-                
+
                 // Subtle glow for closest stars only
                 if (layerIndex === 3) {
                     ctx.shadowColor = star.color;
                     ctx.shadowBlur = star.size * 2;
                 }
-                
+
                 ctx.fillStyle = star.color;
                 ctx.globalAlpha = alpha;
                 ctx.beginPath();
                 ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
                 ctx.fill();
-                
+
                 // Add cross flare for brightest stars
                 if (layerIndex === 3 && star.brightness > 0.8) {
                     ctx.strokeStyle = star.color;
@@ -2636,7 +2636,7 @@ class StarField {
                     ctx.lineTo(star.x, star.y + star.size * 3);
                     ctx.stroke();
                 }
-                
+
                 ctx.restore();
             });
         });
@@ -2657,7 +2657,7 @@ class TrailParticle {
         this.vy = vy + (Math.random() - 0.5) * 0.5;
         this.shimmerPhase = Math.random() * Math.PI * 2;
     }
-    
+
     getLighterColor(color) {
         // Return a brighter version for the core
         if (color === COLORS.shipEngine || color === '#ff4400') return '#ffaa44';
@@ -2679,10 +2679,10 @@ class TrailParticle {
     draw(ctx) {
         const alpha = this.lifetime / this.maxLifetime;
         const shimmer = 1 + Math.sin(this.shimmerPhase) * 0.2;
-        
+
         ctx.save();
         ctx.globalAlpha = alpha;
-        
+
         // Outer glow
         ctx.shadowColor = this.color;
         ctx.shadowBlur = this.size * 3 * shimmer;
@@ -2690,7 +2690,7 @@ class TrailParticle {
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size * shimmer, 0, Math.PI * 2);
         ctx.fill();
-        
+
         // Inner core for particles that are still large
         if (this.size > 1.5) {
             ctx.globalAlpha = alpha * 0.8;
@@ -2700,7 +2700,7 @@ class TrailParticle {
             ctx.arc(this.x, this.y, this.size * 0.4, 0, Math.PI * 2);
             ctx.fill();
         }
-        
+
         ctx.restore();
     }
 }
@@ -2712,26 +2712,26 @@ class ExplosionParticle {
         this.y = y;
         this.color = color;
         this.isCore = isCore;
-        
+
         const angle = Math.random() * Math.PI * 2;
         const speed = isCore ? Math.random() * 2 + 1 : Math.random() * 5 + 2;
         this.vx = Math.cos(angle) * speed;
         this.vy = Math.sin(angle) * speed;
-        
+
         this.lifetime = isCore ? 40 : 25 + Math.random() * 15;
         this.maxLifetime = this.lifetime;
         this.size = isCore ? 2 + Math.random() * 3 : 1.5 + Math.random() * 3;
         this.rotation = Math.random() * Math.PI * 2;
         this.rotSpeed = (Math.random() - 0.5) * 0.3;
         this.pulsePhase = Math.random() * Math.PI * 2;
-        
+
         // Random debris shape variant
         this.shapeType = Math.floor(Math.random() * 3); // 0=triangle, 1=shard, 2=chunk
-        
+
         // Color interpolation for hot->cool effect
         this.hotColor = this.getHotColor(color);
     }
-    
+
     getHotColor(color) {
         // Return a "hotter" version of the color
         if (color === '#ff0000' || color === '#ff4400') return '#ffff00';
@@ -2755,28 +2755,28 @@ class ExplosionParticle {
         const alpha = lifeRatio;
         const size = this.size * (0.4 + lifeRatio * 0.6);
         const pulse = 1 + Math.sin(this.pulsePhase) * 0.15;
-        
+
         ctx.save();
         ctx.globalAlpha = alpha;
         ctx.translate(this.x, this.y);
         ctx.rotate(this.rotation);
-        
+
         // Glow effect - more intense for fresh particles
         ctx.shadowColor = this.color;
         ctx.shadowBlur = size * 4 * (0.5 + lifeRatio * 0.5);
-        
+
         if (this.isCore) {
             // Core particles with hot center
             const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, size * pulse);
             gradient.addColorStop(0, this.hotColor);
             gradient.addColorStop(0.4, this.color);
             gradient.addColorStop(1, this.color + '44');
-            
+
             ctx.fillStyle = gradient;
             ctx.beginPath();
             ctx.arc(0, 0, size * pulse, 0, Math.PI * 2);
             ctx.fill();
-            
+
             // Bright center spark
             if (lifeRatio > 0.5) {
                 ctx.globalAlpha = (lifeRatio - 0.5) * 2;
@@ -2787,7 +2787,7 @@ class ExplosionParticle {
             }
         } else {
             ctx.fillStyle = this.color;
-            
+
             // Different debris shapes
             ctx.beginPath();
             switch (this.shapeType) {
@@ -2811,7 +2811,7 @@ class ExplosionParticle {
             }
             ctx.closePath();
             ctx.fill();
-            
+
             // Hot edge glow for fresh debris
             if (lifeRatio > 0.6) {
                 ctx.globalAlpha = (lifeRatio - 0.6) * 2.5 * alpha;
@@ -2820,7 +2820,7 @@ class ExplosionParticle {
                 ctx.stroke();
             }
         }
-        
+
         ctx.restore();
     }
 }
@@ -2832,40 +2832,40 @@ class ShipDebrisParticle {
         this.x = x;
         this.y = y;
         this.color = color;
-        
+
         // Launch debris outward from explosion center
         const speed = 2 + Math.random() * 4;
         const launchAngle = angle + (Math.random() - 0.5) * 0.5;
         this.vx = Math.cos(launchAngle) * speed;
         this.vy = Math.sin(launchAngle) * speed;
-        
+
         // Tumbling rotation
         this.rotation = Math.random() * Math.PI * 2;
         this.rotSpeed = (Math.random() - 0.5) * 0.3;
-        
+
         // Debris shape (triangular hull piece)
         this.size = 4 + Math.random() * 8;
         this.shape = Math.floor(Math.random() * 3); // 0=triangle, 1=quad, 2=line
-        
+
         this.lifetime = 60 + Math.random() * 40;
         this.maxLifetime = this.lifetime;
-        
+
         // Trail
         this.trail = [];
         this.trailTimer = 0;
     }
-    
+
     update() {
         // Movement with drag
         this.x += this.vx;
         this.y += this.vy;
         this.vx *= 0.98;
         this.vy *= 0.98;
-        
+
         // Rotation
         this.rotation += this.rotSpeed;
         this.rotSpeed *= 0.99;
-        
+
         // Trail spawning
         this.trailTimer++;
         if (this.trailTimer % 3 === 0 && this.lifetime > this.maxLifetime * 0.3) {
@@ -2876,20 +2876,20 @@ class ShipDebrisParticle {
                 size: this.size * 0.5
             });
         }
-        
+
         // Update trail
         this.trail = this.trail.filter(t => {
             t.alpha -= 0.08;
             t.size *= 0.95;
             return t.alpha > 0;
         });
-        
+
         this.lifetime--;
     }
-    
+
     draw(ctx) {
         const alpha = Math.min(1, this.lifetime / (this.maxLifetime * 0.3));
-        
+
         // Draw trail
         this.trail.forEach(t => {
             ctx.save();
@@ -2900,19 +2900,19 @@ class ShipDebrisParticle {
             ctx.fill();
             ctx.restore();
         });
-        
+
         // Draw debris piece
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.rotation);
         ctx.globalAlpha = alpha;
-        
+
         ctx.shadowColor = this.color;
         ctx.shadowBlur = 8;
         ctx.fillStyle = this.color;
         ctx.strokeStyle = this.color;
         ctx.lineWidth = 2;
-        
+
         ctx.beginPath();
         if (this.shape === 0) {
             // Triangle piece
@@ -2932,14 +2932,14 @@ class ShipDebrisParticle {
             ctx.moveTo(-this.size, 0);
             ctx.lineTo(this.size, 0);
         }
-        
+
         if (this.shape === 2) {
             ctx.stroke();
         } else {
             ctx.fill();
             ctx.stroke();
         }
-        
+
         ctx.restore();
     }
 }
@@ -2952,12 +2952,12 @@ class ScreenShake {
         this.offsetX = 0;
         this.offsetY = 0;
         this.rotation = 0;
-        
+
         // Directional shake properties
         this.directionX = 0;
         this.directionY = 0;
         this.directionalBias = 0;
-        
+
         // Shake characteristics
         this.frequency = 0;
         this.traumaDecay = 0.92; // Smoother decay
@@ -2968,19 +2968,19 @@ class ScreenShake {
         this.intensity = Math.max(this.intensity, intensity);
         this.directionalBias = 0;
     }
-    
+
     // Directional trigger - shake toward/away from impact source
     // sourceX/Y: where the impact happened, pushes camera away from it
     triggerDirectional(intensity, sourceX, sourceY) {
         this.intensity = Math.max(this.intensity, intensity);
-        
+
         // Calculate direction from screen center to source
         const centerX = CANVAS_WIDTH / 2;
         const centerY = CANVAS_HEIGHT / 2;
         const dx = sourceX - centerX;
         const dy = sourceY - centerY;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        
+
         if (dist > 0) {
             // Direction points from center toward impact
             this.directionX = dx / dist;
@@ -2992,43 +2992,43 @@ class ScreenShake {
     update() {
         if (this.intensity > 0.1) {
             this.frequency += 0.6;
-            
+
             // Base random shake component (Perlin-like smoothing via sin)
-            const randomAngle = Math.sin(this.frequency * 3.7) * Math.PI + 
+            const randomAngle = Math.sin(this.frequency * 3.7) * Math.PI +
                                Math.cos(this.frequency * 2.3) * Math.PI;
             let shakeX = Math.cos(randomAngle) * this.intensity;
             let shakeY = Math.sin(randomAngle) * this.intensity;
-            
+
             // Add high-frequency jitter for impact feel
             const jitter = 0.3;
             shakeX += (Math.random() - 0.5) * this.intensity * jitter;
             shakeY += (Math.random() - 0.5) * this.intensity * jitter;
-            
+
             // Blend in directional component for directional impacts
             if (this.directionalBias > 0) {
                 // Oscillate along the impact direction
                 const directionalMag = Math.sin(this.frequency * 2.5) * this.intensity;
                 const directionalX = this.directionX * directionalMag;
                 const directionalY = this.directionY * directionalMag;
-                
+
                 // Blend random and directional
                 shakeX = shakeX * (1 - this.directionalBias) + directionalX * this.directionalBias;
                 shakeY = shakeY * (1 - this.directionalBias) + directionalY * this.directionalBias;
-                
+
                 // Decay directional bias so shake becomes more random over time
                 this.directionalBias *= 0.94;
             }
-            
+
             this.offsetX = shakeX;
             this.offsetY = shakeY;
-            
+
             // Rotation shake - subtle but adds impact
             // Intensity-scaled: bigger hits = more rotation (capped for sanity)
             const maxRotation = 0.04; // ~2.3 degrees max
             const rotationScale = Math.min(this.intensity / 30, 1); // Scale based on intensity
-            this.rotation = (Math.sin(this.frequency * 4.1) * 0.6 + (Math.random() - 0.5) * 0.4) 
+            this.rotation = (Math.sin(this.frequency * 4.1) * 0.6 + (Math.random() - 0.5) * 0.4)
                            * maxRotation * rotationScale;
-            
+
             // Smooth intensity decay with slight variation for organic feel
             const decayVariation = 1 + (Math.random() - 0.5) * 0.08;
             this.intensity *= this.traumaDecay * decayVariation;
@@ -3045,7 +3045,7 @@ class ScreenShake {
 
     apply(ctx) {
         ctx.translate(this.offsetX, this.offsetY);
-        
+
         // Apply rotation around screen center for natural feel
         if (Math.abs(this.rotation) > 0.0001) {
             ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
@@ -3064,11 +3064,11 @@ class TouchControlManager {
         this.canvas = canvas;
         this.game = game;  // Reference to game for tap-to-start
         this.isTouchDevice = this.detectTouch();
-        
+
         // Setting: 'auto' | 'on' | 'off'
         this.mode = this.loadMode();
         this.updateEnabledState();
-        
+
         // Virtual joystick state (left side)
         this.joystick = {
             active: false,
@@ -3082,7 +3082,7 @@ class TouchControlManager {
             radius: 50,
             deadzone: 0.15
         };
-        
+
         // Fire button state (right side)
         this.fireButton = {
             active: false,
@@ -3092,7 +3092,7 @@ class TouchControlManager {
             radius: 45,
             firing: false
         };
-        
+
         // Pause button (top center)
         this.pauseButton = {
             x: 0,
@@ -3100,10 +3100,10 @@ class TouchControlManager {
             width: 50,
             height: 35
         };
-        
+
         // Visual positions (updated on resize)
         this.updateLayout();
-        
+
         // Touch state for game integration
         this.virtualKeys = {
             'ArrowLeft': false,
@@ -3111,19 +3111,19 @@ class TouchControlManager {
             'ArrowUp': false,
             ' ': false  // Space for shooting
         };
-        
+
         // Direct angle control for smoother touch
         this.targetAngle = null;
         this.thrustAmount = 0;
-        
+
         // Always setup touch events (so they work when toggled on)
         this.setupTouchEvents();
         this.canvas.style.touchAction = 'none';
-        
+
         // Handle resize
         window.addEventListener('resize', () => this.updateLayout());
     }
-    
+
     loadMode() {
         try {
             const saved = localStorage.getItem('asteroidBlaster_touchControls');
@@ -3133,13 +3133,13 @@ class TouchControlManager {
         } catch (e) {}
         return 'auto';
     }
-    
+
     saveMode() {
         try {
             localStorage.setItem('asteroidBlaster_touchControls', this.mode);
         } catch (e) {}
     }
-    
+
     setMode(mode) {
         if (mode === 'on' || mode === 'off' || mode === 'auto') {
             this.mode = mode;
@@ -3147,13 +3147,13 @@ class TouchControlManager {
             this.updateEnabledState();
         }
     }
-    
+
     cycleMode() {
         const modes = ['auto', 'on', 'off'];
         const idx = modes.indexOf(this.mode);
         this.setMode(modes[(idx + 1) % modes.length]);
     }
-    
+
     updateEnabledState() {
         if (this.mode === 'on') {
             this.enabled = true;
@@ -3165,57 +3165,57 @@ class TouchControlManager {
             this.enabled = this.isTouchDevice;
         }
     }
-    
+
     getModeLabel() {
         if (this.mode === 'auto') {
             return 'Auto' + (this.enabled ? ' (On)' : ' (Off)');
         }
         return this.mode === 'on' ? 'On' : 'Off';
     }
-    
+
     detectTouch() {
-        return ('ontouchstart' in window) || 
-               (navigator.maxTouchPoints > 0) || 
+        return ('ontouchstart' in window) ||
+               (navigator.maxTouchPoints > 0) ||
                (navigator.msMaxTouchPoints > 0);
     }
-    
+
     updateLayout() {
         // Use canvas internal dimensions (800x600), not CSS display size
         const canvasWidth = this.canvas.width;
         const canvasHeight = this.canvas.height;
-        
+
         // Joystick at bottom left
         this.joystick.baseX = 100;
         this.joystick.baseY = canvasHeight - 100;
         this.joystick.currentX = this.joystick.baseX;
         this.joystick.currentY = this.joystick.baseY;
-        
+
         // Fire button at bottom right
         this.fireButton.x = canvasWidth - 100;
         this.fireButton.y = canvasHeight - 100;
-        
+
         // Pause button at top center
         this.pauseButton.x = canvasWidth / 2 - this.pauseButton.width / 2;
         this.pauseButton.y = 10;
     }
-    
+
     setupTouchEvents() {
         this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
         this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
         this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
         this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e), { passive: false });
     }
-    
+
     handleTouchStart(e) {
         e.preventDefault();
-        
+
         // Initialize audio on first touch (iOS requires user interaction)
         soundManager.init();
         soundManager.resume();
         soundManager.unlockiOS();
         musicManager.init();
         musicManager.resume();
-        
+
         // Tap to start/restart - always allow (even when controls disabled)
         if (this.game && (this.game.state === 'start' || this.game.state === 'gameover')) {
             // Don't start if entering initials on game over
@@ -3224,23 +3224,23 @@ class TouchControlManager {
                 return;
             }
         }
-        
+
         // Skip joystick/fire processing if controls disabled
         if (!this.enabled) return;
-        
+
         for (const touch of e.changedTouches) {
             const pos = this.getTouchPos(touch);
-            
+
             // Check if touching pause button (top center)
             const pb = this.pauseButton;
-            if (pos.x >= pb.x && pos.x <= pb.x + pb.width && 
+            if (pos.x >= pb.x && pos.x <= pb.x + pb.width &&
                 pos.y >= pb.y && pos.y <= pb.y + pb.height) {
                 if (this.game && (this.game.state === 'playing' || this.game.state === 'paused')) {
                     this.game.togglePause();
                     return; // Don't process other touches
                 }
             }
-            
+
             // Check if touching inventory slots (top center area)
             if (this.game && this.game.state === 'playing' && this.game.touchInventorySlots) {
                 for (const slot of this.game.touchInventorySlots) {
@@ -3254,7 +3254,7 @@ class TouchControlManager {
                     }
                 }
             }
-            
+
             // Check if touching left half (joystick zone)
             if (pos.x < this.canvas.width / 2 && this.joystick.touchId === null) {
                 this.joystick.active = true;
@@ -3270,14 +3270,14 @@ class TouchControlManager {
                 this.fireButton.firing = true;
             }
         }
-        
+
         this.updateVirtualKeys();
     }
-    
+
     handleTouchMove(e) {
         e.preventDefault();
         if (!this.enabled) return;
-        
+
         for (const touch of e.changedTouches) {
             if (touch.identifier === this.joystick.touchId) {
                 const pos = this.getTouchPos(touch);
@@ -3285,7 +3285,7 @@ class TouchControlManager {
                 const dy = pos.y - this.joystick.baseY;
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 const maxDist = this.joystick.radius * 1.5;
-                
+
                 // Clamp joystick position
                 if (distance > maxDist) {
                     const angle = Math.atan2(dy, dx);
@@ -3295,16 +3295,16 @@ class TouchControlManager {
                     this.joystick.currentX = pos.x;
                     this.joystick.currentY = pos.y;
                 }
-                
+
                 // Normalize to -1 to 1
                 this.joystick.dx = (this.joystick.currentX - this.joystick.baseX) / maxDist;
                 this.joystick.dy = (this.joystick.currentY - this.joystick.baseY) / maxDist;
             }
         }
-        
+
         this.updateVirtualKeys();
     }
-    
+
     handleTouchEnd(e) {
         for (const touch of e.changedTouches) {
             if (touch.identifier === this.joystick.touchId) {
@@ -3321,10 +3321,10 @@ class TouchControlManager {
                 this.fireButton.firing = false;
             }
         }
-        
+
         this.updateVirtualKeys();
     }
-    
+
     getTouchPos(touch) {
         const rect = this.canvas.getBoundingClientRect();
         return {
@@ -3332,26 +3332,26 @@ class TouchControlManager {
             y: (touch.clientY - rect.top) * (this.canvas.height / rect.height)
         };
     }
-    
+
     updateVirtualKeys() {
         const dx = this.joystick.dx;
         const dy = this.joystick.dy;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        
+
         // Reset all
         this.virtualKeys['ArrowLeft'] = false;
         this.virtualKeys['ArrowRight'] = false;
         this.virtualKeys['ArrowUp'] = false;
         this.targetAngle = null;
         this.thrustAmount = 0;
-        
+
         // Only process if joystick moved enough from center
         const activeThreshold = 0.2;
-        
+
         if (distance > activeThreshold) {
             // Direct angle control: joystick angle = ship angle
             this.targetAngle = Math.atan2(dy, dx);
-            
+
             // Thrust based on distance (gentler, starts at 40% push)
             const thrustThreshold = 0.4;
             if (distance > thrustThreshold) {
@@ -3360,25 +3360,25 @@ class TouchControlManager {
                 this.virtualKeys['ArrowUp'] = true;
             }
         }
-        
+
         // Fire button
         this.virtualKeys[' '] = this.fireButton.firing;
     }
-    
+
     // Get the target angle for direct ship control (or null if not active)
     getTargetAngle() {
         return this.targetAngle;
     }
-    
+
     // Get thrust amount (0-1) for gentler touch thrust
     getThrustAmount() {
         return this.thrustAmount || 0;
     }
-    
+
     // Merge virtual keys with physical keys
     getKeys(physicalKeys) {
         if (!this.enabled) return physicalKeys;
-        
+
         return {
             ...physicalKeys,
             'ArrowLeft': physicalKeys['ArrowLeft'] || physicalKeys['a'] || physicalKeys['A'] || this.virtualKeys['ArrowLeft'],
@@ -3387,41 +3387,41 @@ class TouchControlManager {
             ' ': physicalKeys[' '] || this.virtualKeys[' ']
         };
     }
-    
+
     draw(ctx) {
         // Refresh enabled state (in case viewport changed)
         this.updateEnabledState();
-        
+
         // Decay tap feedback timers
         if (this.joystick.tapFeedback > 0) this.joystick.tapFeedback--;
         if (this.fireButton.tapFeedback > 0) this.fireButton.tapFeedback--;
-        
+
         // Only draw if enabled and during gameplay
         if (!this.enabled) return;
         // Note: game state check handled by caller (only called during 'playing')
-        
+
         ctx.save();
-        
+
         // === DRAW VIRTUAL JOYSTICK ===
         const jx = this.joystick.baseX;
         const jy = this.joystick.baseY;
         const jr = this.joystick.radius;
-        
+
         // Scale effect on tap
         const jScale = this.joystick.tapFeedback > 0 ? 1.08 : 1;
-        
+
         ctx.save();
         ctx.translate(jx, jy);
         ctx.scale(jScale, jScale);
         ctx.translate(-jx, -jy);
-        
+
         // Outer ring (base) - thicker, more visible
         ctx.beginPath();
         ctx.arc(jx, jy, jr, 0, Math.PI * 2);
         ctx.strokeStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.9)' : 'rgba(0, 255, 255, 0.5)';
         ctx.lineWidth = 5;  // Thicker for visibility
         ctx.stroke();
-        
+
         // Base fill with gradient
         const jGrad = ctx.createRadialGradient(jx, jy, 0, jx, jy, jr);
         if (this.joystick.active) {
@@ -3433,7 +3433,7 @@ class TouchControlManager {
         }
         ctx.fillStyle = jGrad;
         ctx.fill();
-        
+
         // Directional arrows around the ring (visual hint)
         ctx.fillStyle = 'rgba(0, 255, 255, 0.4)';
         ctx.font = 'bold 14px Arial';
@@ -3442,59 +3442,59 @@ class TouchControlManager {
         ctx.fillText('▲', jx, jy - jr + 12);  // Up = thrust
         ctx.fillText('◄', jx - jr + 12, jy);
         ctx.fillText('►', jx + jr - 12, jy);
-        
+
         ctx.restore(); // End scale transform for base
-        
+
         // Inner nub (not scaled, moves independently)
         const nubX = this.joystick.currentX;
         const nubY = this.joystick.currentY;
         const nubRadius = jr * 0.45;  // Slightly smaller for better visual
-        
+
         // Nub shadow
         if (this.joystick.active) {
             ctx.shadowColor = '#00ffff';
             ctx.shadowBlur = 20;
         }
-        
+
         ctx.beginPath();
         ctx.arc(nubX, nubY, nubRadius, 0, Math.PI * 2);
         ctx.fillStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.95)' : 'rgba(0, 255, 255, 0.65)';
         ctx.fill();
-        
+
         // Nub inner highlight
         ctx.beginPath();
         ctx.arc(nubX - nubRadius * 0.2, nubY - nubRadius * 0.2, nubRadius * 0.4, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
         ctx.fill();
         ctx.shadowBlur = 0;
-        
+
         // MOVE label below joystick
         ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = this.joystick.active ? '#88ffff' : 'rgba(0, 255, 255, 0.55)';
         ctx.fillText('MOVE', jx, jy + jr + 22);
-        
+
         // === DRAW FIRE BUTTON ===
         const fx = this.fireButton.x;
         const fy = this.fireButton.y;
         const fr = this.fireButton.radius;
-        
+
         // Scale effect on tap
         const fScale = this.fireButton.tapFeedback > 0 ? 1.1 : (this.fireButton.active ? 1.05 : 1);
-        
+
         ctx.save();
         ctx.translate(fx, fy);
         ctx.scale(fScale, fScale);
         ctx.translate(-fx, -fy);
-        
+
         // Outer ring - thicker
         ctx.beginPath();
         ctx.arc(fx, fy, fr, 0, Math.PI * 2);
         ctx.strokeStyle = this.fireButton.active ? 'rgba(255, 0, 255, 0.9)' : 'rgba(255, 0, 255, 0.4)';
         ctx.lineWidth = 5;
         ctx.stroke();
-        
+
         // Button fill with gradient
         const fGrad = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
         if (this.fireButton.active) {
@@ -3507,7 +3507,7 @@ class TouchControlManager {
         }
         ctx.fillStyle = fGrad;
         ctx.fill();
-        
+
         // Button glow when active
         if (this.fireButton.active) {
             ctx.shadowColor = '#ff00ff';
@@ -3518,7 +3518,7 @@ class TouchControlManager {
             ctx.fill();
             ctx.shadowBlur = 0;
         }
-        
+
         // Fire icon (crosshair style)
         ctx.strokeStyle = this.fireButton.active ? '#ffaaff' : 'rgba(255, 0, 255, 0.6)';
         ctx.lineWidth = 3;
@@ -3529,25 +3529,25 @@ class TouchControlManager {
         ctx.moveTo(fx, fy - iconSize);
         ctx.lineTo(fx, fy + iconSize);
         ctx.stroke();
-        
+
         // Center dot
         ctx.beginPath();
         ctx.arc(fx, fy, 4, 0, Math.PI * 2);
         ctx.fillStyle = this.fireButton.active ? '#ffffff' : 'rgba(255, 0, 255, 0.7)';
         ctx.fill();
-        
+
         ctx.restore(); // End scale transform
-        
+
         // Fire label below button
         ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = this.fireButton.active ? '#ff88ff' : 'rgba(255, 0, 255, 0.55)';
         ctx.fillText('FIRE', fx, fy + fr + 22);
-        
+
         // === PAUSE BUTTON (top center) ===
         const pb = this.pauseButton;
-        
+
         // Button background
         ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
@@ -3556,7 +3556,7 @@ class TouchControlManager {
         ctx.roundRect(pb.x, pb.y, pb.width, pb.height, 8);
         ctx.fill();
         ctx.stroke();
-        
+
         // Pause icon (two bars) - centered
         ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
         const barWidth = 7;
@@ -3566,10 +3566,10 @@ class TouchControlManager {
         const barsY = pb.y + (pb.height - barHeight) / 2;
         ctx.fillRect(barsX, barsY, barWidth, barHeight);
         ctx.fillRect(barsX + barWidth + barGap, barsY, barWidth, barHeight);
-        
+
         ctx.restore();
     }
-    
+
     // Handle auto-fire when button held
     shouldAutoFire() {
         return this.enabled && this.fireButton.firing;
@@ -3585,38 +3585,38 @@ class WaveAnnouncement {
         this.active = false;
         this.timer = 0;
         this.duration = 180; // 3 seconds at 60fps
-        
+
         // Text content
         this.mainText = '';
         this.subText = '';
         this.isBossWave = false;
-        
+
         // Animation phases
         this.phase = 'idle'; // idle, enter, hold, exit
         this.phaseTimer = 0;
-        
+
         // Animation values
         this.scale = 0;
         this.alpha = 0;
         this.glowIntensity = 0;
         this.letterOffsets = [];
-        
+
         // Screen effects
         this.screenDarken = 0;
         this.edgeGlow = 0;
         this.scanlineOffset = 0;
-        
+
         // Particle effects
         this.particles = [];
     }
-    
+
     trigger(level, isBoss = false, isComplete = false) {
         this.active = true;
         this.timer = 0;
         this.isBossWave = isBoss;
         this.isLevelComplete = isComplete;
         this.bossData = null; // Store boss data for drawing
-        
+
         if (isComplete) {
             // Level complete announcement
             this.mainText = 'SECTOR CLEAR';
@@ -3640,7 +3640,7 @@ class WaveAnnouncement {
             this.subText = `SECTOR ${level} // ${sector.subtitle}`;
             this.duration = 150;
         }
-        
+
         // Reset animation state
         this.phase = 'enter';
         this.phaseTimer = 0;
@@ -3651,7 +3651,7 @@ class WaveAnnouncement {
         this.edgeGlow = 0;
         this.letterOffsets = [];
         this.particles = [];
-        
+
         // Initialize letter offsets for staggered animation
         for (let i = 0; i < this.mainText.length; i++) {
             this.letterOffsets.push({
@@ -3660,20 +3660,20 @@ class WaveAnnouncement {
                 delay: i * 3
             });
         }
-        
+
         // Play announcement sound
         if (isBoss) {
             soundManager.playBossEnrage();
         }
     }
-    
+
     getWaveSubtext(level) {
         // Use story sector data if available
         const sector = STORY.getSector(level);
         if (sector) {
             return sector.subtitle;
         }
-        
+
         // Fallback subtexts
         const subtexts = [
             'SURVIVE',
@@ -3683,10 +3683,10 @@ class WaveAnnouncement {
             'ANNIHILATE',
             'DOMINATE'
         ];
-        
+
         return subtexts[Math.floor(Math.random() * subtexts.length)];
     }
-    
+
     // Get boss intro quote for display after WARNING fades
     getBossIntro() {
         if (this.bossData && this.bossData.intro) {
@@ -3694,29 +3694,29 @@ class WaveAnnouncement {
         }
         return null;
     }
-    
+
     update() {
         if (!this.active) return;
-        
+
         this.timer++;
         this.phaseTimer++;
         this.scanlineOffset = (this.scanlineOffset + 2) % 10;
-        
+
         // Phase transitions
         const enterDuration = 30;
         const holdDuration = this.duration - 60;
         const exitDuration = 30;
-        
+
         if (this.phase === 'enter') {
             const progress = Math.min(1, this.phaseTimer / enterDuration);
             const eased = this.easeOutBack(progress);
-            
+
             this.scale = eased;
             this.alpha = progress;
             this.screenDarken = progress * (this.isBossWave ? 0.5 : 0.3);
             this.edgeGlow = progress;
             this.glowIntensity = progress;
-            
+
             // Update letter offsets
             this.letterOffsets.forEach((offset, i) => {
                 if (this.phaseTimer > offset.delay) {
@@ -3724,7 +3724,7 @@ class WaveAnnouncement {
                     offset.rotation *= 0.9;
                 }
             });
-            
+
             if (this.phaseTimer >= enterDuration) {
                 this.phase = 'hold';
                 this.phaseTimer = 0;
@@ -3733,12 +3733,12 @@ class WaveAnnouncement {
             this.scale = 1 + Math.sin(this.timer * 0.1) * 0.02;
             this.alpha = 1;
             this.glowIntensity = 0.8 + Math.sin(this.timer * 0.15) * 0.2;
-            
+
             // Spawn particles during hold
             if (this.timer % 3 === 0) {
                 this.spawnParticle();
             }
-            
+
             if (this.phaseTimer >= holdDuration) {
                 this.phase = 'exit';
                 this.phaseTimer = 0;
@@ -3746,19 +3746,19 @@ class WaveAnnouncement {
         } else if (this.phase === 'exit') {
             const progress = Math.min(1, this.phaseTimer / exitDuration);
             const eased = this.easeInBack(progress);
-            
+
             this.scale = 1 + eased * 0.5;
             this.alpha = 1 - progress;
             this.screenDarken = (1 - progress) * (this.isBossWave ? 0.5 : 0.3);
             this.edgeGlow = 1 - progress;
             this.glowIntensity = 1 - progress;
-            
+
             if (this.phaseTimer >= exitDuration) {
                 this.active = false;
                 this.phase = 'idle';
             }
         }
-        
+
         // Update particles
         this.particles = this.particles.filter(p => {
             p.x += p.vx;
@@ -3768,19 +3768,19 @@ class WaveAnnouncement {
             return p.lifetime > 0;
         });
     }
-    
+
     spawnParticle() {
         const centerX = CANVAS_WIDTH / 2;
         const centerY = CANVAS_HEIGHT / 2;
         const angle = Math.random() * Math.PI * 2;
         const distance = 100 + Math.random() * 150;
-        
+
         // Use appropriate color based on announcement type
         let particleColor = this.isLevelComplete ? '#00ff00' : (this.isBossWave ? '#ff0066' : '#00ffff');
         if (this.isBossWave && this.bossData && this.bossData.color) {
             particleColor = this.bossData.color;
         }
-        
+
         this.particles.push({
             x: centerX + Math.cos(angle) * distance,
             y: centerY + Math.sin(angle) * distance,
@@ -3793,30 +3793,30 @@ class WaveAnnouncement {
             alpha: 1
         });
     }
-    
+
     easeOutBack(t) {
         const c1 = 1.70158;
         const c3 = c1 + 1;
         return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
     }
-    
+
     easeInBack(t) {
         const c1 = 1.70158;
         const c3 = c1 + 1;
         return c3 * t * t * t - c1 * t * t;
     }
-    
+
     draw(ctx) {
         if (!this.active) return;
-        
+
         ctx.save();
-        
+
         // Screen darkening overlay
         if (this.screenDarken > 0) {
             ctx.fillStyle = `rgba(0, 0, 0, ${this.screenDarken})`;
             ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         }
-        
+
         // Edge glow effect
         if (this.edgeGlow > 0) {
             let glowColor = this.isLevelComplete ? '#00ff00' : (this.isBossWave ? '#ff0066' : '#00ffff');
@@ -3834,7 +3834,7 @@ class WaveAnnouncement {
             ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
             ctx.globalAlpha = 1;
         }
-        
+
         // Scanlines effect for boss
         if (this.isBossWave && this.alpha > 0) {
             ctx.globalAlpha = this.alpha * 0.1;
@@ -3849,7 +3849,7 @@ class WaveAnnouncement {
             }
             ctx.globalAlpha = 1;
         }
-        
+
         // Draw particles
         this.particles.forEach(p => {
             ctx.globalAlpha = p.alpha;
@@ -3862,15 +3862,15 @@ class WaveAnnouncement {
         });
         ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
-        
+
         // Main text
         const centerX = CANVAS_WIDTH / 2;
         const centerY = CANVAS_HEIGHT / 2 - 20;
-        
+
         ctx.globalAlpha = this.alpha;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        
+
         // Draw main text with letter animation
         // Use appropriate color based on announcement type
         let mainColor = this.isLevelComplete ? '#00ff00' : (this.isBossWave ? '#ff0066' : '#00ffff');
@@ -3879,31 +3879,31 @@ class WaveAnnouncement {
         }
         const fontSize = this.isBossWave ? 72 : 64;
         ctx.font = `bold ${fontSize}px "Courier New", monospace`;
-        
+
         // Glow layers
         const glowLayers = [40, 30, 20, 10];
         glowLayers.forEach((blur, i) => {
             ctx.shadowBlur = blur * this.glowIntensity;
             ctx.shadowColor = mainColor;
             ctx.fillStyle = mainColor;
-            
+
             // Draw each letter
             let xOffset = -((this.mainText.length - 1) * fontSize * 0.35);
             for (let i = 0; i < this.mainText.length; i++) {
                 const letter = this.mainText[i];
                 const offset = this.letterOffsets[i] || { y: 0, rotation: 0 };
-                
+
                 ctx.save();
                 ctx.translate(centerX + xOffset, centerY + offset.y * this.scale);
                 ctx.rotate(offset.rotation);
                 ctx.scale(this.scale, this.scale);
                 ctx.fillText(letter, 0, 0);
                 ctx.restore();
-                
+
                 xOffset += fontSize * 0.7;
             }
         });
-        
+
         // White core text
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#ffffff';
@@ -3911,17 +3911,17 @@ class WaveAnnouncement {
         for (let i = 0; i < this.mainText.length; i++) {
             const letter = this.mainText[i];
             const offset = this.letterOffsets[i] || { y: 0, rotation: 0 };
-            
+
             ctx.save();
             ctx.translate(centerX + xOffset, centerY + offset.y * this.scale);
             ctx.rotate(offset.rotation);
             ctx.scale(this.scale, this.scale);
             ctx.fillText(letter, 0, 0);
             ctx.restore();
-            
+
             xOffset += fontSize * 0.7;
         }
-        
+
         // Subtitle
         if (this.subText && this.phase !== 'enter') {
             const subAlpha = this.phase === 'hold' ? 1 : this.alpha;
@@ -3931,12 +3931,12 @@ class WaveAnnouncement {
             ctx.shadowColor = mainColor;
             ctx.fillStyle = mainColor;
             ctx.fillText(this.subText, centerX, centerY + 60);
-            
+
             ctx.shadowBlur = 0;
             ctx.fillStyle = '#ffffff';
             ctx.globalAlpha = subAlpha * 0.7;
             ctx.fillText(this.subText, centerX, centerY + 60);
-            
+
             // Boss intro quote (appears below subtitle)
             if (this.isBossWave && this.bossData && this.bossData.intro) {
                 ctx.globalAlpha = subAlpha * 0.6;
@@ -3947,7 +3947,7 @@ class WaveAnnouncement {
                 ctx.fillText(`"${this.bossData.intro}"`, centerX, centerY + 95);
             }
         }
-        
+
         // Decorative lines
         if (this.alpha > 0.5) {
             const lineAlpha = (this.alpha - 0.5) * 2;
@@ -3956,24 +3956,24 @@ class WaveAnnouncement {
             ctx.lineWidth = 2;
             ctx.shadowBlur = 10;
             ctx.shadowColor = mainColor;
-            
+
             // Left line
             const lineWidth = 150 * this.scale;
             ctx.beginPath();
             ctx.moveTo(centerX - 250 * this.scale, centerY);
             ctx.lineTo(centerX - 250 * this.scale + lineWidth, centerY);
             ctx.stroke();
-            
+
             // Right line
             ctx.beginPath();
             ctx.moveTo(centerX + 250 * this.scale - lineWidth, centerY);
             ctx.lineTo(centerX + 250 * this.scale, centerY);
             ctx.stroke();
-            
+
             // Corner accents
             const cornerSize = 15 * this.scale;
             ctx.lineWidth = 3;
-            
+
             // Top-left
             ctx.beginPath();
             ctx.moveTo(centerX - 200 * this.scale, centerY - 50 * this.scale);
@@ -3981,7 +3981,7 @@ class WaveAnnouncement {
             ctx.moveTo(centerX - 200 * this.scale, centerY - 50 * this.scale);
             ctx.lineTo(centerX - 200 * this.scale + cornerSize, centerY - 50 * this.scale);
             ctx.stroke();
-            
+
             // Top-right
             ctx.beginPath();
             ctx.moveTo(centerX + 200 * this.scale, centerY - 50 * this.scale);
@@ -3989,7 +3989,7 @@ class WaveAnnouncement {
             ctx.moveTo(centerX + 200 * this.scale, centerY - 50 * this.scale);
             ctx.lineTo(centerX + 200 * this.scale - cornerSize, centerY - 50 * this.scale);
             ctx.stroke();
-            
+
             // Bottom-left
             ctx.beginPath();
             ctx.moveTo(centerX - 200 * this.scale, centerY + 80 * this.scale);
@@ -3997,7 +3997,7 @@ class WaveAnnouncement {
             ctx.moveTo(centerX - 200 * this.scale, centerY + 80 * this.scale);
             ctx.lineTo(centerX - 200 * this.scale + cornerSize, centerY + 80 * this.scale);
             ctx.stroke();
-            
+
             // Bottom-right
             ctx.beginPath();
             ctx.moveTo(centerX + 200 * this.scale, centerY + 80 * this.scale);
@@ -4006,7 +4006,7 @@ class WaveAnnouncement {
             ctx.lineTo(centerX + 200 * this.scale - cornerSize, centerY + 80 * this.scale);
             ctx.stroke();
         }
-        
+
         ctx.restore();
     }
 }
@@ -4017,11 +4017,11 @@ class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
-        
+
         // Force canvas to fit mobile viewport
         this.resizeCanvasForMobile();
         window.addEventListener('resize', () => this.resizeCanvasForMobile());
-        
+
         this.keys = {};
         this.state = 'start';
         this.score = 0;
@@ -4038,12 +4038,12 @@ class Game {
         this.powerUps = [];
         this.items = [];
         this.inventory = [];
-        
+
         // UFO system
         this.ufos = [];
         this.enemyBullets = [];
         this.ufoSpawnTimer = this.getRandomUfoSpawnTime();
-        
+
         // Boss system
         this.boss = null;
         this.bossLevel = false;
@@ -4051,7 +4051,7 @@ class Game {
         // Visual systems
         this.starField = new StarField();
         this.screenShake = new ScreenShake();
-        
+
         // Global visual effects
         this.flashAlpha = 0;
         this.flashColor = '#ffffff';
@@ -4074,15 +4074,15 @@ class Game {
         // Animation timers
         this.time = 0;
         this.titlePulse = 0;
-        
+
         // Engine sound state tracking
         this.wasThrusting = false;
-        
+
         // Skill tree system
         this.skillTree = new SkillTree();
         this.skillTreeUI = new SkillTreeUI(this.skillTree, this);
         this.regenTimer = 0;
-        
+
         // Save/Load system
                 this.saveLoadUI = new SaveLoadUI(this);
 
@@ -4090,14 +4090,14 @@ class Game {
         this.isEnteringInitials = false;
         this.newHighScoreRank = 0;
         this.initials = '';
-        
+
         // Help popup state
         this.showHelp = false;
 
                 // Mobile touch controls
         this.touchControls = new TouchControlManager(this.canvas, this);
         this.touchToggleBounds = null;  // Set during pause menu draw
-        
+
         // Touch UI button bounds (for tap detection)
         this.uiButtons = {};
 
@@ -4107,7 +4107,7 @@ class Game {
         this.setupEventListeners();
         this.gameLoop();
     }
-    
+
     resizeCanvasForMobile() {
         // Check if on mobile (narrow viewport)
         const viewportWidth = window.innerWidth;
@@ -4116,16 +4116,16 @@ class Game {
             const targetWidth = viewportWidth - 10;
             const scale = targetWidth / CANVAS_WIDTH;
             const targetHeight = CANVAS_HEIGHT * scale;
-            
+
             this.canvas.style.width = targetWidth + 'px';
             this.canvas.style.height = targetHeight + 'px';
-            
+
             // Prevent any overflow
             document.body.style.overflowX = 'hidden';
             document.documentElement.style.overflowX = 'hidden';
         }
     }
-    
+
     getRandomUfoSpawnTime() {
         // UFOs spawn more frequently at higher levels
         // Level 1-4: base rate (15-30 seconds)
@@ -4139,7 +4139,7 @@ class Game {
     setupEventListeners() {
         window.addEventListener('keydown', (e) => {
             this.keys[e.key] = true;
-            
+
             // Initialize audio on first user interaction
             soundManager.init();
             musicManager.init();
@@ -4156,7 +4156,7 @@ class Game {
                     this.startGame();
                 }
             }
-            
+
             // Handle initials input for high score entry
             if (this.state === 'gameover' && this.isEnteringInitials) {
                 if (e.key === 'Backspace' && this.initials.length > 0) {
@@ -4175,24 +4175,24 @@ class Game {
                 const slotIndex = parseInt(e.key) - 1;
                 this.useInventoryItem(slotIndex);
             }
-            
+
             // Mute toggle with M key (SFX)
             if (e.key === 'm' || e.key === 'M') {
                 soundManager.toggleMute();
             }
-            
+
             // Music toggle with N key
             if (e.key === 'n' || e.key === 'N') {
                 musicManager.toggleMute();
             }
-            
+
             // Skill tree toggle with K key
             if (e.key === 'k' || e.key === 'K') {
                 if (this.state === 'start' || this.state === 'playing') {
                     this.skillTreeUI.toggle();
                 }
             }
-            
+
             // Help toggle with H key
             if (e.key === 'h' || e.key === 'H') {
                 if (this.state === 'start' || this.state === 'playing' || this.state === 'paused') {
@@ -4200,7 +4200,7 @@ class Game {
                     soundManager.playItemUse();
                 }
             }
-            
+
             // Save/Load controls and Pause
             if (e.key === 'Escape') {
                 if (this.showHelp) {
@@ -4225,7 +4225,7 @@ class Game {
             if ((e.key === 'r' || e.key === 'R') && this.state === 'paused') {
                 this.startGame();
             }
-            
+
             // T key to toggle touch controls from pause menu
             if ((e.key === 't' || e.key === 'T') && this.state === 'paused') {
                 if (this.touchControls) {
@@ -4234,14 +4234,14 @@ class Game {
                     console.log('Touch controls mode:', this.touchControls.mode);
                 }
             }
-            
+
             // F5 = Quick Save (during gameplay)
             if (e.key === 'F5' && this.state === 'playing') {
                 e.preventDefault();
                 this.saveLoadUI.saveManager.autoSave();
                 this.triggerFlash('#00ff00', 0.15);
             }
-            
+
             // F9 = Load Menu (from start screen or during play)
             if (e.key === 'F9') {
                 e.preventDefault();
@@ -4249,7 +4249,7 @@ class Game {
                     this.saveLoadUI.toggle('load');
                 }
             }
-            
+
             // L = Load menu on start screen
             if ((e.key === 'l' || e.key === 'L') && this.state === 'start') {
                 this.saveLoadUI.toggle('load');
@@ -4259,13 +4259,13 @@ class Game {
         window.addEventListener('keyup', (e) => {
             this.keys[e.key] = false;
         });
-        
+
         // Mouse events for skill tree and save/load UI
         this.canvas.addEventListener('click', (e) => {
             // Initialize sound on first interaction (for mobile browsers)
             soundManager.init();
             soundManager.resume();
-            
+
             // Save/Load UI takes priority
             if (this.saveLoadUI.visible) {
                 this.saveLoadUI.handleClick(e.clientX, e.clientY);
@@ -4275,18 +4275,18 @@ class Game {
                 this.skillTreeUI.handleClick(e.clientX, e.clientY);
                 return;
             }
-            
+
             // Get click position in canvas coordinates
             const rect = this.canvas.getBoundingClientRect();
             const x = (e.clientX - rect.left) * (this.canvas.width / rect.width);
             const y = (e.clientY - rect.top) * (this.canvas.height / rect.height);
-            
+
             // Helper function to check button bounds
             const hitButton = (name) => {
                 const b = this.uiButtons[name];
                 return b && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
             };
-            
+
             // Handle pause menu clicks
             if (this.state === 'paused') {
                 // Touch controls toggle
@@ -4310,7 +4310,7 @@ class Game {
                     return;
                 }
             }
-            
+
             // Handle start screen button clicks
             if (this.state === 'start') {
                 // Skill tree button
@@ -4330,7 +4330,7 @@ class Game {
                     return;
                 }
             }
-            
+
             // Handle help screen tap to close
             if (this.showHelp) {
                 if (hitButton('closeHelp')) {
@@ -4339,7 +4339,7 @@ class Game {
                     return;
                 }
             }
-            
+
             // Handle game over screen
             if (this.state === 'gameover') {
                 if (this.isEnteringInitials) {
@@ -4360,29 +4360,29 @@ class Game {
                     return;
                 }
             }
-            
+
             // Tap to start on touch devices (or click to start)
             if (this.state === 'start') {
                 this.startGame();
                 return;
             }
         });
-        
+
         // Touch handler for UI buttons (since touchstart preventDefault blocks click)
         this.canvas.addEventListener('touchend', (e) => {
             // Only handle single-touch taps for UI
             if (e.changedTouches.length !== 1) return;
-            
+
             const touch = e.changedTouches[0];
             const rect = this.canvas.getBoundingClientRect();
             const x = (touch.clientX - rect.left) * (this.canvas.width / rect.width);
             const y = (touch.clientY - rect.top) * (this.canvas.height / rect.height);
-            
+
             const hitButton = (name) => {
                 const b = this.uiButtons[name];
                 return b && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
             };
-            
+
             // Handle save/load UI
             if (this.saveLoadUI.visible) {
                 this.saveLoadUI.handleClick(touch.clientX, touch.clientY);
@@ -4392,7 +4392,7 @@ class Game {
                 this.skillTreeUI.handleClick(touch.clientX, touch.clientY);
                 return;
             }
-            
+
             // Handle pause menu touches
             if (this.state === 'paused') {
                 if (hitButton('touchToggle') && this.touchControls) {
@@ -4411,7 +4411,7 @@ class Game {
                     return;
                 }
             }
-            
+
             // Handle start screen touches
             if (this.state === 'start') {
                 if (hitButton('skillTree')) {
@@ -4428,14 +4428,14 @@ class Game {
                     return;
                 }
             }
-            
+
             // Handle help screen close
             if (this.showHelp && hitButton('closeHelp')) {
                 this.showHelp = false;
                 soundManager.playItemUse();
                 return;
             }
-            
+
             // Handle game over touches
             if (this.state === 'gameover' && this.isEnteringInitials) {
                 if (this.handleInitialsKeyboardClick(x, y)) {
@@ -4449,7 +4449,7 @@ class Game {
                 }
             }
         });
-        
+
         this.canvas.addEventListener('mousemove', (e) => {
             this.saveLoadUI.handleMouseMove(e.clientX, e.clientY);
             this.skillTreeUI.handleMouseMove(e.clientX, e.clientY);
@@ -4460,12 +4460,12 @@ class Game {
         this.state = 'playing';
         this.score = 0;
         this.defeatMessage = null; // Reset defeat message for new game
-        
+
         // Apply skill bonuses
         const effects = this.skillTree.getAllEffects();
         this.lives = 3 + (effects.startingLives || 0);
         this.maxInventorySlots = MAX_INVENTORY_SLOTS + (effects.extraInventorySlots || 0);
-        
+
         this.level = 1;
         this.ship = new Ship(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, this);
         this.asteroids = [];
@@ -4497,16 +4497,16 @@ class Game {
         this.spawnAsteroids(4);
         this.updateUI();
         this.updateInventoryUI();
-        
+
         // Trigger wave 1 announcement
         this.waveAnnouncement.trigger(1, false);
-        
+
         // Flash effect on start
         this.triggerFlash('#00ffff', 0.3);
-        
+
         // Play game start sound
         soundManager.playGameStart();
-        
+
         // Start background music
         musicManager.init();
         musicManager.start();
@@ -4530,12 +4530,12 @@ class Game {
             this.asteroids.push(new Asteroid(x, y, 3, this));
         }
     }
-    
+
     spawnUfo() {
         // Spawn from a random edge
         const side = Math.floor(Math.random() * 4);
         let x, y, direction;
-        
+
         switch(side) {
             case 0: // Top
                 x = Math.random() * CANVAS_WIDTH;
@@ -4558,7 +4558,7 @@ class Game {
                 direction = 0 + (Math.random() - 0.5) * 0.5;
                 break;
         }
-        
+
         this.ufos.push(new UFO(x, y, direction, this));
         soundManager.playUfoAppear();
         this.triggerFlash(COLORS.ufoPrimary, 0.15);
@@ -4575,10 +4575,10 @@ class Game {
     nextLevel() {
         this.level++;
         this.updateUI();
-        
+
         // Auto-save progress on level complete
         this.saveLoadUI.saveManager.autoSave();
-        
+
         // Check if this is a boss level
         if (BOSS_LEVELS.includes(this.level)) {
             this.bossLevel = true;
@@ -4595,53 +4595,6 @@ class Game {
             this.triggerFlash('#00ff00', 0.2);
         }
     }
-    
-    // Calculate asteroid count for current level with better difficulty curve
-    getAsteroidCount() {
-        // Early levels: approachable (4-6 asteroids for levels 1-4)
-        // Mid levels: gradual increase
-        // Later levels: challenging but not overwhelming
-        if (this.level <= 2) return 4;
-        if (this.level <= 4) return 5 + Math.floor((this.level - 2) / 2);
-        if (this.level <= 10) return 6 + Math.floor((this.level - 4) / 2);
-        // Level 10+: 8 + 1 per 3 levels, capped at 15
-        return Math.min(15, 8 + Math.floor((this.level - 10) / 3));
-    }
-    
-    // Award skill points from boss defeat
-    awardBossSkillPoints() {
-        const effects = this.skillTree.getAllEffects();
-        const xpBonus = effects.xpBonus || 0;
-        
-        // Base: 1 point for tier 1, 2 points for tier 2+
-        const tier = Math.ceil(this.level / 5);
-        const basePoints = tier >= 2 ? 2 : 1;
-        
-        // XP boost gives chance for extra point
-        const bonusPoints = Math.random() < xpBonus ? 1 : 0;
-        const totalPoints = basePoints + bonusPoints;
-        
-        this.skillTree.addSkillPoints(totalPoints);
-        
-        // Show floating text for skill point gain
-        this.showFloatingText(`+${totalPoints} SKILL POINT${totalPoints > 1 ? 'S' : ''}!`, 
-            CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50, '#ffff00');
-    }
-    
-    // Small chance to earn skill point from asteroid kills
-    checkSkillPointDrop() {
-        const effects = this.skillTree.getAllEffects();
-        const xpBonus = effects.xpBonus || 0;
-        
-        // Base 2% chance, XP boost adds up to 4.5% more (at max level)
-        const dropChance = 0.02 + xpBonus * 0.1;
-        
-        if (Math.random() < dropChance) {
-            this.skillTree.addSkillPoints(1);
-            return true;
-        }
-        return false;
-    }
 
     // Calculate asteroid count for current level with better difficulty curve
     getAsteroidCount() {
@@ -4663,15 +4616,15 @@ class Game {
         // Base: 1 point for tier 1, 2 points for tier 2+
         const tier = Math.ceil(this.level / 5);
         const basePoints = tier >= 2 ? 2 : 1;
-        
+
         // XP boost gives chance for extra point
         const bonusPoints = Math.random() < xpBonus ? 1 : 0;
         const totalPoints = basePoints + bonusPoints;
-        
+
         this.skillTree.addSkillPoints(totalPoints);
-        
+
         // Show floating text for skill point gain
-        this.showFloatingText(`+${totalPoints} SKILL POINT${totalPoints > 1 ? 'S' : ''}!`, 
+        this.showFloatingText(`+${totalPoints} SKILL POINT${totalPoints > 1 ? 'S' : ''}!`,
             CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50, '#ffff00');
     }
 
@@ -4679,10 +4632,10 @@ class Game {
     checkSkillPointDrop() {
         const effects = this.skillTree.getAllEffects();
         const xpBonus = effects.xpBonus || 0;
-        
+
         // Base 2% chance, XP boost adds up to 4.5% more (at max level)
         const dropChance = 0.02 + xpBonus * 0.1;
-        
+
         if (Math.random() < dropChance) {
             this.skillTree.addSkillPoints(1);
             return true;
@@ -4709,20 +4662,20 @@ class Game {
             }
         }
     }
-    
+
     gameOver() {
         this.state = 'gameover';
         this.triggerFlash('#ff0000', 0.5);
-        
+
         // Stop engine sound if playing
         soundManager.stopEngine();
-        
+
         // Play game over sound
         soundManager.playGameOver();
-        
+
         // Stop background music
         musicManager.stop();
-        
+
         // Check for high score
         if (highScoreManager.isHighScore(this.score)) {
             this.isEnteringInitials = true;
@@ -4734,22 +4687,22 @@ class Game {
             this.newHighScoreRank = 0;
         }
     }
-    
+
     triggerVictory() {
         this.state = 'victory';
         this.victoryTimer = 0;
         this.triggerFlash('#ffffff', 0.8);
-        
+
         // Stop engine sound
         soundManager.stopEngine();
-        
+
         // Play victory fanfare (using level complete + boss defeat sounds)
         soundManager.playLevelComplete();
         setTimeout(() => soundManager.playBossDefeat(), 500);
-        
+
         // Stop background music
         musicManager.stop();
-        
+
         // Always a high score after beating the game!
         if (highScoreManager.isHighScore(this.score)) {
             this.isEnteringInitials = true;
@@ -4763,7 +4716,7 @@ class Game {
         this.updateUI();
         this.screenShake.trigger(20);
         this.triggerFlash('#ff0000', 0.3);
-        
+
         // Stop engine sound
         soundManager.stopEngine();
 
@@ -4787,12 +4740,12 @@ class Game {
         this.comboDisplayTimer = 60; // Show combo for 1 second
         this.lastKillX = x;
         this.lastKillY = y;
-        
+
         // Track max combo
         if (this.comboCount > this.maxCombo) {
             this.maxCombo = this.comboCount;
         }
-        
+
         // Check for milestone celebrations
         if (COMBO_MILESTONES.includes(this.comboCount)) {
             soundManager.playComboMilestone(this.comboCount);
@@ -4800,7 +4753,7 @@ class Game {
             this.screenShake.trigger(this.comboCount >= 10 ? 10 : 5);
         }
     }
-    
+
     // Get current combo multiplier
     getComboMultiplier() {
         if (this.comboCount <= 1) return 1;
@@ -4816,14 +4769,14 @@ class Game {
             this.powerUps.push(new PowerUp(x, y, randomType, this));
         }
     }
-    
+
     // UFOs always drop good loot!
     spawnUfoLoot(x, y) {
         // Always spawn a power-up
         const types = Object.keys(POWERUP_TYPES);
         const randomType = types[Math.floor(Math.random() * types.length)];
         this.powerUps.push(new PowerUp(x, y, randomType, this));
-        
+
         // 50% chance for a bonus item
         if (Math.random() < 0.5) {
             const itemTypes = Object.keys(ITEM_TYPES);
@@ -4857,13 +4810,13 @@ class Game {
             this.inventory.push({ type: item.type });
             this.updateInventoryUI();
             soundManager.playItemCollect();
-            
+
             // Visual feedback - show item name
             const itemInfo = ITEM_TYPES[item.type];
             if (itemInfo) {
                 this.showFloatingText(`+${itemInfo.name}`, item.x, item.y, itemInfo.color);
                 this.triggerFlash(itemInfo.color, 0.15);
-                
+
                 // Spawn collection particles
                 for (let i = 0; i < 8; i++) {
                     const angle = (i / 8) * Math.PI * 2;
@@ -4883,7 +4836,7 @@ class Game {
         }
         return false;
     }
-    
+
     showFloatingText(text, x, y, color) {
         if (!this.floatingTexts) this.floatingTexts = [];
         this.floatingTexts.push({
@@ -4896,14 +4849,14 @@ class Game {
             lifetime: 60
         });
     }
-    
+
     // Small chance to earn skill point from kills (added by level-design subagent, method was missing)
     checkSkillPointDrop() {
         const effects = this.skillTree.getAllEffects();
         const baseChance = 0.005; // 0.5% base chance
         const xpBonus = effects.xpBonus || 0;
         const chance = baseChance * (1 + xpBonus);
-        
+
         if (Math.random() < chance) {
             this.skillTree.addSkillPoints(1);
             return true;
@@ -4916,25 +4869,25 @@ class Game {
         // Keyboard layout - stored during draw
         const kb = this.initialsKeyboard;
         if (!kb) return false;
-        
+
         const keyWidth = kb.keyWidth;
         const keyHeight = kb.keyHeight;
         const keyGap = kb.keyGap;
-        
+
         // Check each key
         for (let row = 0; row < kb.rows.length; row++) {
             const rowKeys = kb.rows[row];
             const rowWidth = rowKeys.length * (keyWidth + keyGap) - keyGap;
             const rowX = kb.startX + (kb.totalWidth - rowWidth) / 2;
             const rowY = kb.startY + row * (keyHeight + keyGap);
-            
+
             for (let col = 0; col < rowKeys.length; col++) {
                 const key = rowKeys[col];
                 const keyX = rowX + col * (keyWidth + keyGap);
-                
-                if (x >= keyX && x <= keyX + keyWidth && 
+
+                if (x >= keyX && x <= keyX + keyWidth &&
                     y >= rowY && y <= rowY + keyHeight) {
-                    
+
                     if (key === '⌫') {
                         // Backspace
                         if (this.initials.length > 0) {
@@ -5086,7 +5039,7 @@ class Game {
                 this.comboCount = 0;
             }
         }
-        
+
         if (this.comboDisplayTimer > 0) {
             this.comboDisplayTimer--;
         }
@@ -5101,7 +5054,7 @@ class Game {
         for (let i = 0; i < MAX_INVENTORY_SLOTS; i++) {
             const slot = document.createElement('div');
             slot.className = 'inventory-slot';
-            
+
             // Make slot tappable
             const slotIndex = i;
             slot.style.cursor = 'pointer';
@@ -5141,42 +5094,42 @@ class Game {
     createExplosion(x, y, intensity) {
         // Directional screen shake based on explosion size and position
         this.screenShake.triggerDirectional(intensity * 0.8, x, y);
-        
+
         // Play explosion sound with size-based intensity
         soundManager.playExplosion(intensity / 15);
-        
+
         // Core explosion particles (bright)
         for (let i = 0; i < intensity * 0.5; i++) {
             const color = COLORS.explosion[Math.floor(Math.random() * COLORS.explosion.length)];
             this.explosionParticles.push(new ExplosionParticle(x, y, color, true));
         }
-        
+
         // Debris particles
         for (let i = 0; i < intensity; i++) {
             const color = COLORS.explosion[Math.floor(Math.random() * 3)];
             this.explosionParticles.push(new ExplosionParticle(x, y, color, false));
         }
-        
+
         // Shockwave ring effect
         this.particles.push(new ShockwaveParticle(x, y, intensity * 3));
     }
-    
+
     // Create green UFO explosion
     createUfoExplosion(x, y) {
         this.screenShake.triggerDirectional(15, x, y);
         soundManager.playUfoDestroyed();
-        
+
         // Green core particles
         for (let i = 0; i < 15; i++) {
             this.explosionParticles.push(new ExplosionParticle(x, y, COLORS.ufoPrimary, true));
         }
-        
+
         // Mixed debris
         for (let i = 0; i < 25; i++) {
             const color = Math.random() > 0.5 ? COLORS.ufoPrimary : COLORS.ufoSecondary;
             this.explosionParticles.push(new ExplosionParticle(x, y, color, false));
         }
-        
+
         this.particles.push(new ShockwaveParticle(x, y, 60));
     }
 
@@ -5184,37 +5137,37 @@ class Game {
     createShipExplosion(x, y, angle) {
         // Massive directional screen shake from ship position
         this.screenShake.triggerDirectional(35, x, y);
-        
+
         // Bright flash
         this.triggerFlash('#00ffff', 0.6);
-        
+
         // Play death sound
         soundManager.playShipDeath();
-        
+
         // Create hull debris pieces (8-12 pieces)
         const debrisCount = 8 + Math.floor(Math.random() * 5);
         const colors = [COLORS.shipPrimary, COLORS.shipSecondary, '#ffffff', COLORS.shipEngine];
-        
+
         for (let i = 0; i < debrisCount; i++) {
             const debrisAngle = (i / debrisCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
             const color = colors[Math.floor(Math.random() * colors.length)];
             this.shipDebris.push(new ShipDebrisParticle(x, y, debrisAngle, color));
         }
-        
+
         // Core explosion particles (cyan themed)
         for (let i = 0; i < 20; i++) {
             this.explosionParticles.push(new ExplosionParticle(x, y, COLORS.shipPrimary, true));
         }
-        
+
         // Secondary explosion particles
         for (let i = 0; i < 30; i++) {
             const color = Math.random() > 0.5 ? COLORS.shipPrimary : COLORS.shipEngine;
             this.explosionParticles.push(new ExplosionParticle(x, y, color, false));
         }
-        
+
         // Large shockwave
         this.particles.push(new ShockwaveParticle(x, y, 100));
-        
+
         // Cascading secondary explosions (delayed)
         const game = this;
         for (let wave = 1; wave < 4; wave++) {
@@ -5231,20 +5184,20 @@ class Game {
     update() {
         this.time++;
         this.titlePulse += 0.05;
-        
+
         // Update starfield with parallax
         const shipVx = this.ship ? this.ship.vx : 0;
         const shipVy = this.ship ? this.ship.vy : 0;
         this.starField.update(shipVx, shipVy);
-        
+
         // Update screen shake
         this.screenShake.update();
-        
+
         // Update wave announcement (always, even when paused for dramatic effect)
         if (this.waveAnnouncement) {
             this.waveAnnouncement.update();
         }
-        
+
         // Fade flash effect
         if (this.flashAlpha > 0) {
             this.flashAlpha *= 0.9;
@@ -5256,7 +5209,7 @@ class Game {
 
         this.updateItemEffects();
         this.updateCombo();
-        
+
         // Update music intensity based on game state
         if (musicManager.playing) {
             let intensity = 0.4; // Base playing intensity
@@ -5266,7 +5219,7 @@ class Game {
             if (this.comboCount >= 10) intensity = Math.min(1, intensity + 0.15); // Big combo boost
             musicManager.setIntensity(intensity);
         }
-        
+
         // UFO spawning
         this.ufoSpawnTimer--;
         if (this.ufoSpawnTimer <= 0 && this.ufos.length < 2) {
@@ -5276,23 +5229,23 @@ class Game {
 
         if (this.ship) {
             const mergedKeys = this.touchControls.getKeys(this.keys);
-            
+
             // Direct angle control from touch joystick
             const targetAngle = this.touchControls.getTargetAngle();
             if (targetAngle !== null) {
                 this.ship.angle = targetAngle;
             }
-            
+
             // Pass touch thrust amount for gentler acceleration
             this.ship.touchThrustAmount = this.touchControls.getThrustAmount();
-            
+
             this.ship.update(mergedKeys);
-            
+
             // Handle auto-fire (touch or keyboard space held)
             if (this.touchControls.shouldAutoFire() || mergedKeys[' ']) {
                 this.ship.shoot();
             }
-            
+
             // Handle engine sound (check both keyboard and touch)
             const isThrusting = mergedKeys['ArrowUp'];
             if (isThrusting && !this.wasThrusting) {
@@ -5312,10 +5265,10 @@ class Game {
             // Frozen asteroids still get visual updates
             this.asteroids.forEach(asteroid => asteroid.updateFrozenVisuals());
         }
-        
+
         // Update UFOs
         this.ufos.forEach(ufo => ufo.update());
-        
+
         // Update enemy bullets
         this.enemyBullets = this.enemyBullets.filter(bullet => {
             bullet.update();
@@ -5356,7 +5309,7 @@ class Game {
             item.update();
             return item.lifetime > 0;
         });
-        
+
         // Update floating texts
         if (this.floatingTexts) {
             this.floatingTexts = this.floatingTexts.filter(ft => {
@@ -5366,10 +5319,10 @@ class Game {
                 return ft.lifetime > 0 && ft.alpha > 0;
             });
         }
-        
+
         // Remove UFOs that went off-screen
         this.ufos = this.ufos.filter(ufo => !ufo.offScreen);
-        
+
         // Update boss
         if (this.boss) {
             this.boss.update();
@@ -5377,13 +5330,13 @@ class Game {
                 const defeatedBossLevel = this.level;
                 this.boss = null;
                 this.bossLevel = false;
-                
+
                 // Check for victory (beat final boss at level 30)
                 if (defeatedBossLevel === 30) {
                     this.triggerVictory();
                     return;
                 }
-                
+
                 // After boss defeat, continue to next level
                 this.nextLevel();
                 return;
@@ -5432,18 +5385,18 @@ class Game {
                     this.registerKill(asteroid.x, asteroid.y);
                     this.spawnPowerUp(asteroid.x, asteroid.y);
                     this.spawnItem(asteroid.x, asteroid.y, asteroid.size);
-                    
+
                     // Small chance to earn skill point from asteroid kills
                     if (this.checkSkillPointDrop()) {
                         this.showFloatingText('+1 SKILL POINT!', asteroid.x, asteroid.y - 30, '#ffff00');
                     }
-                    
+
                     this.asteroids.splice(j, 1);
                     break;
                 }
             }
         }
-        
+
         // Bullet vs UFO
         for (let i = this.bullets.length - 1; i >= 0; i--) {
             for (let j = this.ufos.length - 1; j >= 0; j--) {
@@ -5452,7 +5405,7 @@ class Game {
                     this.ufos[j].x, this.ufos[j].y, UFO_SIZE
                 )) {
                     this.bullets.splice(i, 1);
-                    
+
                     const ufo = this.ufos[j];
                     this.createUfoExplosion(ufo.x, ufo.y);
                     this.addScore(UFO_POINTS);
@@ -5464,7 +5417,7 @@ class Game {
                 }
             }
         }
-        
+
         // Bullet vs Boss
         if (this.boss && !this.boss.defeated && !this.boss.entering) {
             for (let i = this.bullets.length - 1; i >= 0; i--) {
@@ -5497,7 +5450,7 @@ class Game {
                     } else {
                         const asteroid = this.asteroids[i];
                         this.createExplosion(asteroid.x, asteroid.y, asteroid.size * 6);
-                        
+
                         // Play shield hit sound
                         soundManager.playShieldHit();
 
@@ -5514,7 +5467,7 @@ class Game {
                 }
             }
         }
-        
+
         // Ship vs UFO
         if (this.ship && !this.ship.invulnerable) {
             for (let i = this.ufos.length - 1; i >= 0; i--) {
@@ -5541,7 +5494,7 @@ class Game {
                 }
             }
         }
-        
+
         // Ship vs Enemy Bullets
         if (this.ship && !this.ship.invulnerable) {
             for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
@@ -5550,7 +5503,7 @@ class Game {
                     this.enemyBullets[i].x, this.enemyBullets[i].y, 4
                 )) {
                     this.enemyBullets.splice(i, 1);
-                    
+
                     if (!this.ship.hasShield) {
                         const shipX = this.ship.x;
                         const shipY = this.ship.y;
@@ -5611,12 +5564,12 @@ class Game {
 
     draw() {
         const ctx = this.ctx;
-        
+
         ctx.save();
-        
+
         // Apply screen shake
         this.screenShake.apply(ctx);
-        
+
         // Draw gradient background
         const bgGradient = ctx.createRadialGradient(
             CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 0,
@@ -5626,7 +5579,7 @@ class Game {
         bgGradient.addColorStop(1, COLORS.background);
         ctx.fillStyle = bgGradient;
         ctx.fillRect(-20, -20, CANVAS_WIDTH + 40, CANVAS_HEIGHT + 40);
-        
+
         // Draw starfield
         this.starField.draw(ctx);
 
@@ -5643,7 +5596,7 @@ class Game {
             ctx.restore();
             return;
         }
-        
+
         if (this.state === 'victory') {
             this.drawVictoryScreen(ctx);
             ctx.restore();
@@ -5681,7 +5634,7 @@ class Game {
         if (this.boss) this.boss.draw(ctx);
         this.enemyBullets.forEach(bullet => bullet.draw(ctx));
         this.bullets.forEach(bullet => bullet.draw(ctx));
-        
+
         if (this.ship) {
             this.ship.draw(ctx);
             this.ship.drawPowerUpIndicators(ctx);
@@ -5691,7 +5644,7 @@ class Game {
         this.drawItemEffectIndicators(ctx);
         this.drawFloatingTexts(ctx);
         this.drawTouchInventory(ctx);
-        
+
         // Draw flash overlay
         if (this.flashAlpha > 0) {
             ctx.fillStyle = this.flashColor;
@@ -5699,7 +5652,7 @@ class Game {
             ctx.fillRect(-20, -20, CANVAS_WIDTH + 40, CANVAS_HEIGHT + 40);
             ctx.globalAlpha = 1;
         }
-        
+
         // Vignette effect
         const vignette = ctx.createRadialGradient(
             CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_HEIGHT * 0.4,
@@ -5709,48 +5662,48 @@ class Game {
         vignette.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
         ctx.fillStyle = vignette;
         ctx.fillRect(-20, -20, CANVAS_WIDTH + 40, CANVAS_HEIGHT + 40);
-        
+
         // Subtle scanline overlay for CRT/cyberpunk feel
         this.drawScanlines(ctx);
-        
+
         // Draw skill tree UI overlay (if visible)
         this.skillTreeUI.draw(ctx);
-        
+
         // Draw save/load UI overlay (if visible)
         this.saveLoadUI.draw(ctx);
-        
+
         // Draw help popup (if visible)
         if (this.showHelp) {
             this.drawHelpScreen(ctx);
         }
-        
+
         // Draw wave announcement (on top of most elements)
         if (this.waveAnnouncement) {
             this.waveAnnouncement.draw(ctx);
         }
-        
+
         ctx.restore();  // End screen shake transform
-        
+
         // Draw mobile touch controls overlay (on top of everything, no screen shake)
         if (this.touchControls) {
             this.touchControls.draw(ctx);
         }
     }
-    
+
     drawScanlines(ctx) {
         // Subtle CRT scanline effect for cyberpunk aesthetic
         // Only draw every few frames for performance and subtlety
         if (this.time % 2 !== 0) return;
-        
+
         ctx.save();
         ctx.globalAlpha = 0.03;
         ctx.fillStyle = '#000000';
-        
+
         // Horizontal scanlines
         for (let y = 0; y < CANVAS_HEIGHT; y += 3) {
             ctx.fillRect(0, y, CANVAS_WIDTH, 1);
         }
-        
+
         // Subtle animated interference line (occasional)
         if (this.time % 120 < 3) {
             const interferenceY = (this.time * 7) % CANVAS_HEIGHT;
@@ -5758,28 +5711,28 @@ class Game {
             ctx.fillStyle = '#00ffff';
             ctx.fillRect(0, interferenceY, CANVAS_WIDTH, 2);
         }
-        
+
         ctx.restore();
     }
-    
+
     drawHelpScreen(ctx) {
         // Semi-transparent overlay
         ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        
+
         // Help box
         const boxWidth = 700;
         const boxHeight = 500;
         const boxX = (CANVAS_WIDTH - boxWidth) / 2;
         const boxY = (CANVAS_HEIGHT - boxHeight) / 2;
-        
+
         // Box background
         ctx.fillStyle = '#0a0020';
         ctx.strokeStyle = '#00ffff';
         ctx.lineWidth = 2;
         ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
         ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
-        
+
         // Title
         ctx.save();
         ctx.shadowColor = '#00ffff';
@@ -5789,17 +5742,17 @@ class Game {
         ctx.textAlign = 'center';
         ctx.fillText('HELP & CONTROLS', CANVAS_WIDTH / 2, boxY + 40);
         ctx.restore();
-        
+
         let y = boxY + 80;
         const leftCol = boxX + 30;
         const rightCol = boxX + 370;
-        
+
         // Controls section
         ctx.fillStyle = '#ffff00';
         ctx.font = 'bold 16px "Courier New", monospace';
         ctx.textAlign = 'left';
         ctx.fillText('CONTROLS', leftCol, y);
-        
+
         ctx.fillStyle = '#ffffff';
         ctx.font = '14px "Courier New", monospace';
         y += 25;
@@ -5818,13 +5771,13 @@ class Game {
         ctx.fillText('P / ESC - Pause', leftCol, y);
         y += 20;
         ctx.fillText('H - This help screen', leftCol, y);
-        
+
         // Powerups section
         y = boxY + 80;
         ctx.fillStyle = '#ff00ff';
         ctx.font = 'bold 16px "Courier New", monospace';
         ctx.fillText('POWER-UPS (auto-activate)', rightCol, y);
-        
+
         ctx.font = '14px "Courier New", monospace';
         y += 25;
         Object.entries(POWERUP_TYPES).forEach(([key, powerup]) => {
@@ -5832,13 +5785,13 @@ class Game {
             ctx.fillText(`${powerup.symbol} - ${powerup.name}`, rightCol, y);
             y += 20;
         });
-        
+
         // Items section
         y += 15;
         ctx.fillStyle = '#ffd700';
         ctx.font = 'bold 16px "Courier New", monospace';
         ctx.fillText('ITEMS (press 1-5 to use)', rightCol, y);
-        
+
         ctx.font = '14px "Courier New", monospace';
         y += 25;
         Object.entries(ITEM_TYPES).forEach(([key, item]) => {
@@ -5846,14 +5799,14 @@ class Game {
             ctx.fillText(`${item.symbol} - ${item.name}: ${item.description}`, rightCol, y);
             y += 20;
         });
-        
+
         // Tips section
         y = boxY + 380;
         ctx.fillStyle = '#00ff00';
         ctx.font = 'bold 16px "Courier New", monospace';
         ctx.textAlign = 'center';
         ctx.fillText('TIPS', CANVAS_WIDTH / 2, y);
-        
+
         ctx.fillStyle = '#aaaaaa';
         ctx.font = '13px "Courier New", monospace';
         y += 25;
@@ -5862,15 +5815,15 @@ class Game {
         ctx.fillText('Items go to inventory - press 1-5 to use them!', CANVAS_WIDTH / 2, y);
         y += 18;
         ctx.fillText('Build combos for score multipliers', CANVAS_WIDTH / 2, y);
-        
+
         // Close button (tappable)
         const closeBtnWidth = 180;
         const closeBtnHeight = 36;
         const closeBtnX = CANVAS_WIDTH / 2 - closeBtnWidth / 2;
         const closeBtnY = boxY + boxHeight - 50;
-        
+
         this.uiButtons.closeHelp = { x: closeBtnX, y: closeBtnY, w: closeBtnWidth, h: closeBtnHeight };
-        
+
         ctx.fillStyle = 'rgba(136, 136, 136, 0.2)';
         ctx.strokeStyle = '#888888';
         ctx.lineWidth = 2;
@@ -5878,7 +5831,7 @@ class Game {
         ctx.roundRect(closeBtnX, closeBtnY, closeBtnWidth, closeBtnHeight, 6);
         ctx.fill();
         ctx.stroke();
-        
+
         ctx.fillStyle = '#cccccc';
         ctx.font = '16px "Courier New", monospace';
         ctx.textAlign = 'center';
@@ -5895,7 +5848,7 @@ class Game {
         ctx.textAlign = 'center';
         ctx.fillText('ASTEROIDS', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50);
         ctx.restore();
-        
+
         // Subtitle with subtle glow
         ctx.save();
         ctx.shadowColor = COLORS.bullet;
@@ -5905,7 +5858,7 @@ class Game {
         ctx.textAlign = 'center';
         ctx.fillText('N E O N   E D I T I O N', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 10);
         ctx.restore();
-        
+
         // Start text - static, no blinking
         ctx.save();
         ctx.fillStyle = '#ffffff';
@@ -5917,7 +5870,7 @@ class Game {
             ctx.fillText('Press ENTER to Start', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
         }
         ctx.restore();
-        
+
         // Sound instructions / Touch hint
         ctx.save();
         ctx.fillStyle = '#666666';
@@ -5929,16 +5882,16 @@ class Game {
             ctx.fillText('M = Toggle SFX  |  N = Toggle Music', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
         }
         ctx.restore();
-        
+
         // Skill tree button (tappable)
         const skillBtnY = CANVAS_HEIGHT / 2 + 110;
         const skillBtnWidth = 260;
         const skillBtnHeight = 36;
         const skillBtnX = CANVAS_WIDTH / 2 - skillBtnWidth / 2;
-        
+
         // Store bounds for tap detection
         this.uiButtons.skillTree = { x: skillBtnX, y: skillBtnY, w: skillBtnWidth, h: skillBtnHeight };
-        
+
         ctx.save();
         ctx.fillStyle = 'rgba(255, 255, 0, 0.15)';
         ctx.strokeStyle = '#ffff00';
@@ -5949,21 +5902,21 @@ class Game {
         ctx.roundRect(skillBtnX, skillBtnY, skillBtnWidth, skillBtnHeight, 6);
         ctx.fill();
         ctx.stroke();
-        
+
         ctx.fillStyle = '#ffff00';
         ctx.font = '16px "Courier New", monospace';
         ctx.textAlign = 'center';
         ctx.fillText(`SKILL TREE (${this.skillTree.skillPoints} pts)`, CANVAS_WIDTH / 2, skillBtnY + 24);
         ctx.restore();
-        
+
         // Help button (tappable)
         const helpBtnY = CANVAS_HEIGHT / 2 + 155;
         const helpBtnWidth = 200;
         const helpBtnHeight = 32;
         const helpBtnX = CANVAS_WIDTH / 2 - helpBtnWidth / 2;
-        
+
         this.uiButtons.help = { x: helpBtnX, y: helpBtnY, w: helpBtnWidth, h: helpBtnHeight };
-        
+
         ctx.save();
         ctx.fillStyle = 'rgba(0, 255, 255, 0.12)';
         ctx.strokeStyle = '#00ffff';
@@ -5974,22 +5927,22 @@ class Game {
         ctx.roundRect(helpBtnX, helpBtnY, helpBtnWidth, helpBtnHeight, 6);
         ctx.fill();
         ctx.stroke();
-        
+
         ctx.fillStyle = '#00ffff';
         ctx.font = '14px "Courier New", monospace';
         ctx.textAlign = 'center';
         ctx.fillText('HELP & CONTROLS', CANVAS_WIDTH / 2, helpBtnY + 22);
         ctx.restore();
-        
+
         // Load game button (if saves exist)
         if (this.saveLoadUI.saveManager.hasSaves()) {
             const loadBtnY = CANVAS_HEIGHT / 2 + 195;
             const loadBtnWidth = 200;
             const loadBtnHeight = 32;
             const loadBtnX = CANVAS_WIDTH / 2 - loadBtnWidth / 2;
-            
+
             this.uiButtons.load = { x: loadBtnX, y: loadBtnY, w: loadBtnWidth, h: loadBtnHeight };
-            
+
             ctx.save();
             ctx.fillStyle = 'rgba(0, 255, 136, 0.12)';
             ctx.strokeStyle = '#00ff88';
@@ -6000,7 +5953,7 @@ class Game {
             ctx.roundRect(loadBtnX, loadBtnY, loadBtnWidth, loadBtnHeight, 6);
             ctx.fill();
             ctx.stroke();
-            
+
             ctx.fillStyle = '#00ff88';
             ctx.font = '14px "Courier New", monospace';
             ctx.textAlign = 'center';
@@ -6009,7 +5962,7 @@ class Game {
         } else {
             this.uiButtons.load = null;
         }
-        
+
         // Draw decorative asteroids in background
         ctx.save();
         ctx.strokeStyle = COLORS.asteroidStroke + '40';
@@ -6023,20 +5976,20 @@ class Game {
             ctx.stroke();
         }
         ctx.restore();
-        
+
         // Draw high scores on right side
         const scores = highScoreManager.getScores();
         if (scores.length > 0) {
             ctx.save();
             ctx.textAlign = 'right';
-            
+
             // Title
             ctx.shadowColor = '#ffff00';
             ctx.shadowBlur = 10;
             ctx.fillStyle = '#ffff00';
             ctx.font = 'bold 18px "Courier New", monospace';
             ctx.fillText('HIGH SCORES', CANVAS_WIDTH - 30, 40);
-            
+
             // Scores list
             ctx.shadowBlur = 5;
             ctx.font = '14px "Courier New", monospace';
@@ -6056,7 +6009,7 @@ class Game {
         ctx.fillStyle = 'rgba(0, 0, 20, 0.85)';
         ctx.fillRect(-20, -20, CANVAS_WIDTH + 40, CANVAS_HEIGHT + 40);
         ctx.restore();
-        
+
         // PAUSED title - static, subtle glow
         ctx.save();
         ctx.shadowColor = '#00ffff';
@@ -6066,13 +6019,13 @@ class Game {
         ctx.textAlign = 'center';
         ctx.fillText('PAUSED', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 100);
         ctx.restore();
-        
+
         // Current stats box
         const boxY = CANVAS_HEIGHT / 2 - 50;
         const boxWidth = 280;
         const boxHeight = 120;
         const boxX = CANVAS_WIDTH / 2 - boxWidth / 2;
-        
+
         // Stats box background
         ctx.save();
         ctx.fillStyle = 'rgba(0, 20, 40, 0.9)';
@@ -6085,7 +6038,7 @@ class Game {
         ctx.fill();
         ctx.stroke();
         ctx.restore();
-        
+
         // Stats labels
         ctx.save();
         ctx.textAlign = 'left';
@@ -6094,35 +6047,35 @@ class Game {
         ctx.fillText('Score:', boxX + 20, boxY + 35);
         ctx.fillText('Level:', boxX + 20, boxY + 65);
         ctx.fillText('Lives:', boxX + 20, boxY + 95);
-        
+
         // Stats values with glow
         ctx.textAlign = 'right';
         ctx.shadowBlur = 10;
-        
+
         ctx.shadowColor = '#00ffff';
         ctx.fillStyle = '#00ffff';
         ctx.fillText(this.score.toLocaleString(), boxX + boxWidth - 20, boxY + 35);
-        
+
         ctx.shadowColor = '#ffff00';
         ctx.fillStyle = '#ffff00';
         ctx.fillText(this.level, boxX + boxWidth - 20, boxY + 65);
-        
+
         ctx.shadowColor = '#ff4466';
         ctx.fillStyle = '#ff4466';
         ctx.fillText(this.lives, boxX + boxWidth - 20, boxY + 95);
         ctx.restore();
-        
+
         // Menu options - tappable buttons
         const menuY = CANVAS_HEIGHT / 2 + 90;
         const btnWidth = 260;
         const btnHeight = 40;
         const btnGap = 12;
-        
+
         // Resume button
         const resumeBtnX = CANVAS_WIDTH / 2 - btnWidth / 2;
         const resumeBtnY = menuY;
         this.uiButtons.resume = { x: resumeBtnX, y: resumeBtnY, w: btnWidth, h: btnHeight };
-        
+
         ctx.save();
         ctx.fillStyle = 'rgba(0, 255, 136, 0.2)';
         ctx.strokeStyle = '#00ff88';
@@ -6133,17 +6086,17 @@ class Game {
         ctx.roundRect(resumeBtnX, resumeBtnY, btnWidth, btnHeight, 8);
         ctx.fill();
         ctx.stroke();
-        
+
         ctx.fillStyle = '#00ff88';
         ctx.font = 'bold 18px "Courier New", monospace';
         ctx.textAlign = 'center';
         ctx.fillText('RESUME', CANVAS_WIDTH / 2, resumeBtnY + 26);
         ctx.restore();
-        
+
         // Restart button
         const restartBtnY = menuY + btnHeight + btnGap;
         this.uiButtons.restart = { x: resumeBtnX, y: restartBtnY, w: btnWidth, h: btnHeight };
-        
+
         ctx.save();
         ctx.fillStyle = 'rgba(255, 136, 0, 0.2)';
         ctx.strokeStyle = '#ff8800';
@@ -6154,13 +6107,13 @@ class Game {
         ctx.roundRect(resumeBtnX, restartBtnY, btnWidth, btnHeight, 8);
         ctx.fill();
         ctx.stroke();
-        
+
         ctx.fillStyle = '#ff8800';
         ctx.font = 'bold 18px "Courier New", monospace';
         ctx.textAlign = 'center';
         ctx.fillText('RESTART', CANVAS_WIDTH / 2, restartBtnY + 26);
         ctx.restore();
-        
+
         // Touch controls toggle button
         const touchLabel = this.touchControls ? this.touchControls.getModeLabel() : 'N/A';
         const touchText = `Touch: ${touchLabel}`;
@@ -6168,11 +6121,11 @@ class Game {
         const touchBtnWidth = 200;
         const touchBtnHeight = 32;
         const touchBtnX = CANVAS_WIDTH / 2 - touchBtnWidth / 2;
-        
+
         // Store bounds for click detection (both old and new location)
         this.touchToggleBounds = { x: touchBtnX, y: touchBtnY, w: touchBtnWidth, h: touchBtnHeight };
         this.uiButtons.touchToggle = this.touchToggleBounds;
-        
+
         ctx.save();
         ctx.fillStyle = 'rgba(255, 0, 255, 0.15)';
         ctx.strokeStyle = '#ff00ff';
@@ -6181,7 +6134,7 @@ class Game {
         ctx.roundRect(touchBtnX, touchBtnY, touchBtnWidth, touchBtnHeight, 6);
         ctx.fill();
         ctx.stroke();
-        
+
         ctx.shadowColor = '#ff00ff';
         ctx.shadowBlur = 10;
         ctx.fillStyle = '#ff00ff';
@@ -6189,7 +6142,7 @@ class Game {
         ctx.textAlign = 'center';
         ctx.fillText(touchText, CANVAS_WIDTH / 2, touchBtnY + 21);
         ctx.restore();
-        
+
         // Controls reminder at bottom
         ctx.save();
         ctx.textAlign = 'center';
@@ -6199,7 +6152,7 @@ class Game {
         ctx.fillText('M = SFX  |  N = Music  |  K = Skills  |  F5 = Save  |  F9 = Load', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 40);
         ctx.restore();
     }
-    
+
     drawGameOverScreen(ctx) {
         // Game over with red glow
         ctx.save();
@@ -6210,7 +6163,7 @@ class Game {
         ctx.textAlign = 'center';
         ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 100);
         ctx.restore();
-        
+
         // Story defeat message
         ctx.save();
         ctx.fillStyle = '#ff6666';
@@ -6222,7 +6175,7 @@ class Game {
         }
         ctx.fillText(this.defeatMessage, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60);
         ctx.restore();
-        
+
         // Score
         ctx.save();
         ctx.shadowColor = COLORS.shipPrimary;
@@ -6232,7 +6185,7 @@ class Game {
         ctx.textAlign = 'center';
         ctx.fillText(`Final Score: ${this.score.toLocaleString()}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
         ctx.restore();
-        
+
         // High score entry or celebration
         if (this.isEnteringInitials) {
             // New high score - subtle glow, no pulsing
@@ -6244,14 +6197,14 @@ class Game {
             ctx.textAlign = 'center';
             ctx.fillText(`NEW HIGH SCORE! #${this.newHighScoreRank}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25);
             ctx.restore();
-            
+
             // Initials entry
             ctx.save();
             ctx.fillStyle = '#ffffff';
             ctx.font = '20px "Courier New", monospace';
             ctx.textAlign = 'center';
             ctx.fillText('Enter your initials:', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
-            
+
             // Draw initials boxes - properly centered
             const boxWidth = 40;
             const boxGap = 10;
@@ -6260,12 +6213,12 @@ class Game {
             for (let i = 0; i < 3; i++) {
                 const x = startX + i * (boxWidth + boxGap);
                 const y = CANVAS_HEIGHT / 2 + 75;
-                
+
                 // Box background
                 ctx.strokeStyle = i < this.initials.length ? '#00ffff' : '#444444';
                 ctx.lineWidth = 2;
                 ctx.strokeRect(x, y, boxWidth, 45);
-                
+
                 // Letter
                 if (i < this.initials.length) {
                     ctx.shadowColor = '#00ffff';
@@ -6275,7 +6228,7 @@ class Game {
                     ctx.textAlign = 'center';
                     ctx.fillText(this.initials[i], x + boxWidth/2, y + 34);
                 }
-                
+
                 // Cursor blink
                 if (i === this.initials.length && Math.floor(this.time / 20) % 2 === 0) {
                     ctx.fillStyle = '#00ffff';
@@ -6283,7 +6236,7 @@ class Game {
                 }
             }
             ctx.restore();
-            
+
             // Virtual keyboard for touch devices
             if (this.touchControls && this.touchControls.enabled) {
                 this.drawInitialsKeyboard(ctx);
@@ -6306,7 +6259,7 @@ class Game {
                 ctx.fillText('TOP SCORE!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25);
                 ctx.restore();
             }
-            
+
             // Restart prompt - indicate tap works too
             ctx.save();
             ctx.fillStyle = '#aaaaaa';
@@ -6320,24 +6273,24 @@ class Game {
             ctx.restore();
         }
     }
-    
+
     // Draw virtual keyboard for initials entry on touch devices
     drawInitialsKeyboard(ctx) {
         const keyWidth = 36;
         const keyHeight = 40;
         const keyGap = 6;
-        
+
         // QWERTY-style layout rows with backspace
         const rows = [
             ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
             ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', '⌫'],
             ['Z', 'X', 'C', 'V', 'B', 'N', 'M']
         ];
-        
+
         const totalWidth = rows[0].length * (keyWidth + keyGap) - keyGap;
         const startX = CANVAS_WIDTH / 2 - totalWidth / 2;
         const startY = CANVAS_HEIGHT / 2 + 150;
-        
+
         // Store keyboard info for click detection
         this.initialsKeyboard = {
             rows: rows,
@@ -6348,20 +6301,20 @@ class Game {
             startY: startY,
             totalWidth: totalWidth
         };
-        
+
         ctx.save();
-        
+
         // Draw each row
         for (let row = 0; row < rows.length; row++) {
             const rowKeys = rows[row];
             const rowWidth = rowKeys.length * (keyWidth + keyGap) - keyGap;
             const rowX = startX + (totalWidth - rowWidth) / 2;
             const rowY = startY + row * (keyHeight + keyGap);
-            
+
             for (let col = 0; col < rowKeys.length; col++) {
                 const key = rowKeys[col];
                 const keyX = rowX + col * (keyWidth + keyGap);
-                
+
                 // Key background
                 const isBackspace = key === '⌫';
                 ctx.fillStyle = isBackspace ? 'rgba(255, 100, 100, 0.2)' : 'rgba(0, 255, 255, 0.15)';
@@ -6371,7 +6324,7 @@ class Game {
                 ctx.roundRect(keyX, rowY, keyWidth, keyHeight, 4);
                 ctx.fill();
                 ctx.stroke();
-                
+
                 // Key letter
                 ctx.fillStyle = isBackspace ? '#ff6666' : '#00ffff';
                 ctx.font = 'bold 18px "Courier New", monospace';
@@ -6380,15 +6333,15 @@ class Game {
                 ctx.fillText(key, keyX + keyWidth / 2, rowY + keyHeight / 2);
             }
         }
-        
+
         // Confirm button
         const confirmBtnWidth = 160;
         const confirmBtnHeight = 40;
         const confirmBtnX = CANVAS_WIDTH / 2 - confirmBtnWidth / 2;
         const confirmBtnY = startY + rows.length * (keyHeight + keyGap) + 10;
-        
+
         this.uiButtons.confirmInitials = { x: confirmBtnX, y: confirmBtnY, w: confirmBtnWidth, h: confirmBtnHeight };
-        
+
         const canConfirm = this.initials.length > 0;
         ctx.fillStyle = canConfirm ? 'rgba(0, 255, 0, 0.25)' : 'rgba(100, 100, 100, 0.15)';
         ctx.strokeStyle = canConfirm ? '#00ff00' : '#666666';
@@ -6397,13 +6350,13 @@ class Game {
         ctx.roundRect(confirmBtnX, confirmBtnY, confirmBtnWidth, confirmBtnHeight, 6);
         ctx.fill();
         ctx.stroke();
-        
+
         ctx.fillStyle = canConfirm ? '#00ff00' : '#666666';
         ctx.font = 'bold 18px "Courier New", monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('CONFIRM', confirmBtnX + confirmBtnWidth / 2, confirmBtnY + confirmBtnHeight / 2);
-        
+
         ctx.restore();
     }
 
@@ -6423,7 +6376,7 @@ class Game {
         indicators.forEach((indicator, index) => {
             const y = 30 + index * 25;
             const timeLeft = (indicator.timer / 60).toFixed(1);
-            
+
             ctx.save();
             ctx.shadowColor = indicator.color;
             ctx.shadowBlur = 10;
@@ -6437,7 +6390,7 @@ class Game {
 
     drawFloatingTexts(ctx) {
         if (!this.floatingTexts) return;
-        
+
         this.floatingTexts.forEach(ft => {
             ctx.save();
             ctx.globalAlpha = ft.alpha;
@@ -6450,28 +6403,28 @@ class Game {
             ctx.restore();
         });
     }
-    
+
     // Draw on-canvas inventory for touch users
     drawTouchInventory(ctx) {
         if (!this.touchControls || !this.touchControls.enabled) return;
         if (this.state !== 'playing') return;
-        
+
         const slotSize = 40;
         const slotGap = 8;
         const startX = CANVAS_WIDTH / 2 - ((this.maxInventorySlots * (slotSize + slotGap)) - slotGap) / 2;
         const startY = 15;
-        
+
         // Store slot positions for touch detection
         this.touchInventorySlots = [];
-        
+
         for (let i = 0; i < this.maxInventorySlots; i++) {
             const x = startX + i * (slotSize + slotGap);
             const y = startY;
-            
+
             this.touchInventorySlots.push({ x, y, width: slotSize, height: slotSize, index: i });
-            
+
             ctx.save();
-            
+
             // Slot background
             ctx.fillStyle = 'rgba(0, 0, 20, 0.7)';
             ctx.strokeStyle = '#333366';
@@ -6480,19 +6433,19 @@ class Game {
             ctx.roundRect(x, y, slotSize, slotSize, 6);
             ctx.fill();
             ctx.stroke();
-            
+
             // Item in slot
             if (i < this.inventory.length) {
                 const item = this.inventory[i];
                 const itemType = ITEM_TYPES[item.type];
-                
+
                 // Guard against invalid item types
                 if (itemType) {
                     ctx.strokeStyle = itemType.color;
                     ctx.shadowColor = itemType.color;
                     ctx.shadowBlur = 8;
                     ctx.stroke();
-                    
+
                     ctx.fillStyle = itemType.color;
                     ctx.font = 'bold 20px "Courier New", monospace';
                     ctx.textAlign = 'center';
@@ -6502,7 +6455,7 @@ class Game {
                     console.warn('Invalid item type in inventory:', item.type);
                 }
             }
-            
+
             // Slot number
             ctx.shadowBlur = 0;
             ctx.fillStyle = '#444466';
@@ -6510,63 +6463,63 @@ class Game {
             ctx.textAlign = 'right';
             ctx.textBaseline = 'bottom';
             ctx.fillText(i + 1, x + slotSize - 4, y + slotSize - 2);
-            
+
             ctx.restore();
         }
     }
 
     drawComboIndicator(ctx) {
         if (this.comboCount < 2) return;
-        
+
         const mult = this.getComboMultiplier();
         const isMaxed = mult >= COMBO_MULTIPLIER_CAP;
         const comboColor = isMaxed ? COLORS.comboMax : COLORS.combo;
-        
+
         const alpha = this.comboDisplayTimer > 0 ? 1 : Math.max(0.4, this.comboTimer / COMBO_TIMEOUT);
-        
+
         ctx.save();
         ctx.globalAlpha = alpha;
-        
+
         // Position: top center of screen
         const x = CANVAS_WIDTH / 2;
         const y = 50;
-        
+
         // Subtle glow
         ctx.shadowColor = comboColor;
         ctx.shadowBlur = 10;
-        
+
         // Combo count - static size
         ctx.fillStyle = comboColor;
         ctx.font = 'bold 32px "Courier New", monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(`${this.comboCount}x COMBO`, x, y);
-        
+
         // Multiplier display
         ctx.shadowBlur = 5;
         ctx.font = 'bold 16px "Courier New", monospace';
         ctx.fillStyle = isMaxed ? '#ffffff' : comboColor;
         ctx.fillText(`SCORE x${mult.toFixed(1)}`, x, y + 28);
-        
+
         // Timer bar
         const barWidth = 100;
         const barHeight = 4;
         const timePercent = this.comboTimer / COMBO_TIMEOUT;
-        
+
         ctx.shadowBlur = 5;
         ctx.fillStyle = '#333333';
         ctx.fillRect(x - barWidth / 2, y + 45, barWidth, barHeight);
-        
+
         ctx.fillStyle = comboColor;
         ctx.fillRect(x - barWidth / 2, y + 45, barWidth * timePercent, barHeight);
-        
+
         ctx.restore();
-        
+
         // Floating "+combo" text at kill location
         if (this.comboDisplayTimer > 50 && this.comboCount > 1) {
             const floatAlpha = (this.comboDisplayTimer - 50) / 10;
             const floatY = this.lastKillY - (60 - this.comboDisplayTimer) * 2;
-            
+
             ctx.save();
             ctx.globalAlpha = floatAlpha;
             ctx.shadowColor = comboColor;
@@ -6639,29 +6592,29 @@ class UFO {
         this.direction = direction;
         this.vx = Math.cos(direction) * UFO_SPEED;
         this.vy = Math.sin(direction) * UFO_SPEED;
-        
+
         // Sinusoidal movement
         this.baseY = y;
         this.waveOffset = Math.random() * Math.PI * 2;
         this.waveAmplitude = 50 + Math.random() * 30;
         this.waveFrequency = 0.02 + Math.random() * 0.01;
         this.travelDistance = 0;
-        
+
         // Shooting
         this.shootTimer = UFO_SHOOT_INTERVAL / 2 + Math.random() * UFO_SHOOT_INTERVAL / 2;
-        
+
         // Animation
         this.pulsePhase = Math.random() * Math.PI * 2;
         this.rotationPhase = 0;
         this.lightPhase = 0;
-        
+
         // State
         this.frozen = false;
         this.frozenVx = 0;
         this.frozenVy = 0;
         this.offScreen = false;
     }
-    
+
     update() {
         if (this.frozen) {
             // Just update visuals when frozen
@@ -6669,28 +6622,28 @@ class UFO {
             this.lightPhase += 0.1;
             return;
         }
-        
+
         // Move forward
         this.x += this.vx;
         this.travelDistance += Math.abs(this.vx);
-        
+
         // Sinusoidal vertical movement
         const waveY = Math.sin(this.travelDistance * this.waveFrequency + this.waveOffset) * this.waveAmplitude;
         this.y = this.baseY + waveY;
         this.baseY += this.vy * 0.1; // Slight vertical drift
-        
+
         // Animation
         this.pulsePhase += 0.05;
         this.rotationPhase += 0.03;
         this.lightPhase += 0.15;
-        
+
         // Shooting logic - aim at player
         this.shootTimer--;
         if (this.shootTimer <= 0 && this.game.ship) {
             this.shoot();
             this.shootTimer = UFO_SHOOT_INTERVAL + (Math.random() - 0.5) * 30;
         }
-        
+
         // Check if off-screen (with margin for despawn)
         const margin = 100;
         if (this.x < -margin || this.x > CANVAS_WIDTH + margin ||
@@ -6701,79 +6654,79 @@ class UFO {
             }
         }
     }
-    
+
     shoot() {
         if (!this.game.ship) return;
-        
+
         // Calculate angle to player with some inaccuracy
         const dx = this.game.ship.x - this.x;
         const dy = this.game.ship.y - this.y;
         const angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.3; // Add inaccuracy
-        
+
         this.game.enemyBullets.push(new EnemyBullet(this.x, this.y, angle, this.game));
         soundManager.playUfoLaser();
     }
-    
+
     draw(ctx) {
         const pulse = 1 + Math.sin(this.pulsePhase) * 0.05;
         const frozen = this.frozen;
-        
+
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.scale(pulse, pulse);
-        
+
         const glowColor = frozen ? '#87ceeb' : COLORS.ufoGlow;
         const primaryColor = frozen ? '#aaddee' : COLORS.ufoPrimary;
         const secondaryColor = frozen ? '#cceeee' : COLORS.ufoSecondary;
-        
+
         // Outer glow
         ctx.shadowColor = glowColor;
         ctx.shadowBlur = 20;
-        
+
         // === CLASSIC UFO SHAPE ===
-        
+
         // Bottom dome (darker)
         const bottomGradient = ctx.createRadialGradient(0, 3, 0, 0, 3, UFO_SIZE * 0.6);
         bottomGradient.addColorStop(0, primaryColor + '60');
         bottomGradient.addColorStop(1, primaryColor + '20');
-        
+
         ctx.fillStyle = bottomGradient;
         ctx.beginPath();
         ctx.ellipse(0, 3, UFO_SIZE * 0.5, UFO_SIZE * 0.25, 0, 0, Math.PI);
         ctx.fill();
-        
+
         // Main saucer body
         const bodyGradient = ctx.createLinearGradient(0, -UFO_SIZE * 0.4, 0, UFO_SIZE * 0.2);
         bodyGradient.addColorStop(0, secondaryColor);
         bodyGradient.addColorStop(0.5, primaryColor);
         bodyGradient.addColorStop(1, primaryColor + '80');
-        
+
         ctx.fillStyle = bodyGradient;
         ctx.strokeStyle = primaryColor;
         ctx.lineWidth = 2;
-        
+
         ctx.beginPath();
         ctx.ellipse(0, 0, UFO_SIZE, UFO_SIZE * 0.35, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
-        
+
         // Top dome (cockpit)
         const domeGradient = ctx.createRadialGradient(0, -3, 0, 0, -3, UFO_SIZE * 0.45);
         domeGradient.addColorStop(0, '#ffffff');
         domeGradient.addColorStop(0.3, secondaryColor);
         domeGradient.addColorStop(1, primaryColor + '80');
-        
+
         ctx.fillStyle = domeGradient;
         ctx.beginPath();
         ctx.ellipse(0, -3, UFO_SIZE * 0.4, UFO_SIZE * 0.35, 0, Math.PI, 0);
         ctx.fill();
-        
+
         ctx.strokeStyle = primaryColor;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.ellipse(0, -3, UFO_SIZE * 0.4, UFO_SIZE * 0.35, 0, Math.PI, 0);
         ctx.stroke();
-        
+
         // Rotating lights around the rim
         ctx.shadowBlur = 10;
         const numLights = 6;
@@ -6781,17 +6734,17 @@ class UFO {
             const lightAngle = (i / numLights) * Math.PI * 2 + this.lightPhase;
             const lightX = Math.cos(lightAngle) * UFO_SIZE * 0.85;
             const lightY = Math.sin(lightAngle) * UFO_SIZE * 0.3;
-            
+
             // Alternating colors
             const lightOn = Math.sin(this.lightPhase * 2 + i * Math.PI / 3) > 0;
             ctx.fillStyle = lightOn ? '#ffffff' : primaryColor + '60';
             ctx.shadowColor = lightOn ? '#ffffff' : glowColor;
-            
+
             ctx.beginPath();
             ctx.arc(lightX, lightY, 2, 0, Math.PI * 2);
             ctx.fill();
         }
-        
+
         // Center bottom light (targeting beam hint)
         if (!frozen) {
             const beamPulse = (Math.sin(this.pulsePhase * 3) + 1) * 0.5;
@@ -6802,9 +6755,9 @@ class UFO {
             ctx.arc(0, UFO_SIZE * 0.2, 3, 0, Math.PI * 2);
             ctx.fill();
         }
-        
+
         ctx.restore();
-        
+
         // Warning indicator if UFO is targeting
         if (!frozen && this.game.ship && this.shootTimer < 30) {
             const warningAlpha = (30 - this.shootTimer) / 30;
@@ -6833,14 +6786,14 @@ class EnemyBullet {
         this.trailCounter = 0;
         this.pulsePhase = Math.random() * Math.PI * 2;
     }
-    
+
     update() {
         this.x += this.vx;
         this.y += this.vy;
         this.lifetime--;
         this.trailCounter++;
         this.pulsePhase += 0.2;
-        
+
         // Spawn trail particles (green)
         if (this.trailCounter % 3 === 0) {
             this.game.trailParticles.push(new TrailParticle(
@@ -6853,19 +6806,19 @@ class EnemyBullet {
                 -this.vy * 0.05
             ));
         }
-        
+
         // Wrap around screen
         if (this.x < 0) this.x = CANVAS_WIDTH;
         if (this.x > CANVAS_WIDTH) this.x = 0;
         if (this.y < 0) this.y = CANVAS_HEIGHT;
         if (this.y > CANVAS_HEIGHT) this.y = 0;
     }
-    
+
     draw(ctx) {
         const pulse = 1 + Math.sin(this.pulsePhase) * 0.2;
-        
+
         ctx.save();
-        
+
         // Outer glow - green
         ctx.shadowColor = COLORS.ufoBullet;
         ctx.shadowBlur = 12;
@@ -6873,14 +6826,14 @@ class EnemyBullet {
         ctx.beginPath();
         ctx.arc(this.x, this.y, 4 * pulse, 0, Math.PI * 2);
         ctx.fill();
-        
+
         // Bright core
         ctx.shadowBlur = 5;
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
         ctx.arc(this.x, this.y, 2 * pulse, 0, Math.PI * 2);
         ctx.fill();
-        
+
         ctx.restore();
     }
 }
@@ -6905,7 +6858,7 @@ class Ship {
         this.hasTripleShot = false;
         this.hasSpeedBoost = false;
         this.powerUpTimers = { shield: 0, rapidFire: 0, tripleShot: 0, speedBoost: 0 };
-        
+
         // Invulnerability on spawn
         this.invulnerable = true;
         this.invulnerableTimer = 120;
@@ -6915,7 +6868,7 @@ class Ship {
     update(keys) {
         this.updatePowerUps();
         this.engineFlicker = Math.random();
-        
+
         // Spawn animation
         if (this.invulnerable) {
             this.invulnerableTimer--;
@@ -6943,13 +6896,13 @@ class Ship {
             this.vx += Math.cos(this.angle) * SHIP_THRUST * speedMultiplier * touchMod;
             this.vy += Math.sin(this.angle) * SHIP_THRUST * speedMultiplier * touchMod;
             this.thrustAmount = Math.min(1, this.thrustAmount + 0.1);
-            
+
             // Spawn enhanced engine trail particles
             if (this.game.time % TRAIL_SPAWN_RATE === 0) {
                 const exhaustX = this.x - Math.cos(this.angle) * SHIP_SIZE;
                 const exhaustY = this.y - Math.sin(this.angle) * SHIP_SIZE;
                 const thrustIntensity = this.thrustAmount;
-                
+
                 // Main engine particles (more particles at higher thrust)
                 const particleCount = 3 + Math.floor(thrustIntensity * 3);
                 for (let i = 0; i < particleCount; i++) {
@@ -6960,11 +6913,11 @@ class Ship {
                     else if (colorRoll < 0.35) color = COLORS.shipEngineCore;  // Yellow
                     else if (colorRoll < 0.7) color = COLORS.shipEngine;       // Orange
                     else color = '#ff2200';                        // Red edges
-                    
+
                     const spreadAngle = (Math.random() - 0.5) * 0.5;  // Cone spread
                     const exhaustAngle = this.angle + Math.PI + spreadAngle;
                     const speed = (1.5 + Math.random() * 2) * (0.5 + thrustIntensity * 0.5);
-                    
+
                     this.game.trailParticles.push(new TrailParticle(
                         exhaustX + (Math.random() - 0.5) * 6,
                         exhaustY + (Math.random() - 0.5) * 6,
@@ -6975,7 +6928,7 @@ class Ship {
                         Math.sin(exhaustAngle) * speed + (Math.random() - 0.5) * 0.5
                     ));
                 }
-                
+
                 // Occasional spark burst at high thrust
                 if (thrustIntensity > 0.7 && Math.random() < 0.3) {
                     for (let i = 0; i < 4; i++) {
@@ -7015,7 +6968,7 @@ class Ship {
         if (this.shootCooldown > 0) return;
 
         const angles = this.hasTripleShot ? [-0.2, 0, 0.2] : [0];
-        
+
         angles.forEach(angleOffset => {
             const bullet = new Bullet(
                 this.x + Math.cos(this.angle + angleOffset) * SHIP_SIZE,
@@ -7027,7 +6980,7 @@ class Ship {
         });
 
         this.shootCooldown = this.hasRapidFire ? 3 : 10;
-        
+
         // Play laser sound
         soundManager.playLaser();
     }
@@ -7035,7 +6988,7 @@ class Ship {
     draw(ctx) {
         ctx.save();
         ctx.translate(this.x, this.y);
-        
+
         // Spawn animation
         if (this.invulnerable) {
             const flicker = Math.sin(this.spawnAnimation * 3) > 0;
@@ -7056,7 +7009,7 @@ class Ship {
             ctx.beginPath();
             ctx.arc(0, 0, SHIP_SIZE + 8 + shieldPulse, 0, Math.PI * 2);
             ctx.stroke();
-            
+
             // Inner shield glow
             ctx.strokeStyle = COLORS.shipPrimary + '40';
             ctx.lineWidth = 4;
@@ -7069,7 +7022,7 @@ class Ship {
         ctx.rotate(this.angle);
 
         const S = SHIP_SIZE;
-        
+
         // Color palette matching reference image
         const bodyDark = '#8B4513';      // Dark brown
         const bodyMid = '#CD853F';       // Peru/copper
@@ -7077,16 +7030,16 @@ class Ship {
         const wingTip = '#FF8C00';       // Dark orange
         const wingTipGlow = '#FFD700';   // Gold
         const crystalDark = '#006666';   // Dark teal
-        const crystalMid = '#00CED1';    // Dark turquoise  
+        const crystalMid = '#00CED1';    // Dark turquoise
         const crystalLight = '#7FFFD4';  // Aquamarine
         const flameOrange = '#FF6600';
         const flameYellow = '#FFCC00';
-        
+
         // === MAIN ENGINE FLAME (center, behind ship) ===
         if (this.thrustAmount > 0) {
             const flameLen = (25 + this.engineFlicker * 15) * this.thrustAmount;
             const flameWid = 8 * this.thrustAmount;
-            
+
             // Main center flame
             const flameGrad = ctx.createLinearGradient(-S * 0.6 - flameLen, 0, -S * 0.6, 0);
             flameGrad.addColorStop(0, 'transparent');
@@ -7094,7 +7047,7 @@ class Ship {
             flameGrad.addColorStop(0.6, flameOrange);
             flameGrad.addColorStop(0.85, flameYellow);
             flameGrad.addColorStop(1, '#FFFFFF');
-            
+
             ctx.save();
             ctx.shadowColor = flameOrange;
             ctx.shadowBlur = 25;
@@ -7106,17 +7059,17 @@ class Ship {
             ctx.closePath();
             ctx.fill();
             ctx.restore();
-            
+
             // Wing tip flames (smaller)
             const tipFlameLen = (12 + this.engineFlicker * 8) * this.thrustAmount;
             const tipFlameWid = 4 * this.thrustAmount;
-            
+
             [[-S * 0.75, -S * 0.65], [-S * 0.75, S * 0.65]].forEach(pos => {
                 const tipGrad = ctx.createLinearGradient(pos[0] - tipFlameLen, pos[1], pos[0], pos[1]);
                 tipGrad.addColorStop(0, 'transparent');
                 tipGrad.addColorStop(0.4, flameOrange + '80');
                 tipGrad.addColorStop(1, flameYellow);
-                
+
                 ctx.save();
                 ctx.shadowColor = flameOrange;
                 ctx.shadowBlur = 12;
@@ -7134,13 +7087,13 @@ class Ship {
         // === SWEPT WINGS (angular, copper colored) ===
         ctx.shadowColor = wingTip;
         ctx.shadowBlur = 8;
-        
+
         // Top wing - main body
         const wingGrad1 = ctx.createLinearGradient(-S * 0.8, -S * 0.8, S * 0.2, 0);
         wingGrad1.addColorStop(0, bodyDark);
         wingGrad1.addColorStop(0.5, bodyMid);
         wingGrad1.addColorStop(1, bodyLight);
-        
+
         ctx.fillStyle = wingGrad1;
         ctx.strokeStyle = bodyDark;
         ctx.lineWidth = 1;
@@ -7153,7 +7106,7 @@ class Ship {
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-        
+
         // Top wing orange tip
         ctx.fillStyle = wingTip;
         ctx.shadowColor = wingTipGlow;
@@ -7164,7 +7117,7 @@ class Ship {
         ctx.lineTo(-S * 0.75, -S * 0.65);
         ctx.closePath();
         ctx.fill();
-        
+
         // Bottom wing - main body
         ctx.shadowBlur = 8;
         ctx.fillStyle = wingGrad1;
@@ -7178,7 +7131,7 @@ class Ship {
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-        
+
         // Bottom wing orange tip
         ctx.fillStyle = wingTip;
         ctx.shadowColor = wingTipGlow;
@@ -7193,17 +7146,17 @@ class Ship {
         // === MAIN FUSELAGE (copper/bronze angular body) ===
         ctx.shadowColor = bodyMid;
         ctx.shadowBlur = 10;
-        
+
         const bodyGrad = ctx.createLinearGradient(-S * 0.5, -S * 0.3, S * 0.5, S * 0.3);
         bodyGrad.addColorStop(0, bodyDark);
         bodyGrad.addColorStop(0.3, bodyMid);
         bodyGrad.addColorStop(0.7, bodyLight);
         bodyGrad.addColorStop(1, bodyMid);
-        
+
         ctx.fillStyle = bodyGrad;
         ctx.strokeStyle = bodyDark;
         ctx.lineWidth = 1.5;
-        
+
         ctx.beginPath();
         // Pointed nose
         ctx.moveTo(S * 1.1, 0);
@@ -7221,7 +7174,7 @@ class Ship {
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-        
+
         // Body detail lines (angular panels)
         ctx.strokeStyle = bodyDark + '80';
         ctx.lineWidth = 1;
@@ -7237,18 +7190,18 @@ class Ship {
         // === CRYSTAL COCKPIT (large, faceted, cyan) ===
         ctx.shadowColor = crystalLight;
         ctx.shadowBlur = 15;
-        
+
         // Main crystal shape
         const crystalGrad = ctx.createLinearGradient(S * 0.8, -S * 0.15, S * 0.2, S * 0.15);
         crystalGrad.addColorStop(0, crystalLight);
         crystalGrad.addColorStop(0.3, crystalMid);
         crystalGrad.addColorStop(0.7, crystalDark);
         crystalGrad.addColorStop(1, '#004444');
-        
+
         ctx.fillStyle = crystalGrad;
         ctx.strokeStyle = crystalMid;
         ctx.lineWidth = 1.5;
-        
+
         // Diamond/crystal shape cockpit
         ctx.beginPath();
         ctx.moveTo(S * 0.9, 0);           // Front point
@@ -7259,7 +7212,7 @@ class Ship {
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-        
+
         // Crystal facet lines (inner detail)
         ctx.strokeStyle = crystalLight + '60';
         ctx.lineWidth = 1;
@@ -7272,7 +7225,7 @@ class Ship {
         ctx.lineTo(S * 0.45, 0);
         ctx.lineTo(S * 0.55, S * 0.18);
         ctx.stroke();
-        
+
         // Crystal shine highlight
         ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
         ctx.beginPath();
@@ -7354,7 +7307,7 @@ class Ship {
         indicators.forEach((indicator, index) => {
             const y = 30 + index * 25;
             const timeLeft = (indicator.timer / 60).toFixed(1);
-            
+
             ctx.save();
             ctx.shadowColor = indicator.color;
             ctx.shadowBlur = 10;
@@ -7396,7 +7349,7 @@ class Asteroid {
                 y: Math.sin(vertAngle) * distance
             });
         }
-        
+
         // Color variation
         this.hue = 20 + Math.random() * 20; // Orange-ish
     }
@@ -7421,7 +7374,7 @@ class Asteroid {
     draw(ctx) {
         const pulse = 1 + Math.sin(this.pulsePhase) * 0.05;
         const frozen = this.game.freezeActive;
-        
+
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.rotation);
@@ -7441,7 +7394,7 @@ class Asteroid {
             gradient.addColorStop(0, `hsl(${this.hue}, 70%, 15%)`);
             gradient.addColorStop(1, `hsl(${this.hue}, 80%, 5%)`);
         }
-        
+
         ctx.fillStyle = gradient;
         ctx.strokeStyle = frozen ? '#87ceeb' : COLORS.asteroidStroke;
         ctx.lineWidth = 2;
@@ -7517,44 +7470,44 @@ class Bullet {
         const pulse = 1 + Math.sin(this.pulsePhase) * 0.15;
         const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
         const trailLength = 12;
-        
+
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
-        
+
         // Create elongated bullet trail gradient
         const gradient = ctx.createLinearGradient(-trailLength, 0, 6, 0);
         gradient.addColorStop(0, 'transparent');
         gradient.addColorStop(0.3, COLORS.bullet + '44');
         gradient.addColorStop(0.6, COLORS.bullet + 'aa');
         gradient.addColorStop(1, COLORS.bulletCore);
-        
+
         // Outer glow trail
         ctx.shadowColor = COLORS.bullet;
         ctx.shadowBlur = 20 * pulse;
         ctx.fillStyle = gradient;
-        
+
         // Draw elongated bullet shape
         ctx.beginPath();
         ctx.moveTo(-trailLength, 0);
         ctx.quadraticCurveTo(-trailLength * 0.5, -3 * pulse, 5, 0);
         ctx.quadraticCurveTo(-trailLength * 0.5, 3 * pulse, -trailLength, 0);
         ctx.fill();
-        
+
         // Bright core with pulse
         ctx.shadowBlur = 10;
         ctx.fillStyle = COLORS.bulletCore;
         ctx.beginPath();
         ctx.arc(2, 0, 2.5 * pulse, 0, Math.PI * 2);
         ctx.fill();
-        
+
         // Hot center point
         ctx.shadowBlur = 5;
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
         ctx.arc(3, 0, 1.2, 0, Math.PI * 2);
         ctx.fill();
-        
+
         ctx.restore();
     }
 }
@@ -7572,7 +7525,7 @@ class PowerUp {
         this.rotationPhase = Math.random() * Math.PI * 2;
         this.innerRotation = 0;
         this.sparklePhase = 0;
-        
+
         // Particle trail system
         this.trailParticles = [];
         this.trailSpawnTimer = 0;
@@ -7580,11 +7533,11 @@ class PowerUp {
         const angle = Math.random() * Math.PI * 2;
         this.vx = Math.cos(angle) * 0.3;
         this.vy = Math.sin(angle) * 0.3;
-        
+
         // Type-specific visual properties
         this.visualConfig = this.getVisualConfig();
     }
-    
+
     getVisualConfig() {
         const configs = {
             SHIELD: {
@@ -7655,20 +7608,20 @@ class PowerUp {
         this.x += this.vx;
         this.y += this.vy;
         this.lifetime--;
-        
+
         const cfg = this.visualConfig;
         this.pulsePhase += cfg.pulseSpeed;
         this.rotationPhase += cfg.rotationSpeed;
         this.innerRotation += cfg.innerRotationSpeed;
         this.sparklePhase += 0.2;
-        
+
         // Spawn trail particles
         this.trailSpawnTimer++;
         if (this.trailSpawnTimer >= cfg.trailRate) {
             this.trailSpawnTimer = 0;
             this.spawnTrailParticle();
         }
-        
+
         // Update trail particles
         for (let i = this.trailParticles.length - 1; i >= 0; i--) {
             const p = this.trailParticles[i];
@@ -7687,13 +7640,13 @@ class PowerUp {
         if (this.y < 0) this.y = CANVAS_HEIGHT;
         if (this.y > CANVAS_HEIGHT) this.y = 0;
     }
-    
+
     spawnTrailParticle() {
         const cfg = this.visualConfig;
         const powerUpInfo = POWERUP_TYPES[this.type];
         const angle = Math.random() * Math.PI * 2;
         const speed = 0.2 + Math.random() * 0.3;
-        
+
         this.trailParticles.push({
             x: this.x + (Math.random() - 0.5) * 8,
             y: this.y + (Math.random() - 0.5) * 8,
@@ -7709,31 +7662,31 @@ class PowerUp {
         const powerUpInfo = POWERUP_TYPES[this.type];
         const cfg = this.visualConfig;
         const pulse = Math.sin(this.pulsePhase) * cfg.pulseAmount + POWERUP_SIZE;
-        
+
         // Draw trail particles first (behind the power-up)
         this.drawTrailParticles(ctx, powerUpInfo.color);
 
         ctx.save();
         ctx.translate(this.x, this.y);
-        
+
         // Draw outer rotating ring with segments
         this.drawOuterRing(ctx, powerUpInfo.color, cfg, pulse);
-        
+
         // Draw the main shape
         ctx.save();
         ctx.rotate(this.rotationPhase);
         this.drawShape(ctx, powerUpInfo.color, cfg, pulse);
         ctx.restore();
-        
+
         // Draw the inner icon (counter-rotating)
         ctx.save();
         ctx.rotate(this.innerRotation);
         this.drawIcon(ctx, powerUpInfo.color, cfg, pulse);
         ctx.restore();
-        
+
         // Draw sparkle effects
         this.drawSparkles(ctx, powerUpInfo.color, cfg, pulse);
-        
+
         ctx.restore();
 
         // Warning flicker when expiring
@@ -7741,7 +7694,7 @@ class PowerUp {
             this.drawExpirationWarning(ctx, powerUpInfo.color);
         }
     }
-    
+
     drawTrailParticles(ctx, color) {
         for (const p of this.trailParticles) {
             const alpha = p.life / 35;
@@ -7756,12 +7709,12 @@ class PowerUp {
             ctx.restore();
         }
     }
-    
+
     drawOuterRing(ctx, color, cfg, pulse) {
         const ringRadius = pulse + 6;
         const segments = 8;
         const segmentGap = 0.15;
-        
+
         ctx.save();
         ctx.rotate(-this.rotationPhase * 2);
         ctx.shadowColor = color;
@@ -7769,7 +7722,7 @@ class PowerUp {
         ctx.strokeStyle = color;
         ctx.lineWidth = 1.5;
         ctx.lineCap = 'round';
-        
+
         for (let i = 0; i < segments; i++) {
             const startAngle = (i / segments) * Math.PI * 2 + segmentGap;
             const endAngle = ((i + 1) / segments) * Math.PI * 2 - segmentGap;
@@ -7779,21 +7732,21 @@ class PowerUp {
         }
         ctx.restore();
     }
-    
+
     drawShape(ctx, color, cfg, pulse) {
         ctx.shadowColor = color;
         ctx.shadowBlur = cfg.glowIntensity;
-        
+
         // Create gradient fill
         const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, pulse);
         gradient.addColorStop(0, cfg.secondaryColor + 'cc');
         gradient.addColorStop(0.5, color + '88');
         gradient.addColorStop(1, color + '22');
-        
+
         ctx.fillStyle = gradient;
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
-        
+
         if (cfg.shape === 'hexagon' || cfg.shape === 'diamond' || cfg.shape === 'triangle') {
             this.drawPolygon(ctx, cfg.sides, pulse - 2);
         } else if (cfg.shape === 'star') {
@@ -7802,7 +7755,7 @@ class PowerUp {
             this.drawHeart(ctx, pulse * 0.9);
         }
     }
-    
+
     drawPolygon(ctx, sides, radius) {
         ctx.beginPath();
         for (let i = 0; i < sides; i++) {
@@ -7816,7 +7769,7 @@ class PowerUp {
         ctx.fill();
         ctx.stroke();
     }
-    
+
     drawStar(ctx, points, outerRadius, innerRadius) {
         ctx.beginPath();
         for (let i = 0; i < points * 2; i++) {
@@ -7831,7 +7784,7 @@ class PowerUp {
         ctx.fill();
         ctx.stroke();
     }
-    
+
     drawHeart(ctx, size) {
         ctx.beginPath();
         const s = size * 0.06;
@@ -7842,7 +7795,7 @@ class PowerUp {
         ctx.fill();
         ctx.stroke();
     }
-    
+
     drawIcon(ctx, color, cfg, pulse) {
         ctx.shadowColor = '#ffffff';
         ctx.shadowBlur = 10;
@@ -7851,9 +7804,9 @@ class PowerUp {
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        
+
         const s = pulse * 0.35;  // Icon scale
-        
+
         switch (this.type) {
             case 'SHIELD':
                 this.drawShieldIcon(ctx, s);
@@ -7872,7 +7825,7 @@ class PowerUp {
                 break;
         }
     }
-    
+
     drawShieldIcon(ctx, s) {
         // Shield icon - hexagonal barrier
         ctx.beginPath();
@@ -7885,7 +7838,7 @@ class PowerUp {
         }
         ctx.closePath();
         ctx.stroke();
-        
+
         // Inner energy lines
         ctx.beginPath();
         ctx.moveTo(0, -s * 0.5);
@@ -7894,7 +7847,7 @@ class PowerUp {
         ctx.lineTo(s * 0.4, 0);
         ctx.stroke();
     }
-    
+
     drawRapidFireIcon(ctx, s) {
         // Rapid fire - multiple bullets
         const bulletSpacing = s * 0.5;
@@ -7906,14 +7859,14 @@ class PowerUp {
             ctx.lineTo(s * 0.5 - offsetX, offsetY);
             ctx.lineTo(s * 0.7 - offsetX, offsetY);
             ctx.stroke();
-            
+
             // Bullet tip
             ctx.beginPath();
             ctx.arc(s * 0.5 - offsetX, offsetY, 2, 0, Math.PI * 2);
             ctx.fill();
         }
     }
-    
+
     drawTripleShotIcon(ctx, s) {
         // Triple shot - three arrows spreading
         const angles = [-0.4, 0, 0.4];
@@ -7930,7 +7883,7 @@ class PowerUp {
             ctx.restore();
         }
     }
-    
+
     drawSpeedBoostIcon(ctx, s) {
         // Speed boost - motion lines with arrow
         ctx.beginPath();
@@ -7941,7 +7894,7 @@ class PowerUp {
         ctx.moveTo(s * 0.5, 0);
         ctx.lineTo(s * 0.2, s * 0.4);
         ctx.stroke();
-        
+
         // Speed lines
         ctx.lineWidth = 1.5;
         ctx.beginPath();
@@ -7953,7 +7906,7 @@ class PowerUp {
         ctx.lineTo(-s * 0.3, s * 0.3);
         ctx.stroke();
     }
-    
+
     drawExtraLifeIcon(ctx, s) {
         // Extra life - plus sign / cross
         ctx.lineWidth = 3;
@@ -7964,24 +7917,24 @@ class PowerUp {
         ctx.lineTo(s * 0.5, 0);
         ctx.stroke();
     }
-    
+
     drawSparkles(ctx, color, cfg, pulse) {
         const sparkleCount = 4;
         const sparkleRadius = pulse + 10;
-        
+
         for (let i = 0; i < sparkleCount; i++) {
             const angle = this.sparklePhase + (i / sparkleCount) * Math.PI * 2;
             const x = Math.cos(angle) * sparkleRadius;
             const y = Math.sin(angle) * sparkleRadius;
             const size = 2 + Math.sin(this.sparklePhase * 2 + i) * 1.5;
             const alpha = 0.5 + Math.sin(this.sparklePhase * 3 + i * 2) * 0.3;
-            
+
             ctx.save();
             ctx.globalAlpha = alpha;
             ctx.fillStyle = '#ffffff';
             ctx.shadowColor = color;
             ctx.shadowBlur = 8;
-            
+
             // Draw 4-point star sparkle
             ctx.beginPath();
             ctx.moveTo(x, y - size);
@@ -7990,7 +7943,7 @@ class PowerUp {
             ctx.lineTo(x - size * 0.3, y);
             ctx.closePath();
             ctx.fill();
-            
+
             ctx.beginPath();
             ctx.moveTo(x - size, y);
             ctx.lineTo(x, y + size * 0.3);
@@ -7998,11 +7951,11 @@ class PowerUp {
             ctx.lineTo(x, y - size * 0.3);
             ctx.closePath();
             ctx.fill();
-            
+
             ctx.restore();
         }
     }
-    
+
     drawExpirationWarning(ctx, color) {
         const flicker = Math.sin(this.lifetime * 0.3) > 0;
         if (flicker) {
@@ -8024,12 +7977,12 @@ class PowerUp {
 function createPowerUpPickupEffect(game, x, y, type) {
     const powerUpInfo = POWERUP_TYPES[type];
     const color = powerUpInfo.color;
-    
+
     // Ring expansion
     for (let i = 0; i < 2; i++) {
         game.particles.push(new ExpandingRing(x, y, color, 20 + i * 10, i * 5));
     }
-    
+
     // Burst of particles
     for (let i = 0; i < 20; i++) {
         const angle = (i / 20) * Math.PI * 2;
@@ -8080,7 +8033,7 @@ class ExpandingRing {
         this.life = 25 + delay;
         this.maxLife = 25;
     }
-    
+
     update() {
         if (this.delay > 0) {
             this.delay--;
@@ -8090,7 +8043,7 @@ class ExpandingRing {
         this.life--;
         return this.life > 0;
     }
-    
+
     draw(ctx) {
         if (this.delay > 0) return;
         const alpha = this.life / this.maxLife;
@@ -8121,7 +8074,7 @@ class Item {
         this.rotationPhase = Math.random() * Math.PI * 2;
         this.innerRotation = 0;
         this.sparklePhase = 0;
-        
+
         // Trail particles
         this.trailParticles = [];
         this.trailTimer = 0;
@@ -8129,10 +8082,10 @@ class Item {
         const angle = Math.random() * Math.PI * 2;
         this.vx = Math.cos(angle) * 0.4;
         this.vy = Math.sin(angle) * 0.4;
-        
+
         this.visualConfig = this.getVisualConfig();
     }
-    
+
     getVisualConfig() {
         const configs = {
             REPAIR_KIT: {
@@ -8193,21 +8146,21 @@ class Item {
         this.x += this.vx;
         this.y += this.vy;
         this.lifetime--;
-        
+
         const cfg = this.visualConfig;
         this.pulsePhase += 0.08;
         this.bobPhase += 0.1;
         this.rotationPhase += cfg.rotationSpeed;
         this.innerRotation += cfg.innerRotationSpeed;
         this.sparklePhase += 0.15;
-        
+
         // Spawn trail particles
         this.trailTimer++;
         if (this.trailTimer >= cfg.trailRate) {
             this.trailTimer = 0;
             this.spawnTrailParticle();
         }
-        
+
         // Update trail particles
         for (let i = this.trailParticles.length - 1; i >= 0; i--) {
             const p = this.trailParticles[i];
@@ -8225,12 +8178,12 @@ class Item {
         if (this.y < 0) this.y = CANVAS_HEIGHT;
         if (this.y > CANVAS_HEIGHT) this.y = 0;
     }
-    
+
     spawnTrailParticle() {
         const itemInfo = ITEM_TYPES[this.type];
         const angle = Math.random() * Math.PI * 2;
         const speed = 0.1 + Math.random() * 0.2;
-        
+
         this.trailParticles.push({
             x: this.x + (Math.random() - 0.5) * 6,
             y: this.y + (Math.random() - 0.5) * 6,
@@ -8251,7 +8204,7 @@ class Item {
         const cfg = this.visualConfig;
         const pulse = Math.sin(this.pulsePhase) * 2 + ITEM_SIZE;
         const bob = Math.sin(this.bobPhase) * 2;
-        
+
         // Draw trail particles
         for (const p of this.trailParticles) {
             const alpha = p.life / 25;
@@ -8268,25 +8221,25 @@ class Item {
 
         ctx.save();
         ctx.translate(this.x, this.y + bob);
-        
+
         // Draw outer rotating ring
         this.drawOuterRing(ctx, itemInfo.color, pulse);
-        
+
         // Main shape
         ctx.save();
         ctx.rotate(this.rotationPhase);
         this.drawShape(ctx, itemInfo.color, cfg, pulse);
         ctx.restore();
-        
+
         // Inner icon
         ctx.save();
         ctx.rotate(this.innerRotation);
         this.drawIcon(ctx, itemInfo.color, cfg, pulse);
         ctx.restore();
-        
+
         // Sparkles
         this.drawSparkles(ctx, itemInfo.color, pulse);
-        
+
         ctx.restore();
 
         // Expiry warning
@@ -8306,7 +8259,7 @@ class Item {
             }
         }
     }
-    
+
     drawOuterRing(ctx, color, pulse) {
         ctx.save();
         ctx.rotate(-this.sparklePhase * 0.5);
@@ -8318,20 +8271,20 @@ class Item {
         ctx.stroke();
         ctx.restore();
     }
-    
+
     drawShape(ctx, color, cfg, pulse) {
         ctx.shadowColor = color;
         ctx.shadowBlur = cfg.glowIntensity;
-        
+
         const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, pulse);
         gradient.addColorStop(0, cfg.secondaryColor + 'aa');
         gradient.addColorStop(0.6, color + '66');
         gradient.addColorStop(1, color + '11');
-        
+
         ctx.fillStyle = gradient;
         ctx.strokeStyle = color;
         ctx.lineWidth = 1.5;
-        
+
         switch (cfg.shape) {
             case 'cross':
                 this.drawCross(ctx, pulse);
@@ -8355,7 +8308,7 @@ class Item {
                 this.drawPolygon(ctx, 6, pulse);
         }
     }
-    
+
     drawPolygon(ctx, sides, radius) {
         ctx.beginPath();
         for (let i = 0; i < sides; i++) {
@@ -8369,7 +8322,7 @@ class Item {
         ctx.fill();
         ctx.stroke();
     }
-    
+
     drawCross(ctx, size) {
         const arm = size * 0.4;
         const width = size * 0.8;
@@ -8390,7 +8343,7 @@ class Item {
         ctx.fill();
         ctx.stroke();
     }
-    
+
     drawIcon(ctx, color, cfg, pulse) {
         ctx.shadowColor = '#ffffff';
         ctx.shadowBlur = 8;
@@ -8399,9 +8352,9 @@ class Item {
         ctx.lineWidth = 1.5;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        
+
         const s = pulse * 0.4;
-        
+
         switch (this.type) {
             case 'REPAIR_KIT':
                 // Plus/cross icon
@@ -8413,7 +8366,7 @@ class Item {
                 ctx.lineTo(s * 0.5, 0);
                 ctx.stroke();
                 break;
-                
+
             case 'BOMB':
                 // Explosion icon
                 ctx.beginPath();
@@ -8432,7 +8385,7 @@ class Item {
                 ctx.arc(0, 0, 2, 0, Math.PI * 2);
                 ctx.fill();
                 break;
-                
+
             case 'FREEZE':
                 // Snowflake icon
                 for (let i = 0; i < 6; i++) {
@@ -8449,7 +8402,7 @@ class Item {
                     ctx.restore();
                 }
                 break;
-                
+
             case 'MAGNET':
                 // Magnet/attract icon
                 ctx.beginPath();
@@ -8464,7 +8417,7 @@ class Item {
                     ctx.stroke();
                 }
                 break;
-                
+
             case 'SCORE_BOOST':
                 // Dollar/coin icon
                 ctx.lineWidth = 2;
@@ -8481,7 +8434,7 @@ class Item {
                 break;
         }
     }
-    
+
     drawSparkles(ctx, color, pulse) {
         const count = 3;
         for (let i = 0; i < count; i++) {
@@ -8490,7 +8443,7 @@ class Item {
             const y = Math.sin(angle) * (pulse + 6);
             const size = 1.5 + Math.sin(this.sparklePhase * 2 + i) * 0.8;
             const alpha = 0.4 + Math.sin(this.sparklePhase * 2.5 + i) * 0.3;
-            
+
             ctx.save();
             ctx.globalAlpha = alpha;
             ctx.fillStyle = '#ffffff';
@@ -8506,10 +8459,10 @@ class Item {
 function createItemPickupEffect(game, x, y, type) {
     const itemInfo = ITEM_TYPES[type];
     const color = itemInfo.color;
-    
+
     // Single expanding ring
     game.particles.push(new ExpandingRing(x, y, color, 15, 0));
-    
+
     // Smaller particle burst
     for (let i = 0; i < 12; i++) {
         const angle = (i / 12) * Math.PI * 2;
@@ -8554,38 +8507,38 @@ class Boss {
         this.game = game;
         this.x = CANVAS_WIDTH / 2;
         this.y = -BOSS_SIZE * 2;
-        
+
         this.tier = Math.ceil(game.level / 5);
         this.maxHealth = BOSS_BASE_HEALTH + (this.tier - 1) * BOSS_HEALTH_PER_TIER;
         this.health = this.maxHealth;
-        
+
         this.targetY = 100;
         this.vx = 0;
         this.vy = 0;
         this.movePhase = Math.random() * Math.PI * 2;
         this.entering = true;
-        
+
         this.rotation = 0;
         this.pulsePhase = 0;
         this.coreRotation = 0;
         this.damageFlash = 0;
-        
+
         this.shootTimer = 120;
         this.attackPattern = 0;
         this.burstCount = 0;
-        
+
         this.defeated = false;
         this.deathAnimation = 0;
-        
+
         soundManager.playBossAppear();
     }
-    
+
     update() {
         if (this.defeated) {
             this.updateDeathAnimation();
             return;
         }
-        
+
         if (this.entering) {
             this.y += 2;
             if (this.y >= this.targetY) {
@@ -8596,28 +8549,28 @@ class Boss {
             this.coreRotation += 0.02;
             return;
         }
-        
+
         this.movePhase += 0.015;
         const moveX = Math.sin(this.movePhase) * 200;
         const moveY = Math.sin(this.movePhase * 2) * 30;
-        
+
         this.x = CANVAS_WIDTH / 2 + moveX;
         this.y = this.targetY + moveY;
-        
+
         this.rotation += 0.01;
         this.pulsePhase += 0.05;
         this.coreRotation += 0.03;
-        
+
         if (this.damageFlash > 0) this.damageFlash -= 0.1;
-        
+
         this.updateAttacks();
     }
-    
+
     updateAttacks() {
         if (this.entering || !this.game.ship) return;
-        
+
         this.shootTimer--;
-        
+
         if (this.shootTimer <= 0) {
             switch (this.attackPattern) {
                 case 0: this.attackSpiral(); break;
@@ -8627,13 +8580,13 @@ class Boss {
             }
         }
     }
-    
+
     attackSpiral() {
         this.burstCount++;
         const angle = this.burstCount * 0.3 + Math.PI / 2;
         this.fireBullet(angle);
         soundManager.playBossLaser();
-        
+
         if (this.burstCount >= 20) {
             this.burstCount = 0;
             this.attackPattern = (this.attackPattern + 1) % 4;
@@ -8642,18 +8595,18 @@ class Boss {
             this.shootTimer = 4;
         }
     }
-    
+
     attackSpread() {
         const spreadCount = 5 + this.tier;
         const spreadAngle = Math.PI / 3;
         const startAngle = Math.PI / 2 - spreadAngle / 2;
-        
+
         for (let i = 0; i < spreadCount; i++) {
             const angle = startAngle + (i / (spreadCount - 1)) * spreadAngle;
             this.fireBullet(angle);
         }
         soundManager.playBossLaser();
-        
+
         this.burstCount++;
         if (this.burstCount >= 3) {
             this.burstCount = 0;
@@ -8663,19 +8616,19 @@ class Boss {
             this.shootTimer = 30;
         }
     }
-    
+
     attackTargeted() {
         if (!this.game.ship) return;
-        
+
         const dx = this.game.ship.x - this.x;
         const dy = this.game.ship.y - this.y;
         const angle = Math.atan2(dy, dx);
-        
+
         for (let i = -1; i <= 1; i++) {
             this.fireBullet(angle + i * 0.1, BOSS_BULLET_SPEED * 1.3);
         }
         soundManager.playBossLaser();
-        
+
         this.burstCount++;
         if (this.burstCount >= 4) {
             this.burstCount = 0;
@@ -8685,7 +8638,7 @@ class Boss {
             this.shootTimer = 20;
         }
     }
-    
+
     attackRing() {
         const bulletCount = 12 + this.tier * 2;
         for (let i = 0; i < bulletCount; i++) {
@@ -8693,7 +8646,7 @@ class Boss {
             this.fireBullet(angle);
         }
         soundManager.playBossLaser();
-        
+
         this.burstCount++;
         if (this.burstCount >= 2) {
             this.burstCount = 0;
@@ -8703,50 +8656,50 @@ class Boss {
             this.shootTimer = 40;
         }
     }
-    
+
     fireBullet(angle, speed = BOSS_BULLET_SPEED) {
         this.game.enemyBullets.push(new BossBullet(this.x, this.y, angle, speed, this.game));
     }
-    
+
     takeDamage() {
         if (this.entering || this.defeated) return false;
-        
+
         this.health--;
         this.damageFlash = 1;
         this.game.screenShake.trigger(8);
         soundManager.playBossHit();
-        
+
         if (this.health <= 0) {
             this.defeat();
             return true;
         }
         return false;
     }
-    
+
     defeat() {
         this.defeated = true;
         this.deathAnimation = 0;
         this.game.addScore(BOSS_POINTS);
         this.game.screenShake.trigger(40);
         soundManager.playBossDefeat();
-        
+
         // Award skill points for boss defeat
         this.game.awardBossSkillPoints();
     }
-    
+
     updateDeathAnimation() {
         this.deathAnimation++;
-        
+
         if (this.deathAnimation % 8 === 0 && this.deathAnimation < 80) {
             const offsetX = (Math.random() - 0.5) * BOSS_SIZE * 1.5;
             const offsetY = (Math.random() - 0.5) * BOSS_SIZE * 1.5;
             this.game.createExplosion(this.x + offsetX, this.y + offsetY, 15);
         }
-        
+
         if (this.deathAnimation === 80) {
             this.game.createExplosion(this.x, this.y, 50);
             this.game.triggerFlash('#ff8800', 0.6);
-            
+
             for (let i = 0; i < 3; i++) {
                 const types = Object.keys(POWERUP_TYPES);
                 const randomType = types[Math.floor(Math.random() * types.length)];
@@ -8754,7 +8707,7 @@ class Boss {
                 const oy = (Math.random() - 0.5) * 60;
                 this.game.powerUps.push(new PowerUp(this.x + ox, this.y + oy, randomType, this.game));
             }
-            
+
             const itemTypes = Object.keys(ITEM_TYPES);
             for (let i = 0; i < 2; i++) {
                 const randomItem = itemTypes[Math.floor(Math.random() * itemTypes.length)];
@@ -8764,33 +8717,33 @@ class Boss {
             }
         }
     }
-    
+
     isFinished() {
         return this.defeated && this.deathAnimation > 100;
     }
-    
+
     draw(ctx) {
         if (this.defeated && this.deathAnimation > 80) return;
-        
+
         const pulse = 1 + Math.sin(this.pulsePhase) * 0.05;
         const flash = this.damageFlash;
-        
+
         ctx.save();
         ctx.translate(this.x, this.y);
-        
+
         if (!this.entering && !this.defeated) {
             this.drawHealthBar(ctx);
         }
-        
+
         ctx.scale(pulse, pulse);
-        
+
         const glowColor = flash > 0 ? '#ffffff' : '#ff0066';
         ctx.shadowColor = glowColor;
         ctx.shadowBlur = 30 + Math.sin(this.pulsePhase * 2) * 10;
-        
+
         ctx.save();
         ctx.rotate(this.rotation);
-        
+
         const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, BOSS_SIZE);
         if (flash > 0) {
             gradient.addColorStop(0, '#ffffff');
@@ -8801,11 +8754,11 @@ class Boss {
             gradient.addColorStop(0.5, '#990044');
             gradient.addColorStop(1, '#330022');
         }
-        
+
         ctx.fillStyle = gradient;
         ctx.strokeStyle = flash > 0 ? '#ffffff' : '#ff0066';
         ctx.lineWidth = 3;
-        
+
         ctx.beginPath();
         for (let i = 0; i < 6; i++) {
             const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
@@ -8817,7 +8770,7 @@ class Boss {
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-        
+
         ctx.strokeStyle = '#ff3366';
         ctx.lineWidth = 2;
         for (let i = 0; i < 6; i++) {
@@ -8827,17 +8780,17 @@ class Boss {
             ctx.lineTo(Math.cos(angle) * BOSS_SIZE * 0.8, Math.sin(angle) * BOSS_SIZE * 0.8);
             ctx.stroke();
         }
-        
+
         ctx.restore();
-        
+
         ctx.save();
         ctx.rotate(-this.coreRotation * 2);
-        
+
         const coreGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, BOSS_SIZE * 0.4);
         coreGradient.addColorStop(0, '#ff88aa');
         coreGradient.addColorStop(0.5, '#ff0066');
         coreGradient.addColorStop(1, '#880033');
-        
+
         ctx.fillStyle = coreGradient;
         ctx.beginPath();
         for (let i = 0; i < 8; i++) {
@@ -8850,21 +8803,21 @@ class Boss {
         }
         ctx.closePath();
         ctx.fill();
-        
+
         ctx.fillStyle = '#ffffff';
         ctx.shadowBlur = 20;
         ctx.beginPath();
         ctx.arc(0, 0, BOSS_SIZE * 0.12, 0, Math.PI * 2);
         ctx.fill();
-        
+
         ctx.restore();
-        
+
         for (let i = 0; i < 4; i++) {
             const orbitAngle = this.rotation * 3 + (i / 4) * Math.PI * 2;
             const orbitRadius = BOSS_SIZE * 0.7;
             const orbX = Math.cos(orbitAngle) * orbitRadius;
             const orbY = Math.sin(orbitAngle) * orbitRadius;
-            
+
             ctx.fillStyle = '#ff3366';
             ctx.shadowColor = '#ff0066';
             ctx.shadowBlur = 10;
@@ -8872,29 +8825,29 @@ class Boss {
             ctx.arc(orbX, orbY, 5, 0, Math.PI * 2);
             ctx.fill();
         }
-        
+
         ctx.restore();
     }
-    
+
     drawHealthBar(ctx) {
         const barWidth = BOSS_SIZE * 2;
         const barHeight = 8;
         const barY = -BOSS_SIZE - 25;
-        
+
         ctx.fillStyle = '#330022';
         ctx.fillRect(-barWidth / 2, barY, barWidth, barHeight);
-        
+
         const healthPercent = this.health / this.maxHealth;
         const healthColor = healthPercent > 0.5 ? '#ff0066' : (healthPercent > 0.25 ? '#ff6600' : '#ff0000');
         ctx.fillStyle = healthColor;
         ctx.shadowColor = healthColor;
         ctx.shadowBlur = 10;
         ctx.fillRect(-barWidth / 2, barY, barWidth * healthPercent, barHeight);
-        
+
         ctx.strokeStyle = '#ff3366';
         ctx.lineWidth = 2;
         ctx.strokeRect(-barWidth / 2, barY, barWidth, barHeight);
-        
+
         ctx.fillStyle = '#ff3366';
         ctx.font = 'bold 14px "Courier New", monospace';
         ctx.textAlign = 'center';
@@ -8915,44 +8868,44 @@ class BossBullet {
         this.pulsePhase = Math.random() * Math.PI * 2;
         this.trailCounter = 0;
     }
-    
+
     update() {
         this.x += this.vx;
         this.y += this.vy;
         this.lifetime--;
         this.pulsePhase += 0.2;
         this.trailCounter++;
-        
+
         if (this.trailCounter % 4 === 0) {
             this.game.trailParticles.push(new TrailParticle(
                 this.x, this.y, '#ff0066', 2, 10, -this.vx * 0.05, -this.vy * 0.05
             ));
         }
-        
+
         if (this.x < 0) this.x = CANVAS_WIDTH;
         if (this.x > CANVAS_WIDTH) this.x = 0;
         if (this.y < 0) this.y = CANVAS_HEIGHT;
         if (this.y > CANVAS_HEIGHT) this.y = 0;
     }
-    
+
     draw(ctx) {
         const pulse = 1 + Math.sin(this.pulsePhase) * 0.3;
-        
+
         ctx.save();
-        
+
         ctx.shadowColor = '#ff0066';
         ctx.shadowBlur = 15;
         ctx.fillStyle = '#ff0066';
         ctx.beginPath();
         ctx.arc(this.x, this.y, 5 * pulse, 0, Math.PI * 2);
         ctx.fill();
-        
+
         ctx.shadowBlur = 5;
         ctx.fillStyle = '#ffaacc';
         ctx.beginPath();
         ctx.arc(this.x, this.y, 2.5 * pulse, 0, Math.PI * 2);
         ctx.fill();
-        
+
         ctx.restore();
     }
 }
@@ -8961,42 +8914,42 @@ class BossBullet {
 SoundManager.prototype.playBossAppear = function() {
     if (!this.initialized) return;
     this.resume();
-    
+
     const now = this.audioContext.currentTime;
-    
+
     const osc = this.audioContext.createOscillator();
     const gain = this.audioContext.createGain();
-    
+
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(60, now);
     osc.frequency.exponentialRampToValueAtTime(200, now + 1);
-    
+
     const filter = this.audioContext.createBiquadFilter();
     filter.type = 'lowpass';
     filter.frequency.setValueAtTime(200, now);
     filter.frequency.exponentialRampToValueAtTime(800, now + 1);
-    
+
     gain.gain.setValueAtTime(0, now);
     gain.gain.linearRampToValueAtTime(0.3, now + 0.5);
     gain.gain.linearRampToValueAtTime(0.1, now + 1);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 1.5);
-    
+
     osc.connect(filter);
     filter.connect(gain);
     gain.connect(this.masterGain);
-    
+
     osc.start(now);
     osc.stop(now + 1.5);
-    
+
     const klaxon = this.audioContext.createOscillator();
     const klaxonGain = this.audioContext.createGain();
-    
+
     klaxon.type = 'square';
     klaxon.frequency.setValueAtTime(440, now);
     klaxon.frequency.setValueAtTime(330, now + 0.3);
     klaxon.frequency.setValueAtTime(440, now + 0.6);
     klaxon.frequency.setValueAtTime(330, now + 0.9);
-    
+
     klaxonGain.gain.setValueAtTime(0.15, now);
     klaxonGain.gain.setValueAtTime(0.05, now + 0.25);
     klaxonGain.gain.setValueAtTime(0.15, now + 0.3);
@@ -9005,10 +8958,10 @@ SoundManager.prototype.playBossAppear = function() {
     klaxonGain.gain.setValueAtTime(0.05, now + 0.85);
     klaxonGain.gain.setValueAtTime(0.15, now + 0.9);
     klaxonGain.gain.exponentialRampToValueAtTime(0.01, now + 1.2);
-    
+
     klaxon.connect(klaxonGain);
     klaxonGain.connect(this.masterGain);
-    
+
     klaxon.start(now);
     klaxon.stop(now + 1.2);
 };
@@ -9016,22 +8969,22 @@ SoundManager.prototype.playBossAppear = function() {
 SoundManager.prototype.playBossLaser = function() {
     if (!this.initialized) return;
     this.resume();
-    
+
     const now = this.audioContext.currentTime;
-    
+
     const osc = this.audioContext.createOscillator();
     const gain = this.audioContext.createGain();
-    
+
     osc.type = 'square';
     osc.frequency.setValueAtTime(400, now);
     osc.frequency.exponentialRampToValueAtTime(150, now + 0.1);
-    
+
     gain.gain.setValueAtTime(0.08, now);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-    
+
     osc.connect(gain);
     gain.connect(this.masterGain);
-    
+
     osc.start(now);
     osc.stop(now + 0.1);
 };
@@ -9039,38 +8992,38 @@ SoundManager.prototype.playBossLaser = function() {
 SoundManager.prototype.playBossHit = function() {
     if (!this.initialized) return;
     this.resume();
-    
+
     const now = this.audioContext.currentTime;
-    
+
     const osc = this.audioContext.createOscillator();
     const gain = this.audioContext.createGain();
-    
+
     osc.type = 'sine';
     osc.frequency.setValueAtTime(150, now);
     osc.frequency.exponentialRampToValueAtTime(50, now + 0.2);
-    
+
     gain.gain.setValueAtTime(0.3, now);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-    
+
     osc.connect(gain);
     gain.connect(this.masterGain);
-    
+
     osc.start(now);
     osc.stop(now + 0.2);
-    
+
     const clang = this.audioContext.createOscillator();
     const clangGain = this.audioContext.createGain();
-    
+
     clang.type = 'triangle';
     clang.frequency.setValueAtTime(800, now);
     clang.frequency.exponentialRampToValueAtTime(400, now + 0.1);
-    
+
     clangGain.gain.setValueAtTime(0.15, now);
     clangGain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-    
+
     clang.connect(clangGain);
     clangGain.connect(this.masterGain);
-    
+
     clang.start(now);
     clang.stop(now + 0.15);
 };
@@ -9078,30 +9031,30 @@ SoundManager.prototype.playBossHit = function() {
 SoundManager.prototype.playBossDefeat = function() {
     if (!this.initialized) return;
     this.resume();
-    
+
     const now = this.audioContext.currentTime;
-    
+
     for (let i = 0; i < 5; i++) {
         setTimeout(() => this.playExplosion(3), i * 150);
     }
-    
+
     const notes = [523.25, 659.25, 783.99, 1046.50];
     notes.forEach((freq, i) => {
         const osc = this.audioContext.createOscillator();
         const gain = this.audioContext.createGain();
-        
+
         osc.type = 'square';
         osc.frequency.value = freq;
-        
+
         const startTime = now + 0.8 + i * 0.12;
-        
+
         gain.gain.setValueAtTime(0, startTime);
         gain.gain.linearRampToValueAtTime(0.2, startTime + 0.02);
         gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.3);
-        
+
         osc.connect(gain);
         gain.connect(this.masterGain);
-        
+
         osc.start(startTime);
         osc.stop(startTime + 0.3);
     });
@@ -9112,79 +9065,79 @@ SoundManager.prototype.playBossDefeat = function() {
 SoundManager.prototype.playShipDeath = function() {
     if (!this.initialized) return;
     this.resume();
-    
+
     const now = this.audioContext.currentTime;
-    
+
     // Deep bass impact
     const bass = this.audioContext.createOscillator();
     const bassGain = this.audioContext.createGain();
-    
+
     bass.type = 'sine';
     bass.frequency.setValueAtTime(80, now);
     bass.frequency.exponentialRampToValueAtTime(20, now + 0.8);
-    
+
     bassGain.gain.setValueAtTime(0.5, now);
     bassGain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
-    
+
     bass.connect(bassGain);
     bassGain.connect(this.masterGain);
-    
+
     bass.start(now);
     bass.stop(now + 0.8);
-    
+
     // Cascading explosions
     for (let i = 0; i < 4; i++) {
         const time = now + i * 0.12;
-        
+
         const osc = this.audioContext.createOscillator();
         const gain = this.audioContext.createGain();
-        
+
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(200 - i * 30, time);
         osc.frequency.exponentialRampToValueAtTime(40, time + 0.2);
-        
+
         const filter = this.audioContext.createBiquadFilter();
         filter.type = 'lowpass';
         filter.frequency.setValueAtTime(1500 - i * 200, time);
         filter.frequency.exponentialRampToValueAtTime(100, time + 0.25);
-        
+
         gain.gain.setValueAtTime(0.25 - i * 0.04, time);
         gain.gain.exponentialRampToValueAtTime(0.01, time + 0.25);
-        
+
         osc.connect(filter);
         filter.connect(gain);
         gain.connect(this.masterGain);
-        
+
         osc.start(time);
         osc.stop(time + 0.25);
     }
-    
+
     // Metal shatter noise
     const bufferSize = this.audioContext.sampleRate * 0.5;
     const noiseBuffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
     const output = noiseBuffer.getChannelData(0);
-    
+
     for (let i = 0; i < bufferSize; i++) {
         output[i] = Math.random() * 2 - 1;
     }
-    
+
     const noise = this.audioContext.createBufferSource();
     noise.buffer = noiseBuffer;
-    
+
     const noiseFilter = this.audioContext.createBiquadFilter();
     noiseFilter.type = 'bandpass';
     noiseFilter.frequency.setValueAtTime(2000, now);
     noiseFilter.frequency.exponentialRampToValueAtTime(500, now + 0.5);
     noiseFilter.Q.value = 3;
-    
+
     const noiseGain = this.audioContext.createGain();
     noiseGain.gain.setValueAtTime(0.2, now);
     noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-    
+
     noise.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
     noiseGain.connect(this.masterGain);
-    
+
     noise.start(now);
     noise.stop(now + 0.5);
 };
@@ -9194,50 +9147,50 @@ SoundManager.prototype.playShipDeath = function() {
 SoundManager.prototype.playComboMilestone = function(comboCount) {
     if (!this.initialized) return;
     this.resume();
-    
+
     const now = this.audioContext.currentTime;
-    
+
     // Higher pitch for bigger combos
     const baseFreq = 400 + Math.min(comboCount * 20, 400);
-    
+
     // Quick ascending notes
     const notes = [baseFreq, baseFreq * 1.25, baseFreq * 1.5];
-    
+
     notes.forEach((freq, i) => {
         const osc = this.audioContext.createOscillator();
         const gain = this.audioContext.createGain();
-        
+
         osc.type = 'square';
         osc.frequency.value = freq;
-        
+
         const startTime = now + i * 0.05;
-        
+
         gain.gain.setValueAtTime(0, startTime);
         gain.gain.linearRampToValueAtTime(0.15, startTime + 0.02);
         gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.12);
-        
+
         osc.connect(gain);
         gain.connect(this.masterGain);
-        
+
         osc.start(startTime);
         osc.stop(startTime + 0.12);
     });
-    
+
     // Add sparkle for big combos
     if (comboCount >= 10) {
         const sparkle = this.audioContext.createOscillator();
         const sparkleGain = this.audioContext.createGain();
-        
+
         sparkle.type = 'sine';
         sparkle.frequency.setValueAtTime(2000, now);
         sparkle.frequency.exponentialRampToValueAtTime(3000, now + 0.2);
-        
+
         sparkleGain.gain.setValueAtTime(0.1, now);
         sparkleGain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-        
+
         sparkle.connect(sparkleGain);
         sparkleGain.connect(this.masterGain);
-        
+
         sparkle.start(now);
         sparkle.stop(now + 0.2);
     }
@@ -9248,28 +9201,28 @@ SoundManager.prototype.playComboMilestone = function(comboCount) {
 SoundManager.prototype.playComboBreak = function() {
     if (!this.initialized) return;
     this.resume();
-    
+
     const now = this.audioContext.currentTime;
-    
+
     const osc = this.audioContext.createOscillator();
     const gain = this.audioContext.createGain();
-    
+
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(400, now);
     osc.frequency.exponentialRampToValueAtTime(100, now + 0.2);
-    
+
     const filter = this.audioContext.createBiquadFilter();
     filter.type = 'lowpass';
     filter.frequency.setValueAtTime(800, now);
     filter.frequency.exponentialRampToValueAtTime(200, now + 0.2);
-    
+
     gain.gain.setValueAtTime(0.1, now);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-    
+
     osc.connect(filter);
     filter.connect(gain);
     gain.connect(this.masterGain);
-    
+
     osc.start(now);
     osc.stop(now + 0.2);
 };
@@ -9279,26 +9232,26 @@ SoundManager.prototype.playComboBreak = function() {
 SoundManager.prototype.playSaveSound = function() {
     if (!this.initialized) return;
     this.resume();
-    
+
     const now = this.audioContext.currentTime;
-    
+
     const notes = [440, 554.37, 659.25]; // A4, C#5, E5 (A major chord)
     notes.forEach((freq, i) => {
         const osc = this.audioContext.createOscillator();
         const gain = this.audioContext.createGain();
-        
+
         osc.type = 'sine';
         osc.frequency.value = freq;
-        
+
         const startTime = now + i * 0.08;
-        
+
         gain.gain.setValueAtTime(0, startTime);
         gain.gain.linearRampToValueAtTime(0.15, startTime + 0.02);
         gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
-        
+
         osc.connect(gain);
         gain.connect(this.masterGain);
-        
+
         osc.start(startTime);
         osc.stop(startTime + 0.15);
     });
@@ -9309,42 +9262,42 @@ SoundManager.prototype.playSaveSound = function() {
 SoundManager.prototype.playLoadSound = function() {
     if (!this.initialized) return;
     this.resume();
-    
+
     const now = this.audioContext.currentTime;
-    
+
     const osc = this.audioContext.createOscillator();
     const gain = this.audioContext.createGain();
-    
+
     osc.type = 'sine';
     osc.frequency.setValueAtTime(200, now);
     osc.frequency.exponentialRampToValueAtTime(800, now + 0.15);
     osc.frequency.exponentialRampToValueAtTime(600, now + 0.3);
-    
+
     gain.gain.setValueAtTime(0, now);
     gain.gain.linearRampToValueAtTime(0.15, now + 0.05);
     gain.gain.setValueAtTime(0.15, now + 0.2);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
-    
+
     osc.connect(gain);
     gain.connect(this.masterGain);
-    
+
     osc.start(now);
     osc.stop(now + 0.35);
-    
+
     // Confirmation blip
     const blip = this.audioContext.createOscillator();
     const blipGain = this.audioContext.createGain();
-    
+
     blip.type = 'square';
     blip.frequency.value = 880;
-    
+
     blipGain.gain.setValueAtTime(0, now + 0.3);
     blipGain.gain.linearRampToValueAtTime(0.1, now + 0.32);
     blipGain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-    
+
     blip.connect(blipGain);
     blipGain.connect(this.masterGain);
-    
+
     blip.start(now + 0.3);
     blip.stop(now + 0.4);
 };
