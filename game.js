@@ -4595,6 +4595,53 @@ class Game {
             this.triggerFlash('#00ff00', 0.2);
         }
     }
+    
+    // Calculate asteroid count for current level with better difficulty curve
+    getAsteroidCount() {
+        // Early levels: approachable (4-6 asteroids for levels 1-4)
+        // Mid levels: gradual increase
+        // Later levels: challenging but not overwhelming
+        if (this.level <= 2) return 4;
+        if (this.level <= 4) return 5 + Math.floor((this.level - 2) / 2);
+        if (this.level <= 10) return 6 + Math.floor((this.level - 4) / 2);
+        // Level 10+: 8 + 1 per 3 levels, capped at 15
+        return Math.min(15, 8 + Math.floor((this.level - 10) / 3));
+    }
+    
+    // Award skill points from boss defeat
+    awardBossSkillPoints() {
+        const effects = this.skillTree.getAllEffects();
+        const xpBonus = effects.xpBonus || 0;
+        
+        // Base: 1 point for tier 1, 2 points for tier 2+
+        const tier = Math.ceil(this.level / 5);
+        const basePoints = tier >= 2 ? 2 : 1;
+        
+        // XP boost gives chance for extra point
+        const bonusPoints = Math.random() < xpBonus ? 1 : 0;
+        const totalPoints = basePoints + bonusPoints;
+        
+        this.skillTree.addSkillPoints(totalPoints);
+        
+        // Show floating text for skill point gain
+        this.showFloatingText(`+${totalPoints} SKILL POINT${totalPoints > 1 ? 'S' : ''}!`, 
+            CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 50, '#ffff00');
+    }
+    
+    // Small chance to earn skill point from asteroid kills
+    checkSkillPointDrop() {
+        const effects = this.skillTree.getAllEffects();
+        const xpBonus = effects.xpBonus || 0;
+        
+        // Base 2% chance, XP boost adds up to 4.5% more (at max level)
+        const dropChance = 0.02 + xpBonus * 0.1;
+        
+        if (Math.random() < dropChance) {
+            this.skillTree.addSkillPoints(1);
+            return true;
+        }
+        return false;
+    }
 
     // Calculate asteroid count for current level with better difficulty curve
     getAsteroidCount() {
@@ -5241,8 +5288,8 @@ class Game {
             
             this.ship.update(mergedKeys);
             
-            // Handle touch auto-fire
-            if (this.touchControls.shouldAutoFire()) {
+            // Handle auto-fire (touch or keyboard space held)
+            if (this.touchControls.shouldAutoFire() || mergedKeys[' ']) {
                 this.ship.shoot();
             }
             
