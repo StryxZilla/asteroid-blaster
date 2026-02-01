@@ -343,9 +343,10 @@ class SkillTreeUI {
         this.selectedCategory = 'OFFENSE';
         this.hoveredSkill = null;
         this.animPhase = 0;
-        this.nodeSize = 40;
-        this.nodeSpacing = 100;
-        this.categoryTabWidth = 120;
+        this.nodeSize = 52;      // Increased from 40 for touch (52px diameter > 44px HIG minimum)
+        this.nodeSpacing = 110;  // Increased from 100 for more breathing room
+        this.categoryTabWidth = 130;  // Slightly wider tabs
+        this.categoryTabHeight = 48;  // Taller tabs for touch (48px > 44px)
     }
     toggle() { this.visible = !this.visible; if (this.visible) soundManager.playItemCollect(); }
     handleClick(x, y) {
@@ -357,22 +358,24 @@ class SkillTreeUI {
         y = (y - canvasRect.top) * scaleY;
         
         const tabY = 80;
+        const tabHeight = this.categoryTabHeight || 48;
         const categories = Object.keys(SKILL_CATEGORIES);
         categories.forEach((cat, i) => {
-            const tabX = 150 + i * (this.categoryTabWidth + 20);
-            if (x >= tabX && x <= tabX + this.categoryTabWidth && y >= tabY && y <= tabY + 40) {
+            const tabX = 130 + i * (this.categoryTabWidth + 15);
+            if (x >= tabX && x <= tabX + this.categoryTabWidth && y >= tabY && y <= tabY + tabHeight) {
                 this.selectedCategory = cat;
                 soundManager.playItemCollect();
             }
         });
         
-        const baseX = 200, baseY = 200;
+        const baseX = 200, baseY = 220;  // Slightly lower to account for taller tabs
         Object.entries(SKILLS).forEach(([skillId, skill]) => {
             if (skill.category !== this.selectedCategory) return;
             const nodeX = baseX + skill.position.x * this.nodeSpacing;
             const nodeY = baseY + skill.position.y * this.nodeSpacing;
             const dist = Math.sqrt((x - nodeX) ** 2 + (y - nodeY) ** 2);
-            if (dist <= this.nodeSize / 2) {
+            // Larger hit area for touch (add 8px tolerance)
+            if (dist <= this.nodeSize / 2 + 8) {
                 if (this.skillTree.canUpgradeSkill(skillId)) {
                     this.skillTree.upgradeSkill(skillId);
                     soundManager.playPowerUp();
@@ -380,8 +383,11 @@ class SkillTreeUI {
             }
         });
         
-        if (x >= CANVAS_WIDTH - 60 && x <= CANVAS_WIDTH - 20 && y >= 30 && y <= 70) this.toggle();
-        if (x >= 30 && x <= 130 && y >= CANVAS_HEIGHT - 60 && y <= CANVAS_HEIGHT - 30) {
+        // Close button - larger hit area (50x50)
+        if (x >= CANVAS_WIDTH - 65 && x <= CANVAS_WIDTH - 15 && y >= 25 && y <= 75) this.toggle();
+        
+        // Reset button - larger hit area
+        if (x >= 25 && x <= 145 && y >= CANVAS_HEIGHT - 70 && y <= CANVAS_HEIGHT - 25) {
             this.skillTree.reset();
             soundManager.playItemUse();
         }
@@ -442,19 +448,20 @@ class SkillTreeUI {
     }
     drawCategoryTabs(ctx) {
         const tabY = 80;
+        const tabHeight = this.categoryTabHeight || 48;
         Object.keys(SKILL_CATEGORIES).forEach((catId, i) => {
             const cat = SKILL_CATEGORIES[catId];
-            const tabX = 150 + i * (this.categoryTabWidth + 20);
+            const tabX = 130 + i * (this.categoryTabWidth + 15);
             const isSelected = catId === this.selectedCategory;
             ctx.save();
             ctx.fillStyle = isSelected ? cat.color + '40' : '#22222280';
-            ctx.strokeStyle = cat.color; ctx.lineWidth = isSelected ? 3 : 1;
+            ctx.strokeStyle = cat.color; ctx.lineWidth = isSelected ? 3 : 2;
             ctx.shadowColor = cat.color; ctx.shadowBlur = isSelected ? 15 : 5;
-            ctx.beginPath(); ctx.roundRect(tabX, tabY, this.categoryTabWidth, 40, 5); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.roundRect(tabX, tabY, this.categoryTabWidth, tabHeight, 8); ctx.fill(); ctx.stroke();
             ctx.fillStyle = isSelected ? '#ffffff' : cat.color;
-            ctx.font = `${isSelected ? 'bold ' : ''}14px "Courier New", monospace`;
+            ctx.font = `${isSelected ? 'bold ' : ''}15px "Courier New", monospace`;
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(`${cat.icon} ${cat.name}`, tabX + this.categoryTabWidth / 2, tabY + 20);
+            ctx.fillText(`${cat.icon} ${cat.name}`, tabX + this.categoryTabWidth / 2, tabY + tabHeight / 2);
             ctx.restore();
         });
     }
@@ -3110,6 +3117,10 @@ class TouchControlManager {
         // Refresh enabled state (in case viewport changed)
         this.updateEnabledState();
         
+        // Decay tap feedback timers
+        if (this.joystick.tapFeedback > 0) this.joystick.tapFeedback--;
+        if (this.fireButton.tapFeedback > 0) this.fireButton.tapFeedback--;
+        
         // Only draw if enabled and during gameplay
         if (!this.enabled) return;
         // Note: game state check handled by caller (only called during 'playing')
@@ -3121,99 +3132,161 @@ class TouchControlManager {
         const jy = this.joystick.baseY;
         const jr = this.joystick.radius;
         
-        // Outer ring (base) - brighter for visibility
+        // Scale effect on tap
+        const jScale = this.joystick.tapFeedback > 0 ? 1.08 : 1;
+        
+        ctx.save();
+        ctx.translate(jx, jy);
+        ctx.scale(jScale, jScale);
+        ctx.translate(-jx, -jy);
+        
+        // Outer ring (base) - thicker, more visible
         ctx.beginPath();
         ctx.arc(jx, jy, jr, 0, Math.PI * 2);
-        ctx.strokeStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.8)' : 'rgba(0, 255, 255, 0.5)';
-        ctx.lineWidth = 4;
+        ctx.strokeStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.9)' : 'rgba(0, 255, 255, 0.5)';
+        ctx.lineWidth = 5;  // Thicker for visibility
         ctx.stroke();
         
-        // Base fill - more visible
-        ctx.fillStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.25)' : 'rgba(0, 255, 255, 0.15)';
+        // Base fill with gradient
+        const jGrad = ctx.createRadialGradient(jx, jy, 0, jx, jy, jr);
+        if (this.joystick.active) {
+            jGrad.addColorStop(0, 'rgba(0, 255, 255, 0.35)');
+            jGrad.addColorStop(1, 'rgba(0, 255, 255, 0.15)');
+        } else {
+            jGrad.addColorStop(0, 'rgba(0, 255, 255, 0.2)');
+            jGrad.addColorStop(1, 'rgba(0, 255, 255, 0.08)');
+        }
+        ctx.fillStyle = jGrad;
         ctx.fill();
         
-        // Inner nub
+        // Directional arrows around the ring (visual hint)
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.4)';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('▲', jx, jy - jr + 12);  // Up = thrust
+        ctx.fillText('◄', jx - jr + 12, jy);
+        ctx.fillText('►', jx + jr - 12, jy);
+        
+        ctx.restore(); // End scale transform for base
+        
+        // Inner nub (not scaled, moves independently)
         const nubX = this.joystick.currentX;
         const nubY = this.joystick.currentY;
-        const nubRadius = jr * 0.5;
+        const nubRadius = jr * 0.45;  // Slightly smaller for better visual
+        
+        // Nub shadow
+        if (this.joystick.active) {
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = 20;
+        }
         
         ctx.beginPath();
         ctx.arc(nubX, nubY, nubRadius, 0, Math.PI * 2);
-        ctx.fillStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.9)' : 'rgba(0, 255, 255, 0.6)';
+        ctx.fillStyle = this.joystick.active ? 'rgba(0, 255, 255, 0.95)' : 'rgba(0, 255, 255, 0.65)';
         ctx.fill();
         
-        // Nub glow
-        if (this.joystick.active) {
-            ctx.shadowColor = '#00ffff';
-            ctx.shadowBlur = 15;
-            ctx.beginPath();
-            ctx.arc(nubX, nubY, nubRadius * 0.7, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(0, 255, 255, 0.6)';
-            ctx.fill();
-            ctx.shadowBlur = 0;
-        }
+        // Nub inner highlight
+        ctx.beginPath();
+        ctx.arc(nubX - nubRadius * 0.2, nubY - nubRadius * 0.2, nubRadius * 0.4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.fill();
+        ctx.shadowBlur = 0;
         
-        // MOVE label (like FIRE button)
-        ctx.font = 'bold 16px Arial';
+        // MOVE label below joystick
+        ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = this.joystick.active ? '#88ffff' : 'rgba(0, 255, 255, 0.6)';
-        ctx.fillText('MOVE', jx, jy + jr + 20);
-        
-        // Direction indicator
-        ctx.font = '12px Arial';
-        ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
-        ctx.fillText('^', jx, jy - jr - 8);  // Up = thrust
+        ctx.fillStyle = this.joystick.active ? '#88ffff' : 'rgba(0, 255, 255, 0.55)';
+        ctx.fillText('MOVE', jx, jy + jr + 22);
         
         // === DRAW FIRE BUTTON ===
         const fx = this.fireButton.x;
         const fy = this.fireButton.y;
         const fr = this.fireButton.radius;
         
-        // Outer ring
+        // Scale effect on tap
+        const fScale = this.fireButton.tapFeedback > 0 ? 1.1 : (this.fireButton.active ? 1.05 : 1);
+        
+        ctx.save();
+        ctx.translate(fx, fy);
+        ctx.scale(fScale, fScale);
+        ctx.translate(-fx, -fy);
+        
+        // Outer ring - thicker
         ctx.beginPath();
         ctx.arc(fx, fy, fr, 0, Math.PI * 2);
-        ctx.strokeStyle = this.fireButton.active ? 'rgba(255, 0, 255, 0.8)' : 'rgba(255, 0, 255, 0.3)';
-        ctx.lineWidth = 3;
+        ctx.strokeStyle = this.fireButton.active ? 'rgba(255, 0, 255, 0.9)' : 'rgba(255, 0, 255, 0.4)';
+        ctx.lineWidth = 5;
         ctx.stroke();
         
-        // Button fill
-        ctx.fillStyle = this.fireButton.active ? 'rgba(255, 0, 255, 0.4)' : 'rgba(255, 0, 255, 0.1)';
+        // Button fill with gradient
+        const fGrad = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
+        if (this.fireButton.active) {
+            fGrad.addColorStop(0, 'rgba(255, 0, 255, 0.5)');
+            fGrad.addColorStop(0.7, 'rgba(255, 0, 255, 0.3)');
+            fGrad.addColorStop(1, 'rgba(255, 0, 255, 0.15)');
+        } else {
+            fGrad.addColorStop(0, 'rgba(255, 0, 255, 0.2)');
+            fGrad.addColorStop(1, 'rgba(255, 0, 255, 0.08)');
+        }
+        ctx.fillStyle = fGrad;
         ctx.fill();
         
         // Button glow when active
         if (this.fireButton.active) {
             ctx.shadowColor = '#ff00ff';
-            ctx.shadowBlur = 20;
+            ctx.shadowBlur = 25;
             ctx.beginPath();
-            ctx.arc(fx, fy, fr * 0.8, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(255, 0, 255, 0.5)';
+            ctx.arc(fx, fy, fr * 0.75, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 0, 255, 0.4)';
             ctx.fill();
             ctx.shadowBlur = 0;
         }
         
-        // Fire label
-        ctx.font = 'bold 18px Arial';
+        // Fire icon (crosshair style)
+        ctx.strokeStyle = this.fireButton.active ? '#ffaaff' : 'rgba(255, 0, 255, 0.6)';
+        ctx.lineWidth = 3;
+        const iconSize = fr * 0.35;
+        ctx.beginPath();
+        ctx.moveTo(fx - iconSize, fy);
+        ctx.lineTo(fx + iconSize, fy);
+        ctx.moveTo(fx, fy - iconSize);
+        ctx.lineTo(fx, fy + iconSize);
+        ctx.stroke();
+        
+        // Center dot
+        ctx.beginPath();
+        ctx.arc(fx, fy, 4, 0, Math.PI * 2);
+        ctx.fillStyle = this.fireButton.active ? '#ffffff' : 'rgba(255, 0, 255, 0.7)';
+        ctx.fill();
+        
+        ctx.restore(); // End scale transform
+        
+        // Fire label below button
+        ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = this.fireButton.active ? '#ff88ff' : 'rgba(255, 0, 255, 0.5)';
-        ctx.fillText('FIRE', fx, fy);
+        ctx.fillStyle = this.fireButton.active ? '#ff88ff' : 'rgba(255, 0, 255, 0.55)';
+        ctx.fillText('FIRE', fx, fy + fr + 22);
         
         // === PAUSE BUTTON (top center) ===
         const pb = this.pauseButton;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        
+        // Button background
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.roundRect(pb.x, pb.y, pb.width, pb.height, 6);
+        ctx.roundRect(pb.x, pb.y, pb.width, pb.height, 8);
         ctx.fill();
         ctx.stroke();
         
-        // Pause icon (two bars)
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        const barWidth = 6;
-        const barHeight = 18;
-        const barGap = 6;
+        // Pause icon (two bars) - centered
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        const barWidth = 7;
+        const barHeight = 20;
+        const barGap = 8;
         const barsX = pb.x + pb.width / 2 - barGap / 2 - barWidth;
         const barsY = pb.y + (pb.height - barHeight) / 2;
         ctx.fillRect(barsX, barsY, barWidth, barHeight);
@@ -3705,6 +3778,9 @@ class Game {
                 // Mobile touch controls
         this.touchControls = new TouchControlManager(this.canvas, this);
         this.touchToggleBounds = null;  // Set during pause menu draw
+        
+        // Touch UI button bounds (for tap detection)
+        this.uiButtons = {};
 
         // Wave announcement system
         this.waveAnnouncement = new WaveAnnouncement(this);
@@ -3864,7 +3940,16 @@ class Game {
             // Initialize sound on first interaction (for mobile browsers)
             soundManager.init();
             soundManager.resume();
-            musicManager.init();
+            
+            // Save/Load UI takes priority
+            if (this.saveLoadUI.visible) {
+                this.saveLoadUI.handleClick(e.clientX, e.clientY);
+                return;
+            }
+            if (this.skillTreeUI.visible) {
+                this.skillTreeUI.handleClick(e.clientX, e.clientY);
+                return;
+            }
             
             // Get click position in canvas coordinates
             const rect = this.canvas.getBoundingClientRect();
@@ -3877,27 +3962,16 @@ class Game {
                 return b && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
             };
             
-            // Help popup takes priority (click anywhere to close, or close button)
-            if (this.showHelp) {
-                if (hitButton('closeHelp')) {
-                    this.showHelp = false;
-                    soundManager.playItemUse();
-                }
-                return; // Block other clicks when help is open
-            }
-            
-            // Save/Load UI takes priority
-            if (this.saveLoadUI.visible) {
-                this.saveLoadUI.handleClick(e.clientX, e.clientY);
-                return;
-            }
-            if (this.skillTreeUI.visible) {
-                this.skillTreeUI.handleClick(e.clientX, e.clientY);
-                return;
-            }
-            
-            // Handle pause menu button clicks
+            // Handle pause menu clicks
             if (this.state === 'paused') {
+                // Touch controls toggle
+                if (hitButton('touchToggle')) {
+                    if (this.touchControls) {
+                        this.touchControls.cycleMode();
+                        soundManager.playItemUse();
+                    }
+                    return;
+                }
                 // Resume button
                 if (hitButton('resume')) {
                     this.togglePause();
@@ -3910,55 +3984,6 @@ class Game {
                     soundManager.playItemUse();
                     return;
                 }
-                // Sound toggle
-                if (hitButton('soundToggle')) {
-                    soundManager.toggleMute();
-                    soundManager.playItemUse();
-                    return;
-                }
-                // Music toggle
-                if (hitButton('musicToggle')) {
-                    musicManager.toggleMute();
-                    soundManager.playItemUse();
-                    return;
-                }
-                // Skill tree
-                if (hitButton('skillTree')) {
-                    this.skillTreeUI.toggle();
-                    return;
-                }
-                // Help
-                if (hitButton('help')) {
-                    this.showHelp = true;
-                    soundManager.playItemUse();
-                    return;
-                }
-                // Save
-                if (hitButton('save')) {
-                    this.saveLoadUI.toggle('save');
-                    return;
-                }
-                // Load
-                if (hitButton('load')) {
-                    this.saveLoadUI.toggle('load');
-                    return;
-                }
-                // Touch controls toggle
-                if (hitButton('touchToggle')) {
-                    if (this.touchControls) {
-                        this.touchControls.cycleMode();
-                        soundManager.playItemUse();
-                    }
-                    return;
-                }
-                // Inventory item usage (touch)
-                for (let i = 0; i < this.inventory.length; i++) {
-                    if (hitButton(`inv_${i}`)) {
-                        this.useInventoryItem(i);
-                        return;
-                    }
-                }
-                return; // Don't process other clicks when paused
             }
             
             // Handle start screen button clicks
@@ -3970,7 +3995,7 @@ class Game {
                 }
                 // Help button
                 if (hitButton('help')) {
-                    this.showHelp = true;
+                    this.showHelp = !this.showHelp;
                     soundManager.playItemUse();
                     return;
                 }
@@ -3979,15 +4004,21 @@ class Game {
                     this.saveLoadUI.toggle('load');
                     return;
                 }
-                // Tap anywhere else to start
-                this.startGame();
-                return;
+            }
+            
+            // Handle help screen tap to close
+            if (this.showHelp) {
+                if (hitButton('closeHelp')) {
+                    this.showHelp = false;
+                    soundManager.playItemUse();
+                    return;
+                }
             }
             
             // Handle game over screen
             if (this.state === 'gameover') {
                 if (this.isEnteringInitials) {
-                    // Virtual keyboard handling
+                    // Virtual keyboard for initials
                     if (this.handleInitialsKeyboardClick(x, y)) {
                         return;
                     }
@@ -3999,10 +4030,16 @@ class Game {
                         return;
                     }
                 } else {
-                    // Tap anywhere to restart
+                    // Tap anywhere to restart (when not entering initials)
                     this.startGame();
                     return;
                 }
+            }
+            
+            // Tap to start on touch devices (or click to start)
+            if (this.state === 'start') {
+                this.startGame();
+                return;
             }
         });
         
@@ -4334,6 +4371,48 @@ class Game {
         });
     }
 
+    // Handle virtual keyboard clicks for high score initials entry
+    handleInitialsKeyboardClick(x, y) {
+        // Keyboard layout - stored during draw
+        const kb = this.initialsKeyboard;
+        if (!kb) return false;
+        
+        const keyWidth = kb.keyWidth;
+        const keyHeight = kb.keyHeight;
+        const keyGap = kb.keyGap;
+        
+        // Check each key
+        for (let row = 0; row < kb.rows.length; row++) {
+            const rowKeys = kb.rows[row];
+            const rowWidth = rowKeys.length * (keyWidth + keyGap) - keyGap;
+            const rowX = kb.startX + (kb.totalWidth - rowWidth) / 2;
+            const rowY = kb.startY + row * (keyHeight + keyGap);
+            
+            for (let col = 0; col < rowKeys.length; col++) {
+                const key = rowKeys[col];
+                const keyX = rowX + col * (keyWidth + keyGap);
+                
+                if (x >= keyX && x <= keyX + keyWidth && 
+                    y >= rowY && y <= rowY + keyHeight) {
+                    
+                    if (key === '⌫') {
+                        // Backspace
+                        if (this.initials.length > 0) {
+                            this.initials = this.initials.slice(0, -1);
+                            soundManager.playItemUse();
+                        }
+                    } else if (this.initials.length < 3) {
+                        // Add letter
+                        this.initials += key;
+                        soundManager.playItemCollect();
+                    }
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     useInventoryItem(slotIndex) {
         if (slotIndex < 0 || slotIndex >= this.inventory.length) return;
 
@@ -4481,6 +4560,19 @@ class Game {
         for (let i = 0; i < MAX_INVENTORY_SLOTS; i++) {
             const slot = document.createElement('div');
             slot.className = 'inventory-slot';
+            
+            // Make slot tappable
+            const slotIndex = i;
+            slot.style.cursor = 'pointer';
+            slot.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent canvas click
+                if (this.state === 'playing' && slotIndex < this.inventory.length) {
+                    this.useInventoryItem(slotIndex);
+                }
+            });
+            slot.addEventListener('touchstart', (e) => {
+                e.stopPropagation(); // Prevent canvas touch
+            }, { passive: true });
 
             if (i < this.inventory.length) {
                 const itemType = this.inventory[i];
@@ -4489,7 +4581,7 @@ class Game {
                     <span class="item-symbol" style="color: ${itemInfo.color}">${itemInfo.symbol}</span>
                     <span class="slot-key">${i + 1}</span>
                 `;
-                slot.title = `${itemInfo.name}: ${itemInfo.description} (Press ${i + 1})`;
+                slot.title = `${itemInfo.name}: ${itemInfo.description} (Tap or press ${i + 1})`;
                 slot.style.borderColor = itemInfo.color;
                 slot.style.boxShadow = `0 0 10px ${itemInfo.color}40, inset 0 0 10px ${itemInfo.color}20`;
             } else {
@@ -5059,26 +5151,22 @@ class Game {
     }
     
     drawHelpScreen(ctx) {
-        const isTouchActive = this.touchControls && this.touchControls.enabled;
-        
         // Semi-transparent overlay
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         
         // Help box
-        const boxWidth = 720;
-        const boxHeight = 520;
+        const boxWidth = 700;
+        const boxHeight = 500;
         const boxX = (CANVAS_WIDTH - boxWidth) / 2;
         const boxY = (CANVAS_HEIGHT - boxHeight) / 2;
         
-        // Box background with rounded corners
+        // Box background
         ctx.fillStyle = '#0a0020';
         ctx.strokeStyle = '#00ffff';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 12);
-        ctx.fill();
-        ctx.stroke();
+        ctx.lineWidth = 2;
+        ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+        ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
         
         // Title
         ctx.save();
@@ -5092,64 +5180,32 @@ class Game {
         
         let y = boxY + 80;
         const leftCol = boxX + 30;
-        const rightCol = boxX + 385;
+        const rightCol = boxX + 370;
         
-        // Controls section - changes based on touch mode
+        // Controls section
         ctx.fillStyle = '#ffff00';
         ctx.font = 'bold 16px "Courier New", monospace';
         ctx.textAlign = 'left';
-        ctx.fillText(isTouchActive ? 'TOUCH CONTROLS' : 'KEYBOARD CONTROLS', leftCol, y);
+        ctx.fillText('CONTROLS', leftCol, y);
         
         ctx.fillStyle = '#ffffff';
         ctx.font = '14px "Courier New", monospace';
-        y += 28;
-        
-        if (isTouchActive) {
-            // Touch controls explanation
-            ctx.fillStyle = '#00ffff';
-            ctx.fillText('LEFT SIDE - Virtual Joystick', leftCol, y);
-            ctx.fillStyle = '#aaaaaa';
-            ctx.font = '12px "Courier New", monospace';
-            y += 18;
-            ctx.fillText('  Drag to steer, push forward to thrust', leftCol, y);
-            ctx.font = '14px "Courier New", monospace';
-            y += 25;
-            
-            ctx.fillStyle = '#ff00ff';
-            ctx.fillText('RIGHT SIDE - Fire Button', leftCol, y);
-            ctx.fillStyle = '#aaaaaa';
-            ctx.font = '12px "Courier New", monospace';
-            y += 18;
-            ctx.fillText('  Tap and hold to auto-fire', leftCol, y);
-            ctx.font = '14px "Courier New", monospace';
-            y += 25;
-            
-            ctx.fillStyle = '#ffffff';
-            ctx.fillText('TOP CENTER - Pause Button', leftCol, y);
-            y += 25;
-            
-            ctx.fillStyle = '#888888';
-            ctx.font = '13px "Courier New", monospace';
-            y += 5;
-            ctx.fillText('Tap buttons in menus to navigate', leftCol, y);
-        } else {
-            // Keyboard controls
-            ctx.fillText('Arrow Keys / WASD - Move ship', leftCol, y);
-            y += 22;
-            ctx.fillText('SPACE - Shoot', leftCol, y);
-            y += 22;
-            ctx.fillText('1-5 - Use inventory item', leftCol, y);
-            y += 22;
-            ctx.fillText('M - Toggle sound effects', leftCol, y);
-            y += 22;
-            ctx.fillText('N - Toggle music', leftCol, y);
-            y += 22;
-            ctx.fillText('K - Skill tree', leftCol, y);
-            y += 22;
-            ctx.fillText('P / ESC - Pause', leftCol, y);
-            y += 22;
-            ctx.fillText('H - This help screen', leftCol, y);
-        }
+        y += 25;
+        ctx.fillText('Arrow Keys / WASD - Move ship', leftCol, y);
+        y += 20;
+        ctx.fillText('SPACE - Shoot', leftCol, y);
+        y += 20;
+        ctx.fillText('1-5 - Use inventory item', leftCol, y);
+        y += 20;
+        ctx.fillText('M - Toggle sound effects', leftCol, y);
+        y += 20;
+        ctx.fillText('N - Toggle music', leftCol, y);
+        y += 20;
+        ctx.fillText('K - Skill tree', leftCol, y);
+        y += 20;
+        ctx.fillText('P / ESC - Pause', leftCol, y);
+        y += 20;
+        ctx.fillText('H - This help screen', leftCol, y);
         
         // Powerups section
         y = boxY + 80;
@@ -5158,29 +5214,29 @@ class Game {
         ctx.fillText('POWER-UPS (auto-activate)', rightCol, y);
         
         ctx.font = '14px "Courier New", monospace';
-        y += 28;
+        y += 25;
         Object.entries(POWERUP_TYPES).forEach(([key, powerup]) => {
             ctx.fillStyle = powerup.color;
             ctx.fillText(`${powerup.symbol} - ${powerup.name}`, rightCol, y);
-            y += 22;
+            y += 20;
         });
         
         // Items section
-        y += 12;
+        y += 15;
         ctx.fillStyle = '#ffd700';
         ctx.font = 'bold 16px "Courier New", monospace';
-        ctx.fillText(isTouchActive ? 'ITEMS (use from pause menu)' : 'ITEMS (press 1-5 to use)', rightCol, y);
+        ctx.fillText('ITEMS (press 1-5 to use)', rightCol, y);
         
-        ctx.font = '13px "Courier New", monospace';
-        y += 26;
+        ctx.font = '14px "Courier New", monospace';
+        y += 25;
         Object.entries(ITEM_TYPES).forEach(([key, item]) => {
             ctx.fillStyle = item.color;
-            ctx.fillText(`${item.symbol} ${item.name}: ${item.description}`, rightCol, y);
+            ctx.fillText(`${item.symbol} - ${item.name}: ${item.description}`, rightCol, y);
             y += 20;
         });
         
         // Tips section
-        y = boxY + 395;
+        y = boxY + 380;
         ctx.fillStyle = '#00ff00';
         ctx.font = 'bold 16px "Courier New", monospace';
         ctx.textAlign = 'center';
@@ -5191,30 +5247,30 @@ class Game {
         y += 25;
         ctx.fillText('Destroy asteroids to collect power-ups and items', CANVAS_WIDTH / 2, y);
         y += 18;
-        ctx.fillText('Build combos by killing quickly for score multipliers!', CANVAS_WIDTH / 2, y);
+        ctx.fillText('Items go to inventory - press 1-5 to use them!', CANVAS_WIDTH / 2, y);
         y += 18;
-        ctx.fillText('Visit the Skill Tree to spend points on upgrades', CANVAS_WIDTH / 2, y);
+        ctx.fillText('Build combos for score multipliers', CANVAS_WIDTH / 2, y);
         
-        // Close button (tappable - 48px tall for touch)
-        const closeBtnWidth = 200;
-        const closeBtnHeight = 48;
+        // Close button (tappable)
+        const closeBtnWidth = 180;
+        const closeBtnHeight = 36;
         const closeBtnX = CANVAS_WIDTH / 2 - closeBtnWidth / 2;
-        const closeBtnY = boxY + boxHeight - 60;
+        const closeBtnY = boxY + boxHeight - 50;
         
         this.uiButtons.closeHelp = { x: closeBtnX, y: closeBtnY, w: closeBtnWidth, h: closeBtnHeight };
         
-        ctx.fillStyle = 'rgba(0, 255, 255, 0.15)';
-        ctx.strokeStyle = '#00ffff';
+        ctx.fillStyle = 'rgba(136, 136, 136, 0.2)';
+        ctx.strokeStyle = '#888888';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.roundRect(closeBtnX, closeBtnY, closeBtnWidth, closeBtnHeight, 8);
+        ctx.roundRect(closeBtnX, closeBtnY, closeBtnWidth, closeBtnHeight, 6);
         ctx.fill();
         ctx.stroke();
         
-        ctx.fillStyle = '#00ffff';
-        ctx.font = 'bold 18px "Courier New", monospace';
+        ctx.fillStyle = '#cccccc';
+        ctx.font = '16px "Courier New", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(isTouchActive ? 'TAP TO CLOSE' : 'CLOSE (H)', CANVAS_WIDTH / 2, closeBtnY + 30);
+        ctx.fillText('CLOSE', CANVAS_WIDTH / 2, closeBtnY + 24);
     }
 
     drawStartScreen(ctx) {
@@ -5258,33 +5314,84 @@ class Game {
             ctx.fillText('M = Toggle SFX  |  N = Toggle Music', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
         }
         
-        // Skill tree hint
+        // Skill tree button (tappable)
+        const skillBtnY = CANVAS_HEIGHT / 2 + 110;
+        const skillBtnWidth = 260;
+        const skillBtnHeight = 36;
+        const skillBtnX = CANVAS_WIDTH / 2 - skillBtnWidth / 2;
+        
+        // Store bounds for tap detection
+        this.uiButtons.skillTree = { x: skillBtnX, y: skillBtnY, w: skillBtnWidth, h: skillBtnHeight };
+        
         ctx.save();
+        ctx.fillStyle = 'rgba(255, 255, 0, 0.15)';
+        ctx.strokeStyle = '#ffff00';
+        ctx.lineWidth = 2;
         ctx.shadowColor = '#ffff00';
         ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.roundRect(skillBtnX, skillBtnY, skillBtnWidth, skillBtnHeight, 6);
+        ctx.fill();
+        ctx.stroke();
+        
         ctx.fillStyle = '#ffff00';
         ctx.font = '16px "Courier New", monospace';
-        ctx.fillText(`Press K for Skill Tree (${this.skillTree.skillPoints} points)`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 120);
+        ctx.textAlign = 'center';
+        ctx.fillText(`SKILL TREE (${this.skillTree.skillPoints} pts)`, CANVAS_WIDTH / 2, skillBtnY + 24);
         ctx.restore();
         
-        // Help hint
+        // Help button (tappable)
+        const helpBtnY = CANVAS_HEIGHT / 2 + 155;
+        const helpBtnWidth = 200;
+        const helpBtnHeight = 32;
+        const helpBtnX = CANVAS_WIDTH / 2 - helpBtnWidth / 2;
+        
+        this.uiButtons.help = { x: helpBtnX, y: helpBtnY, w: helpBtnWidth, h: helpBtnHeight };
+        
         ctx.save();
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.12)';
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
         ctx.shadowColor = '#00ffff';
         ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.roundRect(helpBtnX, helpBtnY, helpBtnWidth, helpBtnHeight, 6);
+        ctx.fill();
+        ctx.stroke();
+        
         ctx.fillStyle = '#00ffff';
         ctx.font = '14px "Courier New", monospace';
-        ctx.fillText('Press H for Help & Controls', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 145);
+        ctx.textAlign = 'center';
+        ctx.fillText('HELP & CONTROLS', CANVAS_WIDTH / 2, helpBtnY + 22);
         ctx.restore();
         
-        // Load game hint (if saves exist)
+        // Load game button (if saves exist)
         if (this.saveLoadUI.saveManager.hasSaves()) {
+            const loadBtnY = CANVAS_HEIGHT / 2 + 195;
+            const loadBtnWidth = 200;
+            const loadBtnHeight = 32;
+            const loadBtnX = CANVAS_WIDTH / 2 - loadBtnWidth / 2;
+            
+            this.uiButtons.load = { x: loadBtnX, y: loadBtnY, w: loadBtnWidth, h: loadBtnHeight };
+            
             ctx.save();
+            ctx.fillStyle = 'rgba(0, 255, 136, 0.12)';
+            ctx.strokeStyle = '#00ff88';
+            ctx.lineWidth = 2;
             ctx.shadowColor = '#00ff88';
             ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.roundRect(loadBtnX, loadBtnY, loadBtnWidth, loadBtnHeight, 6);
+            ctx.fill();
+            ctx.stroke();
+            
             ctx.fillStyle = '#00ff88';
             ctx.font = '14px "Courier New", monospace';
-            ctx.fillText('Press L to Load Saved Game', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 168);
+            ctx.textAlign = 'center';
+            ctx.fillText('LOAD SAVED GAME', CANVAS_WIDTH / 2, loadBtnY + 22);
             ctx.restore();
+        } else {
+            this.uiButtons.load = null;
         }
         
         // Draw decorative asteroids in background
@@ -5328,11 +5435,9 @@ class Game {
     }
 
     drawPauseMenu(ctx) {
-        const isTouchActive = this.touchControls && this.touchControls.enabled;
-        
         // Dim overlay
         ctx.save();
-        ctx.fillStyle = 'rgba(0, 0, 20, 0.88)';
+        ctx.fillStyle = 'rgba(0, 0, 20, 0.85)';
         ctx.fillRect(-20, -20, CANVAS_WIDTH + 40, CANVAS_HEIGHT + 40);
         ctx.restore();
         
@@ -5341,162 +5446,145 @@ class Game {
         ctx.shadowColor = '#00ffff';
         ctx.shadowBlur = 12;
         ctx.fillStyle = '#00ffff';
-        ctx.font = 'bold 42px "Courier New", monospace';
+        ctx.font = 'bold 48px "Courier New", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('PAUSED', CANVAS_WIDTH / 2, 70);
+        ctx.fillText('PAUSED', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 100);
         ctx.restore();
         
-        // Current stats box (centered top area)
-        const statsBoxY = 95;
-        const statsBoxWidth = 240;
-        const statsBoxHeight = 90;
-        const statsBoxX = CANVAS_WIDTH / 2 - statsBoxWidth / 2;
+        // Current stats box
+        const boxY = CANVAS_HEIGHT / 2 - 50;
+        const boxWidth = 280;
+        const boxHeight = 120;
+        const boxX = CANVAS_WIDTH / 2 - boxWidth / 2;
         
+        // Stats box background
         ctx.save();
         ctx.fillStyle = 'rgba(0, 20, 40, 0.9)';
         ctx.strokeStyle = '#00ffff';
         ctx.lineWidth = 2;
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 10;
         ctx.beginPath();
-        ctx.roundRect(statsBoxX, statsBoxY, statsBoxWidth, statsBoxHeight, 8);
+        ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 8);
         ctx.fill();
         ctx.stroke();
         ctx.restore();
         
-        // Stats inside box
+        // Stats labels
         ctx.save();
         ctx.textAlign = 'left';
-        ctx.font = '16px "Courier New", monospace';
+        ctx.font = '18px "Courier New", monospace';
         ctx.fillStyle = '#888888';
-        ctx.fillText('Score:', statsBoxX + 15, statsBoxY + 28);
-        ctx.fillText('Level:', statsBoxX + 15, statsBoxY + 52);
-        ctx.fillText('Lives:', statsBoxX + 15, statsBoxY + 76);
+        ctx.fillText('Score:', boxX + 20, boxY + 35);
+        ctx.fillText('Level:', boxX + 20, boxY + 65);
+        ctx.fillText('Lives:', boxX + 20, boxY + 95);
         
+        // Stats values with glow
         ctx.textAlign = 'right';
+        ctx.shadowBlur = 10;
+        
+        ctx.shadowColor = '#00ffff';
         ctx.fillStyle = '#00ffff';
-        ctx.fillText(this.score.toLocaleString(), statsBoxX + statsBoxWidth - 15, statsBoxY + 28);
+        ctx.fillText(this.score.toLocaleString(), boxX + boxWidth - 20, boxY + 35);
+        
+        ctx.shadowColor = '#ffff00';
         ctx.fillStyle = '#ffff00';
-        ctx.fillText(this.level, statsBoxX + statsBoxWidth - 15, statsBoxY + 52);
+        ctx.fillText(this.level, boxX + boxWidth - 20, boxY + 65);
+        
+        ctx.shadowColor = '#ff4466';
         ctx.fillStyle = '#ff4466';
-        ctx.fillText(this.lives, statsBoxX + statsBoxWidth - 15, statsBoxY + 76);
+        ctx.fillText(this.lives, boxX + boxWidth - 20, boxY + 95);
         ctx.restore();
         
-        // Button grid - all options as tappable buttons (48px height for touch)
-        const btnWidth = 220;
-        const btnHeight = 48;
-        const btnGap = 10;
-        const leftCol = CANVAS_WIDTH / 2 - btnWidth - btnGap / 2;
-        const rightCol = CANVAS_WIDTH / 2 + btnGap / 2;
-        let btnY = 200;
+        // Menu options - tappable buttons
+        const menuY = CANVAS_HEIGHT / 2 + 90;
+        const btnWidth = 260;
+        const btnHeight = 40;
+        const btnGap = 12;
         
-        // Helper to draw a button
-        const drawButton = (x, y, w, h, label, color, name) => {
-            this.uiButtons[name] = { x, y, w, h };
-            
-            ctx.save();
-            ctx.fillStyle = color + '25';
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-            ctx.shadowColor = color;
-            ctx.shadowBlur = 8;
-            ctx.beginPath();
-            ctx.roundRect(x, y, w, h, 8);
-            ctx.fill();
-            ctx.stroke();
-            
-            ctx.fillStyle = color;
-            ctx.font = 'bold 16px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(label, x + w / 2, y + h / 2);
-            ctx.restore();
-        };
+        // Resume button
+        const resumeBtnX = CANVAS_WIDTH / 2 - btnWidth / 2;
+        const resumeBtnY = menuY;
+        this.uiButtons.resume = { x: resumeBtnX, y: resumeBtnY, w: btnWidth, h: btnHeight };
         
-        // Row 1: Resume and Restart
-        drawButton(leftCol, btnY, btnWidth, btnHeight, 'RESUME', '#00ff88', 'resume');
-        drawButton(rightCol, btnY, btnWidth, btnHeight, 'RESTART', '#ff8800', 'restart');
-        btnY += btnHeight + btnGap;
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 255, 136, 0.2)';
+        ctx.strokeStyle = '#00ff88';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#00ff88';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.roundRect(resumeBtnX, resumeBtnY, btnWidth, btnHeight, 8);
+        ctx.fill();
+        ctx.stroke();
         
-        // Row 2: Sound and Music toggles
-        const sfxLabel = soundManager.muted ? 'SOUND: OFF' : 'SOUND: ON';
-        const musicLabel = musicManager.muted ? 'MUSIC: OFF' : 'MUSIC: ON';
-        drawButton(leftCol, btnY, btnWidth, btnHeight, sfxLabel, soundManager.muted ? '#666666' : '#00ffff', 'soundToggle');
-        drawButton(rightCol, btnY, btnWidth, btnHeight, musicLabel, musicManager.muted ? '#666666' : '#ff00ff', 'musicToggle');
-        btnY += btnHeight + btnGap;
+        ctx.fillStyle = '#00ff88';
+        ctx.font = 'bold 18px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('RESUME', CANVAS_WIDTH / 2, resumeBtnY + 26);
+        ctx.restore();
         
-        // Row 3: Skill Tree and Help
-        const skillPts = this.skillTree.skillPoints;
-        drawButton(leftCol, btnY, btnWidth, btnHeight, `SKILL TREE (${skillPts} pts)`, '#ffff00', 'skillTree');
-        drawButton(rightCol, btnY, btnWidth, btnHeight, 'HELP', '#00ffff', 'help');
-        btnY += btnHeight + btnGap;
+        // Restart button
+        const restartBtnY = menuY + btnHeight + btnGap;
+        this.uiButtons.restart = { x: resumeBtnX, y: restartBtnY, w: btnWidth, h: btnHeight };
         
-        // Row 4: Save and Load
-        drawButton(leftCol, btnY, btnWidth, btnHeight, 'SAVE GAME', '#00ff88', 'save');
-        drawButton(rightCol, btnY, btnWidth, btnHeight, 'LOAD GAME', '#88ff00', 'load');
-        btnY += btnHeight + btnGap;
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 136, 0, 0.2)';
+        ctx.strokeStyle = '#ff8800';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#ff8800';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.roundRect(resumeBtnX, restartBtnY, btnWidth, btnHeight, 8);
+        ctx.fill();
+        ctx.stroke();
         
-        // Row 5: Touch Controls toggle (full width)
+        ctx.fillStyle = '#ff8800';
+        ctx.font = 'bold 18px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('RESTART', CANVAS_WIDTH / 2, restartBtnY + 26);
+        ctx.restore();
+        
+        // Touch controls toggle button
         const touchLabel = this.touchControls ? this.touchControls.getModeLabel() : 'N/A';
-        const touchText = `TOUCH CONTROLS: ${touchLabel.toUpperCase()}`;
-        const touchBtnWidth = btnWidth * 2 + btnGap;
+        const touchText = `Touch: ${touchLabel}`;
+        const touchBtnY = restartBtnY + btnHeight + btnGap;
+        const touchBtnWidth = 200;
+        const touchBtnHeight = 32;
         const touchBtnX = CANVAS_WIDTH / 2 - touchBtnWidth / 2;
-        drawButton(touchBtnX, btnY, touchBtnWidth, btnHeight, touchText, '#ff00ff', 'touchToggle');
-        this.touchToggleBounds = this.uiButtons.touchToggle;
         
-        // Inventory display (if touch active and has items)
-        if (isTouchActive && this.inventory.length > 0) {
-            btnY += btnHeight + btnGap + 10;
-            
-            ctx.save();
-            ctx.fillStyle = '#888888';
-            ctx.font = '14px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('INVENTORY (tap to use)', CANVAS_WIDTH / 2, btnY);
-            ctx.restore();
-            
-            btnY += 20;
-            const invSlotSize = 50;
-            const invGap = 10;
-            const invStartX = CANVAS_WIDTH / 2 - (this.inventory.length * (invSlotSize + invGap) - invGap) / 2;
-            
-            this.inventory.forEach((item, i) => {
-                const itemInfo = ITEM_TYPES[item.type];
-                const slotX = invStartX + i * (invSlotSize + invGap);
-                const slotY = btnY;
-                
-                this.uiButtons[`inv_${i}`] = { x: slotX, y: slotY, w: invSlotSize, h: invSlotSize };
-                
-                ctx.save();
-                ctx.fillStyle = itemInfo.color + '30';
-                ctx.strokeStyle = itemInfo.color;
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.roundRect(slotX, slotY, invSlotSize, invSlotSize, 6);
-                ctx.fill();
-                ctx.stroke();
-                
-                ctx.fillStyle = itemInfo.color;
-                ctx.font = 'bold 24px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(itemInfo.symbol, slotX + invSlotSize / 2, slotY + invSlotSize / 2);
-                ctx.restore();
-            });
-        }
+        // Store bounds for click detection (both old and new location)
+        this.touchToggleBounds = { x: touchBtnX, y: touchBtnY, w: touchBtnWidth, h: touchBtnHeight };
+        this.uiButtons.touchToggle = this.touchToggleBounds;
         
-        // Keyboard shortcuts at bottom (smaller for touch, shown for desktop)
-        if (!isTouchActive) {
-            ctx.save();
-            ctx.textAlign = 'center';
-            ctx.font = '12px "Courier New", monospace';
-            ctx.fillStyle = '#444444';
-            ctx.fillText('ESC/P = Resume  |  R = Restart  |  M = SFX  |  N = Music  |  K = Skills  |  H = Help', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 25);
-            ctx.restore();
-        }
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 0, 255, 0.15)';
+        ctx.strokeStyle = '#ff00ff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(touchBtnX, touchBtnY, touchBtnWidth, touchBtnHeight, 6);
+        ctx.fill();
+        ctx.stroke();
+        
+        ctx.shadowColor = '#ff00ff';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#ff00ff';
+        ctx.font = '14px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(touchText, CANVAS_WIDTH / 2, touchBtnY + 21);
+        ctx.restore();
+        
+        // Controls reminder at bottom
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.font = '14px "Courier New", monospace';
+        ctx.fillStyle = '#555555';
+        ctx.fillText('WASD/Arrows = Move  |  Space = Shoot  |  1-5 = Use Items', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 60);
+        ctx.fillText('M = SFX  |  N = Music  |  K = Skills  |  F5 = Save  |  F9 = Load', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 40);
+        ctx.restore();
     }
     
     drawGameOverScreen(ctx) {
-        const isTouchActive = this.touchControls && this.touchControls.enabled;
-        
         // Game over with red glow
         ctx.save();
         ctx.shadowColor = '#ff0000';
@@ -5504,7 +5592,7 @@ class Game {
         ctx.fillStyle = '#ff0000';
         ctx.font = 'bold 48px "Courier New", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 100);
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80);
         ctx.restore();
         
         // Score
@@ -5514,72 +5602,64 @@ class Game {
         ctx.fillStyle = '#ffffff';
         ctx.font = '24px "Courier New", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(`Final Score: ${this.score.toLocaleString()}`, CANVAS_WIDTH / 2, 145);
+        ctx.fillText(`Final Score: ${this.score.toLocaleString()}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
         ctx.restore();
         
         // High score entry or celebration
         if (this.isEnteringInitials) {
-            // New high score notification
+            // New high score - subtle glow, no pulsing
             ctx.save();
             ctx.shadowColor = '#ffff00';
             ctx.shadowBlur = 10;
             ctx.fillStyle = '#ffff00';
-            ctx.font = 'bold 22px "Courier New", monospace';
-            ctx.fillText(`NEW HIGH SCORE! #${this.newHighScoreRank}`, CANVAS_WIDTH / 2, 185);
+            ctx.font = 'bold 24px "Courier New", monospace';
+            ctx.fillText(`NEW HIGH SCORE! #${this.newHighScoreRank}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25);
             ctx.restore();
             
-            // Initials entry prompt
+            // Initials entry
             ctx.save();
             ctx.fillStyle = '#ffffff';
-            ctx.font = '18px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('Enter your initials:', CANVAS_WIDTH / 2, 220);
+            ctx.font = '20px "Courier New", monospace';
+            ctx.fillText('Enter your initials:', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
             
-            // Draw initials boxes - larger for touch
-            const boxWidth = 52;
-            const boxHeight = 58;
-            const boxGap = 12;
-            const totalWidth = boxWidth * 3 + boxGap * 2;
+            // Draw initials boxes - properly centered
+            const boxWidth = 40;
+            const boxGap = 10;
+            const totalWidth = boxWidth * 3 + boxGap * 2; // 140px total
             const startX = CANVAS_WIDTH / 2 - totalWidth / 2;
-            const boxY = 235;
-            
             for (let i = 0; i < 3; i++) {
                 const x = startX + i * (boxWidth + boxGap);
+                const y = CANVAS_HEIGHT / 2 + 75;
                 
                 // Box background
-                ctx.fillStyle = i < this.initials.length ? 'rgba(0, 255, 255, 0.1)' : 'rgba(50, 50, 50, 0.3)';
                 ctx.strokeStyle = i < this.initials.length ? '#00ffff' : '#444444';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.roundRect(x, boxY, boxWidth, boxHeight, 6);
-                ctx.fill();
-                ctx.stroke();
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, boxWidth, 45);
                 
                 // Letter
                 if (i < this.initials.length) {
                     ctx.shadowColor = '#00ffff';
                     ctx.shadowBlur = 10;
                     ctx.fillStyle = '#00ffff';
-                    ctx.font = 'bold 36px "Courier New", monospace';
-                    ctx.fillText(this.initials[i], x + boxWidth/2, boxY + 42);
+                    ctx.font = 'bold 32px "Courier New", monospace';
+                    ctx.fillText(this.initials[i], x + boxWidth/2, y + 34);
                 }
                 
                 // Cursor blink
                 if (i === this.initials.length && Math.floor(this.time / 20) % 2 === 0) {
                     ctx.fillStyle = '#00ffff';
-                    ctx.fillRect(x + 10, boxY + boxHeight - 8, boxWidth - 20, 3);
+                    ctx.fillRect(x + 10, y + 35, boxWidth - 20, 3);
                 }
             }
             ctx.restore();
             
             // Virtual keyboard for touch devices
-            if (isTouchActive) {
-                this.drawVirtualKeyboard(ctx);
+            if (this.touchControls && this.touchControls.enabled) {
+                this.drawInitialsKeyboard(ctx);
             } else {
                 ctx.fillStyle = '#888888';
                 ctx.font = '14px "Courier New", monospace';
-                ctx.textAlign = 'center';
-                ctx.fillText('Type letters, press ENTER to confirm', CANVAS_WIDTH / 2, 320);
+                ctx.fillText('Type letters, press ENTER to confirm', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 145);
             }
         } else {
             // Show rank if just submitted
@@ -5590,63 +5670,76 @@ class Game {
                 ctx.shadowBlur = 15;
                 ctx.fillStyle = '#ffd700';
                 ctx.font = 'bold 20px "Courier New", monospace';
-                ctx.textAlign = 'center';
-                ctx.fillText('TOP SCORE!', CANVAS_WIDTH / 2, 200);
+                ctx.fillText('TOP SCORE!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 25);
                 ctx.restore();
             }
             
-            // Restart prompt
+            // Restart prompt - indicate tap works too
             ctx.fillStyle = '#aaaaaa';
-            ctx.font = '22px "Courier New", monospace';
+            ctx.font = '20px "Courier New", monospace';
             ctx.textAlign = 'center';
-            const restartText = isTouchActive ? 'Tap to Play Again' : 'Press ENTER to Restart';
-            ctx.fillText(restartText, CANVAS_WIDTH / 2, 260);
+            if (this.touchControls && this.touchControls.enabled) {
+                ctx.fillText('Tap to Restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
+            } else {
+                ctx.fillText('Press ENTER to Restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
+            }
         }
     }
     
     // Draw virtual keyboard for initials entry on touch devices
-    drawVirtualKeyboard(ctx) {
-        const keyWidth = 44;  // Apple HIG minimum
-        const keyHeight = 48; // Apple HIG minimum
+    drawInitialsKeyboard(ctx) {
+        const keyWidth = 36;
+        const keyHeight = 40;
         const keyGap = 6;
         
-        // QWERTY layout
+        // QWERTY-style layout rows with backspace
         const rows = [
             ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
             ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', '⌫'],
             ['Z', 'X', 'C', 'V', 'B', 'N', 'M']
         ];
         
-        const startY = 330;
+        const totalWidth = rows[0].length * (keyWidth + keyGap) - keyGap;
+        const startX = CANVAS_WIDTH / 2 - totalWidth / 2;
+        const startY = CANVAS_HEIGHT / 2 + 150;
         
-        // Store keyboard bounds for click detection
-        this.virtualKeyboard = { rows, keyWidth, keyHeight, keyGap, startY };
+        // Store keyboard info for click detection
+        this.initialsKeyboard = {
+            rows: rows,
+            keyWidth: keyWidth,
+            keyHeight: keyHeight,
+            keyGap: keyGap,
+            startX: startX,
+            startY: startY,
+            totalWidth: totalWidth
+        };
         
         ctx.save();
         
+        // Draw each row
         for (let row = 0; row < rows.length; row++) {
             const rowKeys = rows[row];
             const rowWidth = rowKeys.length * (keyWidth + keyGap) - keyGap;
-            const rowX = CANVAS_WIDTH / 2 - rowWidth / 2;
+            const rowX = startX + (totalWidth - rowWidth) / 2;
             const rowY = startY + row * (keyHeight + keyGap);
             
             for (let col = 0; col < rowKeys.length; col++) {
                 const key = rowKeys[col];
                 const keyX = rowX + col * (keyWidth + keyGap);
-                const isBackspace = key === '⌫';
                 
                 // Key background
-                ctx.fillStyle = isBackspace ? 'rgba(255, 100, 100, 0.25)' : 'rgba(0, 255, 255, 0.18)';
+                const isBackspace = key === '⌫';
+                ctx.fillStyle = isBackspace ? 'rgba(255, 100, 100, 0.2)' : 'rgba(0, 255, 255, 0.15)';
                 ctx.strokeStyle = isBackspace ? '#ff6666' : '#00ffff';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.roundRect(keyX, rowY, keyWidth, keyHeight, 6);
+                ctx.roundRect(keyX, rowY, keyWidth, keyHeight, 4);
                 ctx.fill();
                 ctx.stroke();
                 
                 // Key letter
                 ctx.fillStyle = isBackspace ? '#ff6666' : '#00ffff';
-                ctx.font = 'bold 20px "Courier New", monospace';
+                ctx.font = 'bold 18px "Courier New", monospace';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(key, keyX + keyWidth / 2, rowY + keyHeight / 2);
@@ -5654,65 +5747,29 @@ class Game {
         }
         
         // Confirm button
-        const confirmBtnWidth = 180;
-        const confirmBtnHeight = 52;
+        const confirmBtnWidth = 160;
+        const confirmBtnHeight = 40;
         const confirmBtnX = CANVAS_WIDTH / 2 - confirmBtnWidth / 2;
-        const confirmBtnY = startY + 3 * (keyHeight + keyGap) + 15;
+        const confirmBtnY = startY + rows.length * (keyHeight + keyGap) + 10;
         
         this.uiButtons.confirmInitials = { x: confirmBtnX, y: confirmBtnY, w: confirmBtnWidth, h: confirmBtnHeight };
         
         const canConfirm = this.initials.length > 0;
         ctx.fillStyle = canConfirm ? 'rgba(0, 255, 0, 0.25)' : 'rgba(100, 100, 100, 0.15)';
         ctx.strokeStyle = canConfirm ? '#00ff00' : '#666666';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.roundRect(confirmBtnX, confirmBtnY, confirmBtnWidth, confirmBtnHeight, 8);
+        ctx.roundRect(confirmBtnX, confirmBtnY, confirmBtnWidth, confirmBtnHeight, 6);
         ctx.fill();
         ctx.stroke();
         
         ctx.fillStyle = canConfirm ? '#00ff00' : '#666666';
-        ctx.font = 'bold 20px "Courier New", monospace';
+        ctx.font = 'bold 18px "Courier New", monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('CONFIRM', confirmBtnX + confirmBtnWidth / 2, confirmBtnY + confirmBtnHeight / 2);
         
         ctx.restore();
-    }
-    
-    // Handle clicks on virtual keyboard
-    handleInitialsKeyboardClick(x, y) {
-        if (!this.virtualKeyboard) return false;
-        
-        const { rows, keyWidth, keyHeight, keyGap, startY } = this.virtualKeyboard;
-        
-        for (let row = 0; row < rows.length; row++) {
-            const rowKeys = rows[row];
-            const rowWidth = rowKeys.length * (keyWidth + keyGap) - keyGap;
-            const rowX = CANVAS_WIDTH / 2 - rowWidth / 2;
-            const rowY = startY + row * (keyHeight + keyGap);
-            
-            for (let col = 0; col < rowKeys.length; col++) {
-                const key = rowKeys[col];
-                const keyX = rowX + col * (keyWidth + keyGap);
-                
-                if (x >= keyX && x <= keyX + keyWidth && y >= rowY && y <= rowY + keyHeight) {
-                    if (key === '⌫') {
-                        // Backspace
-                        if (this.initials.length > 0) {
-                            this.initials = this.initials.slice(0, -1);
-                            soundManager.playItemUse();
-                        }
-                    } else if (this.initials.length < 3) {
-                        // Add letter
-                        this.initials += key;
-                        soundManager.playItemCollect();
-                    }
-                    return true;
-                }
-            }
-        }
-        
-        return false;
     }
 
     drawItemEffectIndicators(ctx) {
