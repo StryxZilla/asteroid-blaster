@@ -257,7 +257,7 @@
         /* Title glow animation for main heading */
         h1.game-title {
             position: absolute;
-            top: -50px;
+            top: 8px;
             left: 50%;
             transform: translateX(-50%);
             font-size: 14px;
@@ -265,6 +265,7 @@
             color: #ff00ff;
             text-shadow: 0 0 10px #ff00ff;
             animation: titlePulse 3s ease-in-out infinite;
+            z-index: 10;
         }
 
         @keyframes titlePulse {
