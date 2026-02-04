@@ -5939,7 +5939,7 @@ class Game {
             ctx.fillText('Press ENTER to Start', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
         }
         ctx.restore();
-
+        
         // Sound instructions / Touch hint
         ctx.save();
         ctx.fillStyle = '#666666';
@@ -5951,7 +5951,7 @@ class Game {
             ctx.fillText('M = Toggle SFX  |  N = Toggle Music', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
         }
         ctx.restore();
-
+        
         // Skill tree button (tappable)
         const skillBtnY = CANVAS_HEIGHT / 2 + 110;
         const skillBtnWidth = 260;
