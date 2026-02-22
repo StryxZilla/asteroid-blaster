@@ -3445,6 +3445,21 @@ class TouchControlManager {
         this.virtualKeys[' '] = this.fireButton.firing;
     }
 
+    resetState() {
+        this.joystick.active = false;
+        this.joystick.touchId = null;
+        this.joystick.currentX = this.joystick.baseX;
+        this.joystick.currentY = this.joystick.baseY;
+        this.joystick.dx = 0;
+        this.joystick.dy = 0;
+
+        this.fireButton.active = false;
+        this.fireButton.touchId = null;
+        this.fireButton.firing = false;
+
+        this.updateVirtualKeys();
+    }
+
     // Get the target angle for direct ship control (or null if not active)
     getTargetAngle() {
         return this.targetAngle;
@@ -4220,6 +4235,11 @@ class Game {
         window.addEventListener('keydown', (e) => {
             this.keys[e.key] = true;
 
+            // Prevent page scroll when using gameplay keys
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+                e.preventDefault();
+            }
+
             // Initialize audio on first user interaction
             soundManager.init();
             musicManager.init();
@@ -4338,6 +4358,34 @@ class Game {
 
         window.addEventListener('keyup', (e) => {
             this.keys[e.key] = false;
+        });
+
+        // Prevent sticky movement/shoot input when window loses focus
+        const clearInputs = () => {
+            this.keys = {};
+            this.wasThrusting = false;
+            soundManager.stopEngine();
+            if (this.touchControls) {
+                this.touchControls.resetState();
+            }
+        };
+
+        window.addEventListener('blur', () => {
+            const wasPlaying = this.state === 'playing';
+            clearInputs();
+            if (wasPlaying && !this.saveLoadUI.visible && !this.skillTreeUI.visible && !this.showHelp) {
+                this.state = 'paused';
+            }
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                const wasPlaying = this.state === 'playing';
+                clearInputs();
+                if (wasPlaying && !this.saveLoadUI.visible && !this.skillTreeUI.visible && !this.showHelp) {
+                    this.state = 'paused';
+                }
+            }
         });
 
         // Mouse events for skill tree and save/load UI

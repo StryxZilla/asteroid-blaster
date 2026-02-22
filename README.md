@@ -1,84 +1,84 @@
-# Asteroids Game
+# Asteroid Blaster (Neon Edition)
 
-A classic Asteroids arcade game built with HTML5 Canvas and JavaScript.
+Arcade-style Asteroids built with vanilla JavaScript + HTML5 Canvas.
 
-## Features
+## Requirements
 
-- Classic asteroids gameplay with ship movement, shooting, and asteroid destruction
-- **Power-up system** with 5 different collectible power-ups
-- Progressive difficulty with increasing levels
-- Score tracking and lives system
-- Particle effects for explosions
-- Smooth controls with keyboard support
-- Asteroids break into smaller pieces when hit
-- Screen wrapping for all game objects
-- Active power-up indicators with countdown timers
+- Any modern browser (Chrome/Edge/Firefox)
+- Optional: Python 3 (for local web server)
 
-## How to Play
+## Run Locally (Windows)
 
-1. Open `index.html` in a web browser
-2. Press **ENTER** to start the game
-3. Use the controls to navigate and destroy asteroids
+### Option 1: Open directly
 
-### Controls
+1. Open `index.html` in your browser.
+2. Press **Enter** to start.
 
-- **Arrow Keys** or **WASD**: Move and rotate the ship
-  - Up/W: Thrust forward
-  - Left/A: Rotate left
-  - Right/D: Rotate right
-- **SPACE**: Shoot
-- **ENTER**: Start game / Restart after game over
+### Option 2 (recommended): local server
 
-## Game Rules
+```powershell
+cd C:\Users\Stryx\.openclaw\workspace\asteroid-blaster
+python -m http.server 8080
+```
 
-- Destroy all asteroids to advance to the next level
-- Large asteroids break into 2 medium asteroids when hit
-- Medium asteroids break into 2 small asteroids when hit
-- Small asteroids are destroyed completely when hit
-- Avoid colliding with asteroids or you lose a life
-- Game ends when you run out of lives (starts with 3)
+Then open: `http://localhost:8080`
 
-## Scoring
+## Controls
 
-- Small asteroid: 60 points
-- Medium asteroid: 40 points
-- Large asteroid: 20 points
+### Keyboard
 
-## Power-Ups
+- **Arrow Left / A**: Rotate left
+- **Arrow Right / D**: Rotate right
+- **Arrow Up / W**: Thrust
+- **Space**: Shoot
+- **1-5**: Use inventory item in matching slot
+- **Enter**: Start / restart
+- **Esc**: Pause, close help/menu layers
+- **P**: Pause / resume
+- **R** (while paused): Restart run
+- **T** (while paused): Cycle touch controls mode
+- **K**: Open skill tree (start screen or between waves)
+- **L**: Open load menu (start screen)
+- **F5**: Quick save (in game)
+- **F9**: Open load menu
+- **M**: Toggle SFX mute
+- **N**: Toggle music mute
+- **H**: Toggle help overlay
 
-Power-ups have a 30% chance to spawn when you destroy an asteroid. They drift slowly in space and last for 10 seconds before disappearing. Collect them by flying into them!
+### Touch
 
-### Available Power-Ups
+- Left side virtual stick: steer/thrust
+- Right side fire button: auto-fire while held
+- Top-center pause button: pause/resume
+- Tap inventory slot: use item
 
-- **Shield** (Cyan - S): Protects your ship from one asteroid collision. Asteroids are destroyed on impact instead of destroying your ship. Lasts 5 seconds.
+## Gameplay Notes
 
-- **Rapid Fire** (Magenta - R): Increases your fire rate by 3x, allowing you to shoot much faster. Lasts 5 seconds.
+- Clear all asteroids to advance waves.
+- Asteroids split from large -> medium -> small.
+- Avoid collisions; you start with 3 lives.
+- Power-ups and inventory items drop from destroyed asteroids.
 
-- **Triple Shot** (Yellow - T): Shoots 3 bullets at once in a spread pattern. Great for covering more area. Lasts 5 seconds.
+## Recent Polish Improvements
 
-- **Speed Boost** (Green - V): Doubles your movement and rotation speed for faster navigation. Lasts 5 seconds.
+- Added **auto-pause on tab/window focus loss** (prevents unfair deaths when alt-tabbing).
+- Added **input reset on blur/visibility change** (fixes stuck movement/shooting after context switch).
+- Added **arrow/space default prevention** to avoid browser/page scrolling during gameplay.
 
-- **Extra Life** (Red - +): Instantly grants an additional life. This is permanent and doesn't expire.
+## Project Structure
 
-### Power-Up Mechanics
+- `index.html` - page layout and UI shell
+- `game.js` - gameplay, rendering, audio, input, progression systems
+- `manifest.json` - PWA metadata
 
-- Power-ups pulse and glow in their respective colors
-- Active power-ups are displayed in the top-left corner with countdown timers
-- Power-ups will flash when they're about to expire (last 2 seconds)
-- You can have multiple power-ups active at the same time
+## Build/Test
 
-## Technical Details
+No build step required (pure static app).
 
-- Pure vanilla JavaScript (no dependencies)
-- HTML5 Canvas for rendering
-- 60 FPS game loop
-- Object-oriented design with classes for Ship, Asteroid, Bullet, Particle, and PowerUp
-- Collision detection using circle-based physics
-- Dynamic power-up system with timers and visual effects
+Quick verification checklist:
 
-## File Structure
-
-- `index.html` - Main HTML file with canvas and UI
-- `game.js` - Complete game logic and classes
-
-Enjoy playing Asteroids!
+1. Launch game from browser.
+2. Start with **Enter**.
+3. Move, shoot, and pause/unpause.
+4. Alt-tab away and back: game should pause and controls should not stick.
+5. Confirm no page scroll when pressing arrow keys/space.
